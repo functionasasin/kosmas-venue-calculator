@@ -10,12 +10,18 @@ export interface GateResult {
 const NO_HARDWARE_TIERS: Tier[] = ['basic', 'basic_plus']
 
 // tiers-reference.md § Tier capabilities matrix — security cameras are
-// Autonomous+ only (optionally Pro+ with custom monitoring).
+// Autonomous+ only (optionally Pro+ with custom monitoring). Plain Autonomous
+// has NO surveillance: its "some security features" is Kisi door/access
+// monitoring, not cameras.
 const SECURITY_CAMERA_TIERS: Tier[] = ['autonomous_plus', 'pro_plus']
 
 // tiers-reference.md § Tier capabilities matrix — Kisi doors apply to
 // Autonomous, Autonomous+ and Pro+.
 const KISI_TIERS: Tier[] = ['autonomous', 'autonomous_plus', 'pro_plus']
+
+// tiers-reference.md § PH market note — Kisi hardware, NVRs and security
+// cameras are not stocked in PH and ship from the US/HK.
+const LONG_LEAD_TIME_TIERS: Tier[] = ['pro_plus', 'autonomous', 'autonomous_plus']
 
 export function evaluateGates(inputs: VenueInputs): GateResult {
   const warnings: Warning[] = []
@@ -38,8 +44,9 @@ export function evaluateGates(inputs: VenueInputs): GateResult {
         code: 'TIER_NO_HARDWARE',
         level: 'error',
         message:
-          'Basic and Basic+ venues have no rack kit or court hardware — ' +
-          'BBPOS terminals only. There is nothing for this tool to size.',
+          'Basic and Basic+ venues have no rack kit — BBPOS terminals only. ' +
+          'The two tiers are hardware-identical; the difference is software ' +
+          '(web app vs native apps). There is nothing here for this tool to size.',
       }],
     }
   }
@@ -113,19 +120,56 @@ export function evaluateGates(inputs: VenueInputs): GateResult {
     })
   }
 
-  if (inputs.tier === 'autonomous' || inputs.tier === 'autonomous_plus') {
+  // tiers-reference.md § Hardware footprint per tier — the Autonomous tiers are
+  // NOT interchangeable. Autonomous is Kisi access control on the Pro stack;
+  // Autonomous+ is that plus surveillance (cameras, UNVR/UNVR-Pro, 8TB HDDs).
+  // Naming an NVR on plain Autonomous would reserve rack U for hardware the
+  // tier never includes.
+  if (inputs.tier === 'autonomous') {
     warnings.push({
       code: 'TIER_ADDITIONS_MANUAL',
       level: 'warn',
       message:
-        'Kisi kit, NVR and 8TB HDDs are not sized here — add them manually.',
+        'The Kisi kit is not sized here — add the Controller Pro 2 (one per ' +
+        'four doors), one Reader Pro 2.1 per door, and a push-to-exit device ' +
+        'on mag-lock doors only. This tier has no surveillance hardware.',
     })
     warnings.push({
       code: 'TIER_RACK_UNDERSIZED',
       level: 'warn',
       message:
-        'Rack size is computed without the NVR (2U) and HDDs. Verify the ' +
+        'Rack size is computed without the Kisi controller. Verify the ' +
         'bracket before ordering.',
+    })
+  }
+
+  if (inputs.tier === 'autonomous_plus') {
+    warnings.push({
+      code: 'TIER_ADDITIONS_MANUAL',
+      level: 'warn',
+      message:
+        'The Kisi kit, NVR and 8TB HDDs are not sized here — add them ' +
+        'manually. NVR model follows the security-camera count: UNVR up to ' +
+        '20, UNVR-Pro 21-35, two UNVRs 36-40, two UNVR-Pro 41-60. Above 60 ' +
+        'cameras the source has no row — size by hand.',
+    })
+    warnings.push({
+      code: 'TIER_RACK_UNDERSIZED',
+      level: 'warn',
+      message:
+        'Rack size is computed without the Kisi controller, the NVR (an ' +
+        'NVR-Pro is 2U) and its drives. Verify the bracket before ordering.',
+    })
+  }
+
+  // tiers-reference.md § PH market note
+  if (LONG_LEAD_TIME_TIERS.includes(inputs.tier)) {
+    warnings.push({
+      code: 'TIER_LEAD_TIME',
+      level: 'warn',
+      message:
+        'Kisi hardware, NVRs and security cameras are not stocked in PH and ' +
+        'ship from the US/HK. Allow extra procurement lead time.',
     })
   }
 

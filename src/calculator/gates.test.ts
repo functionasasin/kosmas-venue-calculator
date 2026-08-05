@@ -1,11 +1,14 @@
 import { describe, it, expect } from 'vitest'
-import { evaluateGates } from './gates'
+import { evaluateGates, type GateResult } from './gates'
 import type { VenueInputs } from './types'
 
 const base: VenueInputs = {
   courts: 8, tier: 'pro', securityCameras: 0,
   kisiDoors: 0, brand: 'podplay', extendedRetention: false,
 }
+
+const warningText = (r: GateResult, code: string) =>
+  r.warnings.find(w => w.code === code)?.message ?? ''
 
 describe('evaluateGates', () => {
   it('lets a normal Pro venue through', () => {
@@ -14,7 +17,7 @@ describe('evaluateGates', () => {
     expect(r.warnings).toHaveLength(0)
   })
 
-  it('blocks Basic tier, because it has no rack kit at all and a full BOM would be a lie', () => {
+  it('blocks Basic tier, because BBPOS terminals are the whole footprint and a rack BOM would be a lie', () => {
     const r = evaluateGates({ ...base, tier: 'basic' })
     expect(r.blocked).toBe(true)
     expect(r.warnings[0].code).toBe('TIER_NO_HARDWARE')
@@ -58,6 +61,27 @@ describe('evaluateGates', () => {
     })
     expect(r.blocked).toBe(false)
     expect(r.warnings.map(w => w.code)).toContain('TIER_RACK_UNDERSIZED')
+    // Autonomous+ is the tier that actually has an NVR, so naming it is correct here.
+    expect(warningText(r, 'TIER_RACK_UNDERSIZED')).toMatch(/NVR/)
+  })
+
+  // Autonomous has Kisi access control and NO surveillance — no cameras, no NVR.
+  // Collapsing the two tiers tells a buyer to leave rack U for hardware the tier
+  // never includes, which is a wrong answer rather than a conservative one.
+  it('warns on Autonomous about the Kisi controller only, never an NVR it does not have', () => {
+    const r = evaluateGates({ ...base, tier: 'autonomous', kisiDoors: 2 })
+    expect(r.blocked).toBe(false)
+    expect(r.warnings.map(w => w.code)).toContain('TIER_RACK_UNDERSIZED')
+    expect(warningText(r, 'TIER_RACK_UNDERSIZED')).toMatch(/Kisi/)
+    expect(warningText(r, 'TIER_RACK_UNDERSIZED')).not.toMatch(/NVR|HDD/)
+    expect(warningText(r, 'TIER_ADDITIONS_MANUAL')).not.toMatch(/NVR|HDD/)
+  })
+
+  it('flags non-Pro tiers for procurement lead time, because PH does not stock them', () => {
+    const r = evaluateGates({ ...base, tier: 'autonomous', kisiDoors: 2 })
+    expect(r.warnings.map(w => w.code)).toContain('TIER_LEAD_TIME')
+    expect(evaluateGates(base).warnings.map(w => w.code))
+      .not.toContain('TIER_LEAD_TIME')
   })
 
   it('rejects zero courts', () => {
