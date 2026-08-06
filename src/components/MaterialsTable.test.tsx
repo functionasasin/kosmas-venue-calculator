@@ -134,3 +134,37 @@ describe('sections', () => {
     expect(screen.queryAllByTestId('section-header')).toHaveLength(0)
   })
 })
+
+describe('resolving a TBD line', () => {
+  const sectioned: Item[] = [
+    item('access_point', 'network', 'UniFi U7-LR'),
+    item('ups', 'power', 'KSTAR UPS'),
+  ]
+
+  // Without an affordance the amber section can never be emptied, which makes
+  // "resolve before ordering" advice the app itself refuses to accept.
+  it('lets a TBD quantity be replaced with a number', () => {
+    const onChange = vi.fn()
+    render(
+      <MaterialsTable lines={[line('access_point', 'TBD')]} catalog={sectioned}
+        formulas={new Map()} onChange={onChange} />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'TBD' }))
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '3' } })
+
+    const [updated] = onChange.mock.calls[0][0] as StoredLine[]
+    expect(updated.qty).toBe(3)
+    expect(updated.source).toBe('manual')
+  })
+
+  // A resolved TBD is ordinary gear again and belongs with its own kind.
+  it('moves the line out of Needs a decision once it has a number', () => {
+    render(
+      <MaterialsTable lines={[line('access_point', 4)]} catalog={sectioned}
+        formulas={new Map()} onChange={vi.fn()} />,
+    )
+    expect(screen.getByTestId('section-header-rack')).toBeInTheDocument()
+    expect(screen.queryByTestId('section-header-decide')).not.toBeInTheDocument()
+  })
+})
