@@ -17,7 +17,17 @@ Cloudflare Pages:
 - Root directory: leave blank — the app is at the repository root
 - Build command: `npm run build`
 - Output directory: `dist`
-- Environment variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+- Environment variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
+  and `NODE_VERSION=22` (Vite 8 needs Node >=20.19; the platform default
+  can be older, and the build fails with an engine mismatch)
+
+Set the two `VITE_` variables **before the first build**. Vite inlines them at
+build time, so a deploy made without them produces a bundle that throws
+"Missing VITE_SUPABASE_URL" in the browser — adding them later needs a
+rebuild, not just a restart.
+
+The anon key belongs here; it is public by design and already ships in the
+bundle. The `service_role` key must never be set as a build variable.
 
 `public/_redirects` routes every path to `index.html`, so a hard refresh on
 `/venues/<id>` loads instead of 404ing.
