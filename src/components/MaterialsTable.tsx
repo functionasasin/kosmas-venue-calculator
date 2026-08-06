@@ -1,6 +1,6 @@
 import type { Item } from '@/calculator/types'
 import type { StoredLine } from '@/data/venueLines'
-import { groupIntoSections, itemsByRole } from '@/lib/sections'
+import { groupIntoSections, itemsByRole, sectionForItem } from '@/lib/sections'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableHead, TableHeader, TableRow,
@@ -12,18 +12,34 @@ interface Props {
   catalog: Item[]
   formulas: Map<string, string>
   onChange: (lines: StoredLine[]) => void
+  isAdmin: boolean
 }
 
-export function MaterialsTable({ lines, catalog, formulas, onChange }: Props) {
+export function MaterialsTable({ lines, catalog, formulas, onChange, isAdmin }: Props) {
   const byRole = itemsByRole(catalog)
-  const addable = catalog.filter(i => i.isActive && i.roleKey)
-  const removed = lines.filter(l => l.suppressed)
+
+  // UI visibility only. The anon key ships in the bundle and the venue_lines
+  // RLS policy grants read to any authenticated user, so this is the same kind
+  // of gate as hiding the Catalog button — not a boundary. The requirement is
+  // that a length commitment does not appear in front of a client.
+  const isCabling = (item: Item | undefined) =>
+    item !== undefined && sectionForItem(item) === 'cabling'
+
+  const hidden = (line: StoredLine) =>
+    !isAdmin && isCabling(line.roleKey ? byRole.get(line.roleKey) : undefined)
+
+  const addable = catalog.filter(
+    i => i.isActive && i.roleKey && (isAdmin || !isCabling(i)),
+  )
+  const removed = lines.filter(l => l.suppressed && !hidden(l))
 
   // Sections are built from visible lines only, but every handler below maps
   // over the FULL `lines` array it was given. saveLines deletes every row for
   // the venue and re-inserts what it receives, so a filtered array reaching
   // onChange would delete the omitted rows from the database.
-  const sections = groupIntoSections(lines.filter(l => !l.suppressed), catalog)
+  const sections = groupIntoSections(
+    lines.filter(l => !l.suppressed && !hidden(l)), catalog,
+  )
 
   const update = (id: string, patch: Partial<StoredLine>) =>
     onChange(lines.map(l => (l.id === id ? { ...l, ...patch, source: 'manual' } : l)))
@@ -94,6 +110,7 @@ export function MaterialsTable({ lines, catalog, formulas, onChange }: Props) {
               byRole={byRole}
               catalog={catalog}
               formulas={formulas}
+              isAdmin={isAdmin}
               onUpdate={update}
               onSwap={swap}
               onRemove={remove}

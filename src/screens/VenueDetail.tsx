@@ -11,10 +11,12 @@ import { WarningsPanel } from '@/components/WarningsPanel'
 import { exportMaterialsPdf } from '@/pdf/exportMaterials'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useRole } from '@/auth/useRole'
 import { toast } from 'sonner'
 
 export function VenueDetail() {
   const { id } = useParams<{ id: string }>()
+  const role = useRole()
   const [venue, setVenue] = useState<Venue | null>(null)
   // Two views of the catalog on purpose. `catalog` is active-only and drives
   // the formulas and the itemId resolution in saveLines — sizing must target
@@ -117,7 +119,7 @@ export function VenueDetail() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
         <MaterialsTable lines={lines} catalog={catalogAll}
-          formulas={formulas} onChange={setLines} />
+          formulas={formulas} onChange={setLines} isAdmin={role === 'admin'} />
         <WarningsPanel warnings={warnings} />
       </div>
 
