@@ -78,3 +78,59 @@ describe('swapping an item', () => {
     expect(updated.originRoleKey).toBe('display')
   })
 })
+
+describe('sections', () => {
+  const sectioned: Item[] = [
+    item('display', 'court', 'Samsung 65in'),
+    item('ipad', 'court', 'iPad A16'),
+    item('ups', 'power', 'KSTAR UPS'),
+    item('cat6_0m5', 'cable', 'Vention Cat6 0.5M'),
+    item('access_point', 'network', 'UniFi U7-LR'),
+  ]
+
+  const mixed: StoredLine[] = [
+    line('ups', 1), line('display', 8), line('cat6_0m5', 26),
+    line('access_point', 'TBD'),
+  ]
+
+  it('renders a header per non-empty section, in order', () => {
+    render(
+      <MaterialsTable lines={mixed} catalog={sectioned}
+        formulas={new Map()} onChange={vi.fn()} />,
+    )
+    const headers = screen.getAllByTestId('section-header').map(h => h.textContent)
+    expect(headers).toEqual([
+      expect.stringContaining('Rack'),
+      expect.stringContaining('Court-side'),
+      expect.stringContaining('Cabling'),
+      expect.stringContaining('Needs a decision'),
+    ])
+  })
+
+  it('shows the visible line count in each header', () => {
+    render(
+      <MaterialsTable lines={mixed} catalog={sectioned}
+        formulas={new Map()} onChange={vi.fn()} />,
+    )
+    expect(screen.getByTestId('section-header-rack').textContent).toContain('1')
+  })
+
+  // Suppressed lines belong to the removed-lines list, not to a section count.
+  it('excludes suppressed lines from a section and its count', () => {
+    const withRemoved = [...mixed, line('ipad', 8, { suppressed: true })]
+    render(
+      <MaterialsTable lines={withRemoved} catalog={sectioned}
+        formulas={new Map()} onChange={vi.fn()} />,
+    )
+    expect(screen.getByTestId('section-header-court').textContent).toContain('1')
+    expect(screen.getByText(/Removed lines/i)).toBeInTheDocument()
+  })
+
+  it('renders no section headers for a venue with no lines', () => {
+    render(
+      <MaterialsTable lines={[]} catalog={sectioned}
+        formulas={new Map()} onChange={vi.fn()} />,
+    )
+    expect(screen.queryAllByTestId('section-header')).toHaveLength(0)
+  })
+})

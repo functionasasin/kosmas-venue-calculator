@@ -1,11 +1,11 @@
 import type { Item } from '@/calculator/types'
 import type { StoredLine } from '@/data/venueLines'
-import { Input } from '@/components/ui/input'
+import { groupIntoSections, itemsByRole } from '@/lib/sections'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table, TableBody, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import { MaterialsSection } from './MaterialsSection'
 
 interface Props {
   lines: StoredLine[]
@@ -15,10 +15,15 @@ interface Props {
 }
 
 export function MaterialsTable({ lines, catalog, formulas, onChange }: Props) {
-  const byRole = new Map(catalog.filter(i => i.roleKey).map(i => [i.roleKey!, i]))
+  const byRole = itemsByRole(catalog)
   const addable = catalog.filter(i => i.isActive && i.roleKey)
-  const visible = lines.filter(l => !l.suppressed)
   const removed = lines.filter(l => l.suppressed)
+
+  // Sections are built from visible lines only, but every handler below maps
+  // over the FULL `lines` array it was given. saveLines deletes every row for
+  // the venue and re-inserts what it receives, so a filtered array reaching
+  // onChange would delete the omitted rows from the database.
+  const sections = groupIntoSections(lines.filter(l => !l.suppressed), catalog)
 
   const update = (id: string, patch: Partial<StoredLine>) =>
     onChange(lines.map(l => (l.id === id ? { ...l, ...patch, source: 'manual' } : l)))
@@ -40,7 +45,7 @@ export function MaterialsTable({ lines, catalog, formulas, onChange }: Props) {
   // itemId moves with roleKey: exportMaterials resolves by itemId first, so a
   // stale one prints the item the user swapped away from.
   const swap = (line: StoredLine, roleKey: string) => {
-    const target = byRole.get(roleKey as never)
+    const target = byRole.get(roleKey)
     onChange(lines.map(l =>
       l.id === line.id
         ? {
@@ -54,7 +59,7 @@ export function MaterialsTable({ lines, catalog, formulas, onChange }: Props) {
   }
 
   const add = (roleKey: string) => {
-    const item = byRole.get(roleKey as never)
+    const item = byRole.get(roleKey)
     if (!item) return
     onChange([...lines, {
       id: `new-manual:${roleKey}:${Date.now()}`,
@@ -72,97 +77,64 @@ export function MaterialsTable({ lines, catalog, formulas, onChange }: Props) {
 
   return (
     <div className="space-y-4">
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Item / Model</TableHead>
-          <TableHead className="w-32 text-right">Qty</TableHead>
-          <TableHead className="w-24" />
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {visible.map(line => {
-          const item = line.roleKey ? byRole.get(line.roleKey) : undefined
-          return (
-            <TableRow key={line.id} title={formulas.get(line.roleKey ?? '') ?? ''}>
-              <TableCell>
-                <select
-                  className="w-full bg-transparent text-sm"
-                  value={line.roleKey ?? ''}
-                  onChange={e => swap(line, e.target.value)}
-                >
-                  {addable.map(i => (
-                    <option key={i.roleKey!} value={i.roleKey!}>{i.name}</option>
-                  ))}
-                  {item && !item.isActive && (
-                    <option value={item.roleKey!}>{item.name} (inactive)</option>
-                  )}
-                </select>
-                {!item && (
-                  <span className="text-xs text-destructive">
-                    No active item mapped for {line.roleKey}
-                  </span>
-                )}
-                {line.source === 'manual' && (
-                  <Badge variant="outline" className="ml-2 text-xs">edited</Badge>
-                )}
-              </TableCell>
-              <TableCell className="text-right">
-                {line.qty === 'TBD' ? (
-                  <span title="Not derivable — specify manually">TBD</span>
-                ) : (
-                  <Input
-                    type="number" min="0" value={line.qty}
-                    className="text-right tabular-nums"
-                    title={formulas.get(line.roleKey ?? '') ?? ''}
-                    onChange={e => update(line.id, { qty: Number(e.target.value) })}
-                  />
-                )}
-              </TableCell>
-              <TableCell className="text-right">
-                <Button size="sm" variant="ghost" onClick={() => remove(line)}>
-                  Remove
-                </Button>
-              </TableCell>
-            </TableRow>
-          )
-        })}
-      </TableBody>
-    </Table>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Item / Model</TableHead>
+            <TableHead className="hidden lg:table-cell">Formula</TableHead>
+            <TableHead className="w-32 text-right">Qty</TableHead>
+            <TableHead className="w-24" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {sections.map(section => (
+            <MaterialsSection
+              key={section.id}
+              section={section}
+              byRole={byRole}
+              catalog={catalog}
+              formulas={formulas}
+              onUpdate={update}
+              onSwap={swap}
+              onRemove={remove}
+            />
+          ))}
+        </TableBody>
+      </Table>
 
-    <div className="flex items-center gap-2">
-      <label htmlFor="addLine" className="text-sm text-muted-foreground">
-        Add line
-      </label>
-      <select
-        id="addLine"
-        className="rounded-md border bg-background p-2 text-sm"
-        value=""
-        onChange={e => { if (e.target.value) add(e.target.value) }}
-      >
-        <option value="">— choose an item —</option>
-        {addable.map(i => (
-          <option key={i.roleKey!} value={i.roleKey!}>{i.name}</option>
-        ))}
-      </select>
-    </div>
-
-    {removed.length > 0 && (
-      <div className="space-y-1 text-sm text-muted-foreground">
-        <p>Removed lines (will not return on recalculation):</p>
-        {removed.map(l => {
-          const item = l.roleKey ? byRole.get(l.roleKey) : undefined
-          return (
-            <div key={l.id} className="flex items-center gap-2">
-              <span>{item?.name ?? l.roleKey}</span>
-              <Button size="sm" variant="ghost" onClick={() => restore(l)}>
-                Restore
-              </Button>
-            </div>
-          )
-        })}
+      <div className="flex items-center gap-2">
+        <label htmlFor="addLine" className="text-sm text-muted-foreground">
+          Add line
+        </label>
+        <select
+          id="addLine"
+          className="rounded-md border bg-background p-2 text-sm"
+          value=""
+          onChange={e => { if (e.target.value) add(e.target.value) }}
+        >
+          <option value="">— choose an item —</option>
+          {addable.map(i => (
+            <option key={i.roleKey!} value={i.roleKey!}>{i.name}</option>
+          ))}
+        </select>
       </div>
-    )}
+
+      {removed.length > 0 && (
+        <div className="space-y-1 text-sm text-muted-foreground">
+          <p>Removed lines (will not return on recalculation):</p>
+          {removed.map(l => {
+            const item = l.roleKey ? byRole.get(l.roleKey) : undefined
+            return (
+              <div key={l.id} className="flex items-center gap-2">
+                <span>{item?.name ?? l.roleKey}</span>
+                <Button size="sm" variant="ghost" onClick={() => restore(l)}>
+                  Restore
+                </Button>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
