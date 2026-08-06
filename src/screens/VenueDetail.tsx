@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { calculateBOM } from '@/calculator'
-import type { Item, VenueInputs, Warning } from '@/calculator/types'
+import type { Item, VenueInputs } from '@/calculator/types'
 import { getVenue, saveVenue, type Venue } from '@/data/venues'
 import { listItems } from '@/data/items'
 import { listLines, saveLines, mergeRecalculation, type StoredLine } from '@/data/venueLines'
@@ -25,8 +25,6 @@ export function VenueDetail() {
   const [catalog, setCatalog] = useState<Item[]>([])
   const [catalogAll, setCatalogAll] = useState<Item[]>([])
   const [lines, setLines] = useState<StoredLine[]>([])
-  const [warnings, setWarnings] = useState<Warning[]>([])
-  const [formulas, setFormulas] = useState(new Map<string, string>())
 
   useEffect(() => {
     if (!id) return
@@ -39,21 +37,23 @@ export function VenueDetail() {
 
   const [pending, setPending] = useState<StoredLine[] | null>(null)
 
-  /** Recompute and apply immediately. Used on first load of an empty venue. */
-  const applyCalculation = useCallback(() => {
-    if (!venue) return
-    const result = calculateBOM(venue, catalog)
-    setWarnings(result.warnings)
-    setFormulas(new Map(result.lines.map(l => [l.roleKey, l.formula])))
-    setLines(current => mergeRecalculation(current, result.lines))
-  }, [venue, catalog])
+  // Derived, not stored. The previous code set these from an effect that only
+  // ran when lines were empty, so every saved venue loaded with no checks and
+  // an empty formula map. Deriving makes that state unreachable, and the
+  // checks now track the inputs as they are edited.
+  const result = useMemo(
+    () => (venue && catalog.length > 0 ? calculateBOM(venue, catalog) : null),
+    [venue, catalog],
+  )
+  const warnings = result?.warnings ?? []
+  const formulas = useMemo(
+    () => new Map((result?.lines ?? []).map(l => [l.roleKey, l.formula])),
+    [result],
+  )
 
   /** Recompute and show what would change first — spec §7 requires the diff. */
   const recalculate = () => {
-    if (!venue) return
-    const result = calculateBOM(venue, catalog)
-    setWarnings(result.warnings)
-    setFormulas(new Map(result.lines.map(l => [l.roleKey, l.formula])))
+    if (!result) return
     setPending(mergeRecalculation(lines, result.lines))
   }
 
@@ -73,9 +73,13 @@ export function VenueDetail() {
     return rows
   })()
 
+  // Only an empty venue is populated automatically. Applying on every load
+  // would resurrect lines the user suppressed.
   useEffect(() => {
-    if (venue && catalog.length > 0 && lines.length === 0) applyCalculation()
-  }, [venue, catalog, lines.length, applyCalculation])
+    if (result && lines.length === 0) {
+      setLines(current => mergeRecalculation(current, result.lines))
+    }
+  }, [result, lines.length])
 
   const onInputs = (inputs: VenueInputs) =>
     setVenue(v => (v ? { ...v, ...inputs } : v))
