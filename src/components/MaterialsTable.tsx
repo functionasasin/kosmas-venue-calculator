@@ -37,16 +37,21 @@ export function MaterialsTable({ lines, catalog, formulas, onChange }: Props) {
 
   // originRoleKey records the role this line vacated. It is set once — a
   // second swap must not overwrite the original, or recalculation re-adds it.
-  const swap = (line: StoredLine, roleKey: string) =>
+  // itemId moves with roleKey: exportMaterials resolves by itemId first, so a
+  // stale one prints the item the user swapped away from.
+  const swap = (line: StoredLine, roleKey: string) => {
+    const target = byRole.get(roleKey as never)
     onChange(lines.map(l =>
       l.id === line.id
         ? {
             ...l,
             roleKey: roleKey as StoredLine['roleKey'],
+            itemId: target?.id ?? l.itemId,
             originRoleKey: l.originRoleKey ?? l.roleKey,
             source: 'manual' as const,
           }
         : l))
+  }
 
   const add = (roleKey: string) => {
     const item = byRole.get(roleKey as never)
