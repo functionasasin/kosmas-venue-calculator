@@ -263,3 +263,26 @@ describe('cabling is admin-only', () => {
     expect(options).toContain('ups')
   })
 })
+
+describe('the row actions control', () => {
+  const sectioned: Item[] = [
+    item('display', 'court', 'Samsung 65in'),
+    item('ipad', 'court', 'iPad A16'),
+  ]
+
+  // jsdom has no viewport, so this asserts the control exists and works, not
+  // which breakpoint reveals it. The breakpoint is checked by eye in Step 6.
+  it('removes a line from the actions dialog', () => {
+    const onChange = vi.fn()
+    render(
+      <MaterialsTable lines={[line('display', 8)]} catalog={sectioned} isAdmin
+        formulas={new Map()} onChange={onChange} />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /actions/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove line' }))
+
+    const [updated] = onChange.mock.calls[0][0] as StoredLine[]
+    expect(updated.suppressed).toBe(true)
+  })
+})

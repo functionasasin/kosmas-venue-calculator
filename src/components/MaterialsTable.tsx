@@ -94,7 +94,7 @@ export function MaterialsTable({ lines, catalog, formulas, onChange, isAdmin }: 
   return (
     <div className="space-y-4">
       <Table>
-        <TableHeader>
+        <TableHeader className="max-sm:hidden">
           <TableRow>
             <TableHead>Item / Model</TableHead>
             <TableHead className="hidden lg:table-cell">Formula</TableHead>

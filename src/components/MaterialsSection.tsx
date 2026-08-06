@@ -32,12 +32,12 @@ export function MaterialsSection({
     <>
       <TableRow
         data-testid="section-header"
-        className={decide ? 'bg-yellow-500/10' : 'bg-muted'}
+        className={`max-sm:block ${decide ? 'bg-yellow-500/10' : 'bg-muted'}`}
       >
         <TableCell
           colSpan={4}
           data-testid={`section-header-${section.id}`}
-          className="cursor-pointer text-sm font-semibold"
+          className="cursor-pointer text-sm font-semibold max-sm:block"
           onClick={() => setOpen(o => !o)}
         >
           {open ? '▾' : '▸'} {section.label} · {section.lines.length}
