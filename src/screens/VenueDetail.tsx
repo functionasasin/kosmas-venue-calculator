@@ -101,9 +101,9 @@ export function VenueDetail() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">{venue.name}</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {/* Base UI composes via `render`, not Radix's `asChild`. */}
           <Button variant="outline" render={<Link to="/" />}>Venues</Button>
           <Button variant="outline" onClick={recalculate}>Recalculate</Button>
@@ -115,12 +115,25 @@ export function VenueDetail() {
         </div>
       </div>
 
-      <VenueInputsForm value={venue} onChange={onInputs} />
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        {/* 256px, not 200: the warnings are full sentences and wrap to five or
+            more lines each in a narrower rail. It scrolls internally so that a
+            venue with three checks still leaves Courts on screen at row 26 —
+            which is the whole reason the rail is sticky. */}
+        <div className="w-full space-y-4 lg:w-64 lg:shrink-0 lg:sticky lg:top-6
+                        lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
+          <VenueInputsForm value={venue} onChange={onInputs} />
+          {warnings.length > 0 && (
+            <div className="border-t pt-4">
+              <WarningsPanel warnings={warnings} />
+            </div>
+          )}
+        </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
-        <MaterialsTable lines={lines} catalog={catalogAll}
-          formulas={formulas} onChange={setLines} isAdmin={role === 'admin'} />
-        <WarningsPanel warnings={warnings} />
+        <div className="min-w-0 flex-1">
+          <MaterialsTable lines={lines} catalog={catalogAll}
+            formulas={formulas} onChange={setLines} isAdmin={role === 'admin'} />
+        </div>
       </div>
 
       <Dialog open={pending !== null} onOpenChange={o => !o && setPending(null)}>

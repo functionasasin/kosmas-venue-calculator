@@ -20,7 +20,7 @@ export function VenueInputsForm({ value, onChange }: Props) {
   const selectClass = 'w-full rounded-md border bg-background p-2 text-sm'
 
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-1">
       <div className="space-y-2">
         <Label htmlFor="courts">Courts</Label>
         <Input id="courts" type="number" min="1" value={value.courts}

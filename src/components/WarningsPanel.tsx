@@ -14,7 +14,7 @@ export function WarningsPanel({ warnings }: { warnings: Warning[] }) {
       <h2 className="text-sm font-medium text-muted-foreground">Checks</h2>
       {warnings.map((w, i) => (
         <div key={`${w.code}-${i}`}
-          className={`border-l-4 p-3 text-sm ${STYLES[w.level]}`}>
+          className={`border-l-4 p-3 text-sm break-words ${STYLES[w.level]}`}>
           {w.message}
         </div>
       ))}
