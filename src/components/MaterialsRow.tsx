@@ -152,15 +152,15 @@ export function MaterialsRow({
         )}
       </TableCell>
 
-      <TableCell className="hidden w-[26%] truncate py-1 text-xs text-muted-foreground lg:table-cell">
+      <TableCell className="hidden truncate py-1 text-xs text-muted-foreground lg:table-cell lg:w-[26%]">
         {formula}
       </TableCell>
 
       {/* The one and only quantity control. Below sm this cell becomes the
           card's second line and carries the formula beside it. */}
       <TableCell
-        className="w-[110px] py-1 text-right max-sm:flex max-sm:w-full max-sm:items-center
-                   max-sm:justify-between max-sm:gap-2"
+        className="w-[110px] py-1 pr-4 text-right lg:pr-2 max-sm:flex max-sm:w-full
+                   max-sm:items-center max-sm:justify-between max-sm:gap-2"
       >
         <span className="hidden text-xs text-muted-foreground max-sm:inline">
           {formula}
@@ -168,7 +168,7 @@ export function MaterialsRow({
         <span className="max-sm:w-28">{qty}</span>
       </TableCell>
 
-      <TableCell className="hidden w-24 py-1 pr-4 text-right lg:table-cell">
+      <TableCell className="hidden py-1 text-right lg:table-cell lg:w-24 lg:pr-4">
         <Button size="sm" variant="ghost" onClick={onRemove}>Remove</Button>
       </TableCell>
 
@@ -181,7 +181,7 @@ export function MaterialsRow({
             <div>
               <p className="mb-1 text-sm text-muted-foreground">Swap item</p>
               <select
-                className="w-full rounded-md border bg-background p-2 text-sm"
+                className="w-full rounded-md border bg-card p-2 text-sm"
                 aria-label={swapLabel}
                 value={line.roleKey ?? ''}
                 onChange={e => onSwap(e.target.value)}

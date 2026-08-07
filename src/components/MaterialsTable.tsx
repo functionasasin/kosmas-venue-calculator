@@ -93,24 +93,30 @@ export function MaterialsTable({ lines, catalog, formulas, onChange, isAdmin }: 
 
   return (
     <div className="space-y-4">
-      {/* table-fixed, and the horizontal gutter lives on the first and last
-          cells rather than on a container. That is what lets the section bands
-          and the row rules bleed to the window edge while the text still lines
-          up under the headers. Fixed proportions also stop the Qty pills
-          shifting sideways as digits are typed. */}
-      <Table className="table-fixed">
+      {/* The horizontal gutter lives on the first and last cells rather than on
+          a container. That is what lets the section bands and the row rules
+          bleed to the window edge while the text still lines up under the
+          headers.
+
+          table-fixed only from lg, where all four columns render. Under fixed
+          layout a display:none column still claims an equal share of the
+          unspecified width — and a width set on it does not register, because
+          the cell has no box — so below lg the hidden Formula and Remove
+          columns silently stole 527px of a 900px row and left it blank. Auto
+          layout ignores them correctly. */}
+      <Table className="table-auto lg:table-fixed">
         <TableHeader className="max-sm:hidden">
           <TableRow>
             <TableHead className="h-7 pl-4 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
               Item / Model
             </TableHead>
-            <TableHead className="hidden h-7 w-[26%] text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground lg:table-cell">
+            <TableHead className="hidden h-7 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground lg:table-cell lg:w-[26%]">
               Formula
             </TableHead>
-            <TableHead className="h-7 w-[110px] text-right text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+            <TableHead className="h-7 w-[110px] pr-4 text-right text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground lg:pr-2">
               Qty
             </TableHead>
-            <TableHead className="h-7 w-24 pr-4" />
+            <TableHead className="hidden h-7 lg:table-cell lg:w-24 lg:pr-4" />
           </TableRow>
         </TableHeader>
         <TableBody>
