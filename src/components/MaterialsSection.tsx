@@ -40,7 +40,7 @@ export function MaterialsSection({
           role="button"
           tabIndex={0}
           aria-expanded={open}
-          className="cursor-pointer text-sm font-semibold max-sm:block"
+          className="cursor-pointer py-1.5 text-[11px] font-semibold uppercase tracking-[.03em] max-sm:block"
           onClick={() => setOpen(o => !o)}
           onKeyDown={e => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -51,7 +51,7 @@ export function MaterialsSection({
         >
           {open ? '▾' : '▸'} {section.label} · {section.lines.length}
           {decide && (
-            <span className="ml-2 font-normal text-muted-foreground">
+            <span className="ml-2 font-normal normal-case tracking-normal text-muted-foreground">
               resolve before ordering
             </span>
           )}

@@ -11,10 +11,12 @@ export function WarningsPanel({ warnings }: { warnings: Warning[] }) {
   if (warnings.length === 0) return null
   return (
     <div className="space-y-2">
-      <h2 className="text-sm font-medium text-muted-foreground">Checks</h2>
+      <h2 className="text-[10px] tracking-[.06em] text-muted-foreground uppercase">
+        Checks
+      </h2>
       {warnings.map((w, i) => (
         <div key={`${w.code}-${i}`}
-          className={`border-l-4 p-3 text-sm break-words ${STYLES[w.level]}`}>
+          className={`rounded-r-md border-l-[3px] px-[.55rem] py-[.35rem] text-[11px] break-words ${STYLES[w.level]}`}>
           {w.message}
         </div>
       ))}

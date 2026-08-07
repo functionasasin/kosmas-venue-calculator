@@ -57,45 +57,69 @@ export function Catalog() {
     <div className="mx-auto max-w-6xl space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Catalog</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           {/* Base UI buttons compose via `render`, not Radix's `asChild`. */}
-          <Button variant="outline" render={<Link to="/" />}>Venues</Button>
-          <Button onClick={() => setEditing('new')}>Add item</Button>
+          <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+            render={<Link to="/" />}>
+            Venues
+          </Button>
+          <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+            onClick={() => setEditing('new')}>
+            Add item
+          </Button>
         </div>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Category</TableHead>
-            <TableHead>Role key</TableHead>
-            <TableHead className="text-right">PoE W</TableHead>
-            <TableHead className="text-right">Rack U</TableHead>
-            <TableHead />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {items.map(item => (
-            <TableRow key={item.id} className={item.isActive ? '' : 'opacity-50'}>
-              <TableCell className="font-medium">
-                {item.name}
-                {!item.isActive && <Badge variant="outline" className="ml-2">inactive</Badge>}
-              </TableCell>
-              <TableCell>{item.category}</TableCell>
-              <TableCell className="font-mono text-xs">{item.roleKey ?? '—'}</TableCell>
-              <TableCell className="text-right tabular-nums">{item.poeWatts ?? '—'}</TableCell>
-              <TableCell className="text-right tabular-nums">{item.rackU ?? '—'}</TableCell>
-              <TableCell className="space-x-2 text-right">
-                <Button size="sm" variant="ghost" onClick={() => setEditing(item)}>Edit</Button>
-                <Button size="sm" variant="ghost" onClick={() => toggle(item)}>
-                  {item.isActive ? 'Deactivate' : 'Reactivate'}
-                </Button>
-              </TableCell>
+      {/* overflow-x-auto lives in ui/table.tsx already; min-w forces the table
+          past the viewport at phone widths so the cut-off Name column reads as
+          "scroll me" instead of a rendering failure. The hint sits above the
+          table so it is seen before the table itself, not after scrolling
+          past every row. */}
+      <p className="text-xs text-muted-foreground sm:hidden">← scroll for more →</p>
+      <div className="space-y-1">
+        <Table className="min-w-[640px]">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="h-7 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+                Name
+              </TableHead>
+              <TableHead className="h-7 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+                Category
+              </TableHead>
+              <TableHead className="h-7 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+                Role key
+              </TableHead>
+              <TableHead className="h-7 text-right text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+                PoE W
+              </TableHead>
+              <TableHead className="h-7 text-right text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+                Rack U
+              </TableHead>
+              <TableHead />
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {items.map(item => (
+              <TableRow key={item.id} className={item.isActive ? '' : 'opacity-50'}>
+                <TableCell className="py-1.5 font-medium">
+                  {item.name}
+                  {!item.isActive && <Badge variant="outline" className="ml-2">inactive</Badge>}
+                </TableCell>
+                <TableCell className="py-1.5">{item.category}</TableCell>
+                <TableCell className="py-1.5 font-mono text-xs">{item.roleKey ?? '—'}</TableCell>
+                <TableCell className="py-1.5 text-right tabular-nums">{item.poeWatts ?? '—'}</TableCell>
+                <TableCell className="py-1.5 text-right tabular-nums">{item.rackU ?? '—'}</TableCell>
+                <TableCell className="space-x-2 py-1.5 text-right">
+                  <Button size="sm" variant="ghost" onClick={() => setEditing(item)}>Edit</Button>
+                  <Button size="sm" variant="ghost" onClick={() => toggle(item)}>
+                    {item.isActive ? 'Deactivate' : 'Reactivate'}
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
 
       <Dialog open={editing !== null} onOpenChange={o => !o && setEditing(null)}>
         {/* The form is taller than a laptop viewport; without this the Save

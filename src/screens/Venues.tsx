@@ -39,45 +39,62 @@ export function Venues() {
     <div className="mx-auto max-w-4xl space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Venues</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           {role === 'admin' && (
             // Base UI composes via `render`, not Radix's `asChild`.
-            <Button variant="outline" render={<Link to="/catalog" />}>Catalog</Button>
+            <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+              render={<Link to="/catalog" />}>
+              Catalog
+            </Button>
           )}
-          <Button onClick={() => setCreating(true)}>New venue</Button>
-          <Button variant="ghost" onClick={signOut}>Sign out</Button>
+          <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+            onClick={() => setCreating(true)}>
+            New venue
+          </Button>
+          <Button variant="ghost" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+            onClick={signOut}>
+            Sign out
+          </Button>
         </div>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead className="text-right">Courts</TableHead>
-            <TableHead>Tier</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {venues.map(v => (
-            <TableRow
-              key={v.id}
-              className="cursor-pointer"
-              onClick={() => navigate(`/venues/${v.id}`)}
-            >
-              <TableCell className="font-medium">{v.name}</TableCell>
-              <TableCell className="text-right tabular-nums">{v.courts}</TableCell>
-              <TableCell>{v.tier}</TableCell>
-            </TableRow>
-          ))}
-          {venues.length === 0 && (
+      <div className="overflow-hidden rounded-lg border">
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={3} className="text-muted-foreground">
-                No venues yet.
-              </TableCell>
+              <TableHead className="h-7 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+                Name
+              </TableHead>
+              <TableHead className="h-7 text-right text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+                Courts
+              </TableHead>
+              <TableHead className="h-7 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+                Tier
+              </TableHead>
             </TableRow>
-          )}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {venues.map(v => (
+              <TableRow
+                key={v.id}
+                className="cursor-pointer"
+                onClick={() => navigate(`/venues/${v.id}`)}
+              >
+                <TableCell className="py-1.5 font-medium">{v.name}</TableCell>
+                <TableCell className="py-1.5 text-right tabular-nums">{v.courts}</TableCell>
+                <TableCell className="py-1.5">{v.tier}</TableCell>
+              </TableRow>
+            ))}
+            {venues.length === 0 && (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={3} className="py-10 text-center text-sm text-muted-foreground">
+                  No venues yet. Click “New venue” to create one.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
       <Dialog open={creating} onOpenChange={setCreating}>
         <DialogContent className="max-h-[85vh] overflow-y-auto">

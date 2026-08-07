@@ -103,15 +103,23 @@ export function VenueDetail() {
     <div className="mx-auto max-w-6xl space-y-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">{venue.name}</h1>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {/* Base UI composes via `render`, not Radix's `asChild`. */}
-          <Button variant="outline" render={<Link to="/" />}>Venues</Button>
-          <Button variant="outline" onClick={recalculate}>Recalculate</Button>
-          <Button variant="outline"
+          <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+            render={<Link to="/" />}>
+            Venues
+          </Button>
+          <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+            onClick={recalculate}>
+            Recalculate
+          </Button>
+          <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
             onClick={() => exportMaterialsPdf(venue.name, lines, catalogAll)}>
             Export PDF
           </Button>
-          <Button onClick={save}>Save</Button>
+          <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]" onClick={save}>
+            Save
+          </Button>
         </div>
       </div>
 

@@ -96,10 +96,16 @@ export function MaterialsTable({ lines, catalog, formulas, onChange, isAdmin }: 
       <Table>
         <TableHeader className="max-sm:hidden">
           <TableRow>
-            <TableHead>Item / Model</TableHead>
-            <TableHead className="hidden lg:table-cell">Formula</TableHead>
-            <TableHead className="w-32 text-right">Qty</TableHead>
-            <TableHead className="w-24" />
+            <TableHead className="h-7 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+              Item / Model
+            </TableHead>
+            <TableHead className="hidden h-7 w-[140px] text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground lg:table-cell">
+              Formula
+            </TableHead>
+            <TableHead className="h-7 w-14 text-right text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+              Qty
+            </TableHead>
+            <TableHead className="h-7 w-16" />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -119,13 +125,13 @@ export function MaterialsTable({ lines, catalog, formulas, onChange, isAdmin }: 
         </TableBody>
       </Table>
 
-      <div className="flex min-w-0 items-center gap-2">
-        <label htmlFor="addLine" className="shrink-0 text-sm text-muted-foreground">
+      <div className="flex min-w-0 items-center gap-2 px-0.5">
+        <label htmlFor="addLine" className="shrink-0 text-[11px] text-muted-foreground">
           Add line
         </label>
         <select
           id="addLine"
-          className="min-w-0 flex-1 rounded-md border bg-background p-2 text-sm"
+          className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1 text-sm"
           value=""
           onChange={e => { if (e.target.value) add(e.target.value) }}
         >

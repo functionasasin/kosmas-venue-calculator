@@ -86,7 +86,7 @@ export function MaterialsRow({
 
   const picker = (
     <select
-      className="w-full bg-transparent text-sm"
+      className="w-full min-w-0 bg-transparent text-sm lg:w-auto lg:max-w-full"
       aria-label={swapLabel}
       value={line.roleKey ?? ''}
       onChange={e => onSwap(e.target.value)}
@@ -103,7 +103,7 @@ export function MaterialsRow({
     <Input
       type="number" min="0" autoFocus={resolving}
       value={text}
-      className="text-right tabular-nums"
+      className="h-6 w-14 px-1.5 py-0.5 text-right text-sm tabular-nums max-sm:w-24"
       title={formula}
       onChange={e => setText(e.target.value)}
       onBlur={commitQty}
@@ -112,7 +112,7 @@ export function MaterialsRow({
   ) : (
     <Button
       size="sm" variant="ghost"
-      className="font-semibold text-yellow-700 dark:text-yellow-500"
+      className="h-6 px-1.5 text-sm font-semibold text-yellow-700 dark:text-yellow-500"
       title="Not derivable — set it manually"
       onClick={() => setResolving(true)}
     >
@@ -125,7 +125,7 @@ export function MaterialsRow({
       title={formula}
       className="max-sm:flex max-sm:flex-col max-sm:gap-1 max-sm:p-2"
     >
-      <TableCell className="max-sm:block max-sm:w-full">
+      <TableCell className="py-1 max-sm:block max-sm:w-full">
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">{picker}</div>
           {/* Replaces the Remove column below lg, matching spec §6's table.
@@ -148,14 +148,14 @@ export function MaterialsRow({
         )}
       </TableCell>
 
-      <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
+      <TableCell className="hidden w-[140px] py-1 text-xs text-muted-foreground lg:table-cell">
         {formula}
       </TableCell>
 
       {/* The one and only quantity control. Below sm this cell becomes the
           card's second line and carries the formula beside it. */}
       <TableCell
-        className="text-right max-sm:flex max-sm:w-full max-sm:items-center
+        className="w-14 py-1 text-right max-sm:flex max-sm:w-full max-sm:items-center
                    max-sm:justify-between max-sm:gap-2"
       >
         <span className="hidden text-xs text-muted-foreground max-sm:inline">
@@ -164,7 +164,7 @@ export function MaterialsRow({
         <span className="max-sm:w-28">{qty}</span>
       </TableCell>
 
-      <TableCell className="hidden text-right lg:table-cell">
+      <TableCell className="hidden w-16 py-1 text-right lg:table-cell">
         <Button size="sm" variant="ghost" onClick={onRemove}>Remove</Button>
       </TableCell>
 
