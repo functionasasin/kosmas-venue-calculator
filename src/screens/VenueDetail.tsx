@@ -108,7 +108,7 @@ export function VenueDetail() {
           <Button variant="outline" render={<Link to="/" />}>Venues</Button>
           <Button variant="outline" onClick={recalculate}>Recalculate</Button>
           <Button variant="outline"
-            onClick={() => exportMaterialsPdf(venue.name, lines, catalog)}>
+            onClick={() => exportMaterialsPdf(venue.name, lines, catalogAll)}>
             Export PDF
           </Button>
           <Button onClick={save}>Save</Button>

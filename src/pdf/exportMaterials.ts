@@ -3,7 +3,7 @@ import autoTable from 'jspdf-autotable'
 import type { Item } from '@/calculator/types'
 import type { StoredLine } from '@/data/venueLines'
 import type { SectionId } from '@/lib/sections'
-import { SECTION_LABELS, itemsByRole, sectionForLine } from '@/lib/sections'
+import { SECTION_LABELS, itemsByRole, sectionForItem, sectionForLine } from '@/lib/sections'
 
 /**
  * Grouped to mirror the screen: whoever holds the printout should be reading
@@ -47,16 +47,24 @@ export function buildPdfBody(
       continue
     }
 
-    // Section resolution deliberately does NOT use the itemId-resolved `item`
-    // above. sectionForLine resolves by roleKey only — exactly what
+    // Two separate questions, deliberately answered from two different
+    // resolutions of the item. Whether the line PRINTS is decided from the
+    // itemId-resolved `item` above — that is the item whose name is about to
+    // go on the page, so it is the one whose category has to be checked. A
+    // line with a null roleKey but an itemId that resolves to a cable item
+    // would otherwise fall through: sectionForLine sees no roleKey, returns
+    // 'decide', and the cabling exclusion never fires.
+    if (sectionForItem(item) === 'cabling') continue
+
+    // Which GROUP the line prints under is a different question, and stays on
+    // sectionForLine, which resolves by roleKey only — exactly what
     // groupIntoSections does on screen — and already folds in the TBD
-    // override, so it is not reapplied here. Sectioning by the itemId item's
-    // category instead would let a line whose roleKey doesn't resolve (e.g. a
-    // NULL items.role_key, as listLines produces) land in a different section
-    // on paper than groupIntoSections puts it in on screen. itemId is right
-    // for the name; only roleKey is right for the section.
+    // override. Sectioning by the itemId item's category instead would let a
+    // line whose roleKey doesn't resolve (e.g. a NULL items.role_key, as
+    // listLines produces) land in a different section on paper than
+    // groupIntoSections puts it in on screen. itemId is right for the name
+    // and for the cabling check; only roleKey is right for the group.
     const section = sectionForLine(line, byRole)
-    if (section === 'cabling') continue
 
     push(section, [item.name, line.qty === 'TBD' ? 'TBD' : String(line.qty)])
 

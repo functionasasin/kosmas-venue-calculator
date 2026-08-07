@@ -1,9 +1,26 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import type { Item } from '@/calculator/types'
 import type { RoleKey } from '@/calculator/roleKeys'
 import type { StoredLine } from '@/data/venueLines'
 import { groupIntoSections } from '@/lib/sections'
-import { buildPdfBody } from './exportMaterials'
+import { buildPdfBody, exportMaterialsPdf } from './exportMaterials'
+
+// exportMaterialsPdf is exercised (rather than only buildPdfBody) for the
+// footer test below, since the footer sentence is drawn directly with
+// doc.text and never passes through buildPdfBody's rows. jsPDF and
+// jspdf-autotable are stubbed because they draw vector graphics that jsdom
+// has no reason to be exercised by in a unit test — only the calls to
+// `text` matter here.
+const { textCalls } = vi.hoisted(() => ({ textCalls: [] as string[] }))
+vi.mock('jspdf', () => {
+  class FakeJsPDF {
+    setFontSize() { return this }
+    text(str: string) { textCalls.push(str); return this }
+    save() { /* no-op: no real download in a unit test */ }
+  }
+  return { default: FakeJsPDF }
+})
+vi.mock('jspdf-autotable', () => ({ default: vi.fn() }))
 
 const item = (roleKey: RoleKey, category: string, name: string): Item => ({
   id: `id-${roleKey}`, name, category, roleKey,
@@ -98,11 +115,75 @@ describe('the exported body', () => {
     expect(names(rows).some(n => n.includes('NO ITEM MAPPED'))).toBe(false)
   })
 
+  // items.role_key is nullable (0001_schema.sql) and listLines maps a null
+  // role key straight through to StoredLine.roleKey, so a real line can point
+  // at a cable item by itemId while roleKey is null. sectionForLine resolves
+  // roleKey only, so with a null roleKey it falls through to 'decide' and
+  // never reports 'cabling' — the exclusion has to be decided from the
+  // itemId-resolved item, not from sectionForLine, or this cable line prints.
+  it('omits a cable line whose roleKey is null, itemId included', () => {
+    const orphanCable: Item = {
+      ...item('cat6_1m', 'cable', 'Orphan Cat6 Cable'), roleKey: null,
+    }
+    const orphanLine: StoredLine = {
+      ...line('cat6_1m', 3), roleKey: null,
+    }
+    const { rows } = buildPdfBody([orphanLine], [...catalog, orphanCable])
+    expect(names(rows)).not.toContain('Orphan Cat6 Cable')
+  })
+
+  // VenueDetail passes exportMaterialsPdf the catalog including deactivated
+  // items (catalogAll), so a line pointing at a deactivated cable item now
+  // resolves and must still be excluded. Mirrors the deactivation shape used
+  // above ('still prints the itemId-resolved name...'): retiring an item
+  // clears its roleKey once a replacement claims the role, exactly like the
+  // 'Retired KSTAR UPS' fixture there — the difference here is the category
+  // is cable, so instead of asserting the name survives, this asserts it
+  // never reaches the page.
+  it('omits a deactivated cable line even though itemId still resolves it', () => {
+    const retiredCable: Item = {
+      ...item('cat6_3m', 'cable', 'Retired Cat6 Cable'), roleKey: null, isActive: false,
+    }
+    const retiredLine: StoredLine = { ...line('cat6_3m', 3), roleKey: null }
+    const { rows } = buildPdfBody([retiredLine], [...catalog, retiredCable])
+    expect(names(rows)).not.toContain('Retired Cat6 Cable')
+  })
+
   it('excludes suppressed lines', () => {
     const { rows } = buildPdfBody(
       [{ ...line('display', 8), suppressed: true }], catalog,
     )
     expect(names(rows)).not.toContain('Samsung 65in')
+  })
+
+  // VenueDetail wires exportMaterialsPdf with catalogAll (listItems(true)),
+  // which includes deactivated items in the same array as active ones — not
+  // a separate lookup layered on top. This fixture matches that: the item
+  // stays isActive: false but keeps its roleKey, which is the ordinary
+  // deactivation case (as opposed to the roleKey-nulled-out case covered
+  // above). A deactivated item's line must still carry a real name and a
+  // real quantity — never the unmapped placeholder, never a dash.
+  it('prints a deactivated item\'s line with its name and its quantity', () => {
+    const deactivated = catalog.map(i =>
+      i.roleKey === 'ups' ? { ...i, isActive: false } : i)
+    const { rows } = buildPdfBody([line('ups', 2)], deactivated)
+    const row = rows.find(r => r[0] === 'KSTAR UPS')
+    expect(row).toBeDefined()
+    expect(row?.[1]).toBe('2')
+    expect(names(rows).some(n => n.includes('NO ITEM MAPPED'))).toBe(false)
+    expect(rows.some(r => r[1] === '—')).toBe(false)
+  })
+
+  // notes are internal working notes — supplier terms, cost commentary — and
+  // must never reach a document handed to a client. Every other fixture in
+  // this file leaves notes: null, which would pass even if buildPdfBody
+  // printed it; this uses a distinctive value so the assertion is real.
+  it('never lets an item\'s internal notes reach a printed row', () => {
+    const noted = catalog.map(i =>
+      i.roleKey === 'ups' ? { ...i, notes: 'ACME distributor cost markup 40%' } : i)
+    const { rows } = buildPdfBody([line('ups', 1)], noted)
+    expect(rows.flat().some(cell => cell.includes('ACME distributor cost markup 40%')))
+      .toBe(false)
   })
 
   // print_note travels with the item onto the handed-out list; `notes` never
@@ -114,5 +195,19 @@ describe('the exported body', () => {
     expect(rows[0][0]).toBe('Rack')
     expect(rows[1][0]).toBe('KSTAR UPS')
     expect(rows[2][0]).toContain('Rack-mount kit required')
+  })
+})
+
+describe('the exported PDF footer', () => {
+  // The footer sentence is the only thing that keeps the cabling omission
+  // from being silent — buildPdfBody's rows never mention cabling once it's
+  // excluded, so nothing else in this file would catch the footer being
+  // deleted. Deleting it currently keeps every other test in this file green.
+  it('states that cabling is excluded, on every export', () => {
+    textCalls.length = 0
+    exportMaterialsPdf('Test Venue', lines, catalog)
+    expect(textCalls.some(t =>
+      t.includes('Cabling is specified separately and is excluded from this list.'),
+    )).toBe(true)
   })
 })
