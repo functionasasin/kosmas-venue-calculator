@@ -36,40 +36,44 @@ export function Venues() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
-      <div className="overflow-hidden rounded-lg border bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-          <h1 className="text-2xl font-semibold">Venues</h1>
-          <div className="flex gap-1.5">
-            {role === 'admin' && (
-              // Base UI composes via `render`, not Radix's `asChild`.
-              <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
-                render={<Link to="/catalog" />}>
-                Catalog
-              </Button>
-            )}
-            <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
-              onClick={() => setCreating(true)}>
-              New venue
+    // Same shell as the venue page: full-bleed white surface, sticky bar, and a
+    // table whose gutter lives on its cells so the rules reach the window edge.
+    // No rail — this screen has no inputs, and an empty 232px column would be a
+    // worse match for the venue page than no column at all.
+    <div className="flex min-h-svh flex-col bg-card">
+      <div className="sticky top-0 z-10 flex h-13 shrink-0 flex-wrap items-center
+                      justify-between gap-3 border-b bg-card px-4">
+        <h1 className="text-lg font-semibold tracking-tight">Venues</h1>
+        <div className="flex gap-1.5">
+          {role === 'admin' && (
+            // Base UI composes via `render`, not Radix's `asChild`.
+            <Button variant="outline" size="sm" className="h-auto bg-card px-[.55rem] py-[.25rem] text-[11px]"
+              render={<Link to="/catalog" />}>
+              Catalog
             </Button>
-            <Button variant="ghost" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
-              onClick={signOut}>
-              Sign out
-            </Button>
-          </div>
+          )}
+          <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+            onClick={() => setCreating(true)}>
+            New venue
+          </Button>
+          <Button variant="ghost" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+            onClick={signOut}>
+            Sign out
+          </Button>
         </div>
+      </div>
 
-        <div className="p-4">
+      <div className="min-w-0 flex-1 py-4">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="h-7 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+              <TableHead className="h-7 pl-4 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
                 Name
               </TableHead>
-              <TableHead className="h-7 text-right text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+              <TableHead className="h-7 w-28 text-right text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
                 Courts
               </TableHead>
-              <TableHead className="h-7 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+              <TableHead className="h-7 w-48 pr-4 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
                 Tier
               </TableHead>
             </TableRow>
@@ -78,12 +82,14 @@ export function Venues() {
             {venues.map(v => (
               <TableRow
                 key={v.id}
-                className="cursor-pointer"
+                className="group/row cursor-pointer hover:bg-muted/30"
                 onClick={() => navigate(`/venues/${v.id}`)}
               >
-                <TableCell className="py-1.5 font-medium">{v.name}</TableCell>
+                <TableCell className="py-1.5 pl-4 font-medium group-hover/row:shadow-[inset_2px_0_0_var(--foreground)]">
+                  {v.name}
+                </TableCell>
                 <TableCell className="py-1.5 text-right tabular-nums">{v.courts}</TableCell>
-                <TableCell className="py-1.5">{v.tier}</TableCell>
+                <TableCell className="py-1.5 pr-4">{v.tier}</TableCell>
               </TableRow>
             ))}
             {venues.length === 0 && (
@@ -95,7 +101,6 @@ export function Venues() {
             )}
           </TableBody>
         </Table>
-        </div>
       </div>
 
       <Dialog open={creating} onOpenChange={setCreating}>

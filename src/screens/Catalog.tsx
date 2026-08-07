@@ -54,34 +54,36 @@ export function Catalog() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl p-6">
-      <div className="overflow-hidden rounded-lg border bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-          <h1 className="text-2xl font-semibold">Catalog</h1>
-          <div className="flex gap-1.5">
-            {/* Base UI buttons compose via `render`, not Radix's `asChild`. */}
-            <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
-              render={<Link to="/" />}>
-              Venues
-            </Button>
-            <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
-              onClick={() => setEditing('new')}>
-              Add item
-            </Button>
-          </div>
+    // Same shell as the venue page and Venues: full-bleed white surface, sticky
+    // bar, table gutter on the cells. `← Venues` is the back link rather than a
+    // button, matching the venue page's rail head.
+    <div className="flex min-h-svh flex-col bg-card">
+      <div className="sticky top-0 z-10 flex h-13 shrink-0 flex-wrap items-center
+                      justify-between gap-3 border-b bg-card px-4">
+        <div className="flex items-baseline gap-2.5">
+          <Link to="/"
+            className="text-[11px] text-muted-foreground transition-colors hover:text-foreground">
+            ← Venues
+          </Link>
+          <h1 className="text-lg font-semibold tracking-tight">Catalog</h1>
         </div>
+        <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+          onClick={() => setEditing('new')}>
+          Add item
+        </Button>
+      </div>
 
-        {/* overflow-x-auto lives in ui/table.tsx already; min-w forces the table
-            past the viewport at phone widths so the cut-off Name column reads as
-            "scroll me" instead of a rendering failure. The hint sits above the
-            table so it is seen before the table itself, not after scrolling
-            past every row. */}
-        <div className="space-y-1 p-4">
-          <p className="text-xs text-muted-foreground sm:hidden">← scroll for more →</p>
-          <Table className="min-w-[640px]">
+      {/* overflow-x-auto lives in ui/table.tsx already; min-w forces the table
+          past the viewport at phone widths so the cut-off Name column reads as
+          "scroll me" instead of a rendering failure. The hint sits above the
+          table so it is seen before the table itself, not after scrolling
+          past every row. */}
+      <div className="min-w-0 flex-1 space-y-1 py-4">
+        <p className="px-4 text-xs text-muted-foreground sm:hidden">← scroll for more →</p>
+        <Table className="min-w-[640px]">
           <TableHeader>
             <TableRow>
-              <TableHead className="h-7 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+              <TableHead className="h-7 pl-4 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
                 Name
               </TableHead>
               <TableHead className="h-7 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
@@ -96,13 +98,14 @@ export function Catalog() {
               <TableHead className="h-7 text-right text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
                 Rack U
               </TableHead>
-              <TableHead />
+              <TableHead className="w-52 pr-4" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {items.map(item => (
-              <TableRow key={item.id} className={item.isActive ? '' : 'opacity-50'}>
-                <TableCell className="py-1.5 font-medium">
+              <TableRow key={item.id}
+                className={`group/row hover:bg-muted/30 ${item.isActive ? '' : 'opacity-50'}`}>
+                <TableCell className="py-1.5 pl-4 font-medium group-hover/row:shadow-[inset_2px_0_0_var(--foreground)]">
                   {item.name}
                   {!item.isActive && <Badge variant="outline" className="ml-2">inactive</Badge>}
                 </TableCell>
@@ -110,7 +113,7 @@ export function Catalog() {
                 <TableCell className="py-1.5 font-mono text-xs">{item.roleKey ?? '—'}</TableCell>
                 <TableCell className="py-1.5 text-right tabular-nums">{item.poeWatts ?? '—'}</TableCell>
                 <TableCell className="py-1.5 text-right tabular-nums">{item.rackU ?? '—'}</TableCell>
-                <TableCell className="space-x-2 py-1.5 text-right">
+                <TableCell className="space-x-2 py-1.5 pr-4 text-right">
                   <Button size="sm" variant="ghost" onClick={() => setEditing(item)}>Edit</Button>
                   <Button size="sm" variant="ghost" onClick={() => toggle(item)}>
                     {item.isActive ? 'Deactivate' : 'Reactivate'}
@@ -120,7 +123,6 @@ export function Catalog() {
             ))}
           </TableBody>
         </Table>
-        </div>
       </div>
 
       <Dialog open={editing !== null} onOpenChange={o => !o && setEditing(null)}>

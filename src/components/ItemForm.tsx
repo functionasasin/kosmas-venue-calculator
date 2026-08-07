@@ -61,7 +61,7 @@ export function ItemForm({ item, onSave, onCancel }: Props) {
         <Label htmlFor="roleKey">Role key</Label>
         <select
           id="roleKey"
-          className="w-full rounded-md border bg-background p-2 text-sm"
+          className="w-full rounded-md border bg-card p-2 text-sm"
           value={form.roleKey}
           onChange={e => setForm(f => ({ ...f, roleKey: e.target.value }))}
         >
