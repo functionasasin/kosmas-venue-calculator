@@ -37,8 +37,17 @@ export function MaterialsSection({
         <TableCell
           colSpan={4}
           data-testid={`section-header-${section.id}`}
+          role="button"
+          tabIndex={0}
+          aria-expanded={open}
           className="cursor-pointer text-sm font-semibold max-sm:block"
           onClick={() => setOpen(o => !o)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setOpen(o => !o)
+            }
+          }}
         >
           {open ? '▾' : '▸'} {section.label} · {section.lines.length}
           {decide && (

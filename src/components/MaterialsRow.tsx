@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Item } from '@/calculator/types'
 import type { StoredLine } from '@/data/venueLines'
 import { Input } from '@/components/ui/input'
@@ -29,39 +29,85 @@ export function MaterialsRow({
   const [resolving, setResolving] = useState(false)
   const editing = line.qty !== 'TBD' || resolving
 
-  const onQty = (raw: string) => {
-    if (raw === '') {
-      setResolving(false)
-      onUpdate({ qty: 'TBD' })
+  // Committing on every keystroke pushed a new qty up on every change, which
+  // re-parents the row into a different section mid-edit (TBD -> a digit
+  // moves the line out of `decide`; a digit -> empty forced it to TBD) and
+  // the input loses focus under the user's fingers. Typed text lives here,
+  // uncommitted, until blur or Enter — the field can sit empty mid-edit
+  // without the line's actual qty changing underneath it.
+  const [text, setText] = useState(() => (line.qty === 'TBD' ? '' : String(line.qty)))
+  useEffect(() => {
+    setText(line.qty === 'TBD' ? '' : String(line.qty))
+  }, [line.qty])
+
+  const commitQty = () => {
+    if (text === '') {
+      // Empty-means-TBD is scoped to the resolve affordance (spec §4.4), not
+      // to every line: only a line actually being resolved from TBD may
+      // become TBD by being left empty. Any other line reverts untouched.
+      if (resolving) {
+        setResolving(false)
+        // A blur with nothing typed (e.g. curiosity-clicked TBD, or Enter's
+        // commit already landed) must not re-write a qty that hasn't
+        // changed — see the qty-unchanged guard below for why.
+        if (line.qty !== 'TBD') onUpdate({ qty: 'TBD' })
+      } else {
+        setText(line.qty === 'TBD' ? '' : String(line.qty))
+      }
       return
     }
-    onUpdate({ qty: Number(raw) })
+    // A blur that carries no real edit (tabbing through, or the blur that
+    // follows an Enter which already committed) must be a no-op: onUpdate
+    // unconditionally flips `source` to 'manual' in the caller, and manual
+    // lines are exempt from recalculation — so an unchanged commit would
+    // freeze a formula-derived quantity forever under a false "edited" flag.
+    const next = Number(text)
+    if (next !== line.qty) onUpdate({ qty: next })
+    setResolving(false)
+  }
+
+  const onQtyKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commitQty()
+    }
   }
 
   const [actions, setActions] = useState(false)
 
+  // Built once and shared by both selects so they cannot drift: the inline
+  // picker used to append an "(inactive)" fallback option that the dialog
+  // picker below lg never got, so a row for a deactivated item opened to a
+  // dialog select whose value matched nothing and displayed some other item
+  // as current.
+  const inactiveFallback = item && !item.isActive ? item : undefined
+  const options = inactiveFallback ? [...swapOptions, inactiveFallback] : swapOptions
+  const swapLabel = `Swap item for ${item?.name ?? line.roleKey ?? 'unmapped line'}`
+
   const picker = (
     <select
       className="w-full bg-transparent text-sm"
+      aria-label={swapLabel}
       value={line.roleKey ?? ''}
       onChange={e => onSwap(e.target.value)}
     >
-      {swapOptions.map(i => (
-        <option key={i.roleKey!} value={i.roleKey!}>{i.name}</option>
+      {options.map(i => (
+        <option key={i.roleKey!} value={i.roleKey!}>
+          {i.name}{i === inactiveFallback ? ' (inactive)' : ''}
+        </option>
       ))}
-      {item && !item.isActive && (
-        <option value={item.roleKey!}>{item.name} (inactive)</option>
-      )}
     </select>
   )
 
   const qty = editing ? (
     <Input
       type="number" min="0" autoFocus={resolving}
-      value={line.qty === 'TBD' ? '' : line.qty}
+      value={text}
       className="text-right tabular-nums"
       title={formula}
-      onChange={e => onQty(e.target.value)}
+      onChange={e => setText(e.target.value)}
+      onBlur={commitQty}
+      onKeyDown={onQtyKeyDown}
     />
   ) : (
     <Button
@@ -132,11 +178,14 @@ export function MaterialsRow({
               <p className="mb-1 text-sm text-muted-foreground">Swap item</p>
               <select
                 className="w-full rounded-md border bg-background p-2 text-sm"
+                aria-label={swapLabel}
                 value={line.roleKey ?? ''}
                 onChange={e => onSwap(e.target.value)}
               >
-                {swapOptions.map(i => (
-                  <option key={i.roleKey!} value={i.roleKey!}>{i.name}</option>
+                {options.map(i => (
+                  <option key={i.roleKey!} value={i.roleKey!}>
+                    {i.name}{i === inactiveFallback ? ' (inactive)' : ''}
+                  </option>
                 ))}
               </select>
             </div>

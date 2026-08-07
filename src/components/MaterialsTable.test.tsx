@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import type { Item } from '@/calculator/types'
@@ -154,20 +155,114 @@ describe('resolving a TBD line', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'TBD' }))
     fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '3' } })
+    fireEvent.blur(screen.getByRole('spinbutton'))
 
     const [updated] = onChange.mock.calls[0][0] as StoredLine[]
     expect(updated.qty).toBe(3)
     expect(updated.source).toBe('manual')
   })
 
-  // A resolved TBD is ordinary gear again and belongs with its own kind.
+  // A resolved TBD is ordinary gear again and belongs with its own kind. Drives
+  // the real resolve affordance (click TBD, type, commit) rather than rendering
+  // an already-resolved line directly — a fixture with qty: 4 from the start
+  // would pass even with the TBD button deleted entirely, and duplicates what
+  // sections.test.ts already covers. This is the test that would have caught
+  // the qty field committing on every keystroke and re-parenting the row.
   it('moves the line out of Needs a decision once it has a number', () => {
-    render(
-      <MaterialsTable lines={[line('access_point', 4)]} catalog={sectioned} isAdmin
-        formulas={new Map()} onChange={vi.fn()} />,
-    )
+    function Harness() {
+      const [ls, setLs] = useState<StoredLine[]>([line('access_point', 'TBD')])
+      return (
+        <MaterialsTable lines={ls} catalog={sectioned} isAdmin
+          formulas={new Map()} onChange={setLs} />
+      )
+    }
+    render(<Harness />)
+
+    expect(screen.getByTestId('section-header-decide')).toBeInTheDocument()
+    expect(screen.queryByTestId('section-header-rack')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'TBD' }))
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '4' } })
+    fireEvent.blur(screen.getByRole('spinbutton'))
+
     expect(screen.getByTestId('section-header-rack')).toBeInTheDocument()
     expect(screen.queryByTestId('section-header-decide')).not.toBeInTheDocument()
+  })
+})
+
+describe('quantity commits on blur, not on every keystroke', () => {
+  const sectioned: Item[] = [
+    item('access_point', 'network', 'UniFi U7-LR'),
+    item('ups', 'power', 'KSTAR UPS'),
+  ]
+
+  // Pins the blur-commit design itself: if this reverts to committing on
+  // every keystroke, N1's fix (a no-op guard in commitQty) has nothing left
+  // to guard and the backspace-to-TBD / digit-swallowing bugs it replaced
+  // can silently come back.
+  it('does not commit while typing, before any blur', () => {
+    const onChange = vi.fn()
+    render(
+      <MaterialsTable lines={[line('ups', 1)]} catalog={sectioned} isAdmin
+        formulas={new Map()} onChange={onChange} />,
+    )
+
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '5' } })
+
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  // A reviewer tabbing through quantities without typing must not touch the
+  // line. Otherwise every field they pass through flips 'formula' to
+  // 'manual', and mergeRecalculation's manual-line short-circuit then treats
+  // an untouched line as a deliberate correction — a later Recalculate
+  // reports "nothing would change" for it and the printed BOM under-orders.
+  it('does not commit a blur with no typing', () => {
+    const onChange = vi.fn()
+    render(
+      <MaterialsTable lines={[line('ups', 1)]} catalog={sectioned} isAdmin
+        formulas={new Map()} onChange={onChange} />,
+    )
+
+    const input = screen.getByRole('spinbutton')
+    fireEvent.focus(input)
+    fireEvent.blur(input)
+
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  // Same consequence as above, via the other path into commitQty: clicking
+  // TBD to look at the resolve field and blurring without typing must leave
+  // the line at 'TBD' with source untouched, not stamp it 'manual'.
+  it('does not commit clicking TBD and blurring without typing', () => {
+    const onChange = vi.fn()
+    render(
+      <MaterialsTable lines={[line('access_point', 'TBD')]} catalog={sectioned} isAdmin
+        formulas={new Map()} onChange={onChange} />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'TBD' }))
+    fireEvent.blur(screen.getByRole('spinbutton'))
+
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  // Proves the no-op guard didn't over-fire: a genuine edit must still reach
+  // onUpdate on blur and still mark the line manual, the behaviour the guard
+  // is protecting rather than disabling.
+  it('commits a real edit on blur and marks the line manual', () => {
+    const onChange = vi.fn()
+    render(
+      <MaterialsTable lines={[line('ups', 1)]} catalog={sectioned} isAdmin
+        formulas={new Map()} onChange={onChange} />,
+    )
+
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '5' } })
+    fireEvent.blur(screen.getByRole('spinbutton'))
+
+    const [updated] = onChange.mock.calls[0][0] as StoredLine[]
+    expect(updated.qty).toBe(5)
+    expect(updated.source).toBe('manual')
   })
 })
 
@@ -234,6 +329,7 @@ describe('cabling is admin-only', () => {
     )
 
     fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '2' } })
+    fireEvent.blur(screen.getByRole('spinbutton'))
 
     const payload = onChange.mock.calls[0][0] as StoredLine[]
     expect(payload).toHaveLength(3)
