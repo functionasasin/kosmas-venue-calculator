@@ -36,29 +36,30 @@ export function Venues() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Venues</h1>
-        <div className="flex gap-1.5">
-          {role === 'admin' && (
-            // Base UI composes via `render`, not Radix's `asChild`.
-            <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
-              render={<Link to="/catalog" />}>
-              Catalog
+    <div className="mx-auto max-w-4xl p-6">
+      <div className="overflow-hidden rounded-lg border bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+          <h1 className="text-2xl font-semibold">Venues</h1>
+          <div className="flex gap-1.5">
+            {role === 'admin' && (
+              // Base UI composes via `render`, not Radix's `asChild`.
+              <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+                render={<Link to="/catalog" />}>
+                Catalog
+              </Button>
+            )}
+            <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+              onClick={() => setCreating(true)}>
+              New venue
             </Button>
-          )}
-          <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
-            onClick={() => setCreating(true)}>
-            New venue
-          </Button>
-          <Button variant="ghost" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
-            onClick={signOut}>
-            Sign out
-          </Button>
+            <Button variant="ghost" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+              onClick={signOut}>
+              Sign out
+            </Button>
+          </div>
         </div>
-      </div>
 
-      <div className="overflow-hidden rounded-lg border">
+        <div className="p-4">
         <Table>
           <TableHeader>
             <TableRow>
@@ -94,6 +95,7 @@ export function Venues() {
             )}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       <Dialog open={creating} onOpenChange={setCreating}>

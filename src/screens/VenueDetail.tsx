@@ -100,47 +100,50 @@ export function VenueDetail() {
   if (!venue) return <div className="p-8">Loading…</div>
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">{venue.name}</h1>
-        <div className="flex flex-wrap gap-1.5">
-          {/* Base UI composes via `render`, not Radix's `asChild`. */}
-          <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
-            render={<Link to="/" />}>
-            Venues
-          </Button>
-          <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
-            onClick={recalculate}>
-            Recalculate
-          </Button>
-          <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
-            onClick={() => exportMaterialsPdf(venue.name, lines, catalogAll)}>
-            Export PDF
-          </Button>
-          <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]" onClick={save}>
-            Save
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-        {/* 256px, not 200: the warnings are full sentences and wrap to five or
-            more lines each in a narrower rail. It scrolls internally so that a
-            venue with three checks still leaves Courts on screen at row 26 —
-            which is the whole reason the rail is sticky. */}
-        <div className="w-full space-y-4 lg:w-64 lg:shrink-0 lg:sticky lg:top-6
-                        lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
-          <VenueInputsForm value={venue} onChange={onInputs} />
-          {warnings.length > 0 && (
-            <div className="border-t pt-4">
-              <WarningsPanel warnings={warnings} />
-            </div>
-          )}
+    <div className="mx-auto max-w-6xl p-6">
+      <div className="mx-auto rounded-lg border bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-t-lg border-b px-4 py-3">
+          <h1 className="text-2xl font-semibold">{venue.name}</h1>
+          <div className="flex flex-wrap gap-1.5">
+            {/* Base UI composes via `render`, not Radix's `asChild`. */}
+            <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+              render={<Link to="/" />}>
+              Venues
+            </Button>
+            <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+              onClick={recalculate}>
+              Recalculate
+            </Button>
+            <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+              onClick={() => exportMaterialsPdf(venue.name, lines, catalogAll)}>
+              Export PDF
+            </Button>
+            <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]" onClick={save}>
+              Save
+            </Button>
+          </div>
         </div>
 
-        <div className="min-w-0 flex-1">
-          <MaterialsTable lines={lines} catalog={catalogAll}
-            formulas={formulas} onChange={setLines} isAdmin={role === 'admin'} />
+        <div className="flex flex-col lg:flex-row lg:items-stretch">
+          {/* 256px, not 200: the warnings are full sentences and wrap to five or
+              more lines each in a narrower rail. It scrolls internally so that a
+              venue with three checks still leaves Courts on screen at row 26 —
+              which is the whole reason the rail is sticky. */}
+          <div className="w-full space-y-4 border-b bg-background p-4 lg:w-64 lg:shrink-0
+                          lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto
+                          lg:rounded-bl-lg lg:border-r lg:border-b-0">
+            <VenueInputsForm value={venue} onChange={onInputs} />
+            {warnings.length > 0 && (
+              <div className="border-t pt-4">
+                <WarningsPanel warnings={warnings} />
+              </div>
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1 p-4">
+            <MaterialsTable lines={lines} catalog={catalogAll}
+              formulas={formulas} onChange={setLines} isAdmin={role === 'admin'} />
+          </div>
         </div>
       </div>
 

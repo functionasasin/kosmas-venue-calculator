@@ -54,30 +54,31 @@ export function Catalog() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Catalog</h1>
-        <div className="flex gap-1.5">
-          {/* Base UI buttons compose via `render`, not Radix's `asChild`. */}
-          <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
-            render={<Link to="/" />}>
-            Venues
-          </Button>
-          <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
-            onClick={() => setEditing('new')}>
-            Add item
-          </Button>
+    <div className="mx-auto max-w-6xl p-6">
+      <div className="overflow-hidden rounded-lg border bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+          <h1 className="text-2xl font-semibold">Catalog</h1>
+          <div className="flex gap-1.5">
+            {/* Base UI buttons compose via `render`, not Radix's `asChild`. */}
+            <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+              render={<Link to="/" />}>
+              Venues
+            </Button>
+            <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+              onClick={() => setEditing('new')}>
+              Add item
+            </Button>
+          </div>
         </div>
-      </div>
 
-      {/* overflow-x-auto lives in ui/table.tsx already; min-w forces the table
-          past the viewport at phone widths so the cut-off Name column reads as
-          "scroll me" instead of a rendering failure. The hint sits above the
-          table so it is seen before the table itself, not after scrolling
-          past every row. */}
-      <p className="text-xs text-muted-foreground sm:hidden">← scroll for more →</p>
-      <div className="space-y-1">
-        <Table className="min-w-[640px]">
+        {/* overflow-x-auto lives in ui/table.tsx already; min-w forces the table
+            past the viewport at phone widths so the cut-off Name column reads as
+            "scroll me" instead of a rendering failure. The hint sits above the
+            table so it is seen before the table itself, not after scrolling
+            past every row. */}
+        <div className="space-y-1 p-4">
+          <p className="text-xs text-muted-foreground sm:hidden">← scroll for more →</p>
+          <Table className="min-w-[640px]">
           <TableHeader>
             <TableRow>
               <TableHead className="h-7 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
@@ -119,6 +120,7 @@ export function Catalog() {
             ))}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       <Dialog open={editing !== null} onOpenChange={o => !o && setEditing(null)}>

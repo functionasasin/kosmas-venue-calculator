@@ -30,17 +30,14 @@ export function MaterialsSection({
 
   return (
     <>
-      <TableRow
-        data-testid="section-header"
-        className={`max-sm:block ${decide ? 'bg-yellow-500/10' : 'bg-muted'}`}
-      >
+      <TableRow data-testid="section-header" className="max-sm:block">
         <TableCell
           colSpan={4}
           data-testid={`section-header-${section.id}`}
           role="button"
           tabIndex={0}
           aria-expanded={open}
-          className="cursor-pointer py-1.5 text-[11px] font-semibold uppercase tracking-[.03em] max-sm:block"
+          className={`cursor-pointer py-1.5 text-[11px] font-semibold uppercase tracking-[.03em] max-sm:block ${decide ? 'bg-yellow-500/20' : 'bg-muted'}`}
           onClick={() => setOpen(o => !o)}
           onKeyDown={e => {
             if (e.key === 'Enter' || e.key === ' ') {
