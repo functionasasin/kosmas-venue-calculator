@@ -93,19 +93,24 @@ export function MaterialsTable({ lines, catalog, formulas, onChange, isAdmin }: 
 
   return (
     <div className="space-y-4">
-      <Table>
+      {/* table-fixed, and the horizontal gutter lives on the first and last
+          cells rather than on a container. That is what lets the section bands
+          and the row rules bleed to the window edge while the text still lines
+          up under the headers. Fixed proportions also stop the Qty pills
+          shifting sideways as digits are typed. */}
+      <Table className="table-fixed">
         <TableHeader className="max-sm:hidden">
           <TableRow>
-            <TableHead className="h-7 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+            <TableHead className="h-7 pl-4 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
               Item / Model
             </TableHead>
-            <TableHead className="hidden h-7 w-[140px] text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground lg:table-cell">
+            <TableHead className="hidden h-7 w-[26%] text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground lg:table-cell">
               Formula
             </TableHead>
-            <TableHead className="h-7 w-14 text-right text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+            <TableHead className="h-7 w-[110px] text-right text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
               Qty
             </TableHead>
-            <TableHead className="h-7 w-16" />
+            <TableHead className="h-7 w-24 pr-4" />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -125,13 +130,13 @@ export function MaterialsTable({ lines, catalog, formulas, onChange, isAdmin }: 
         </TableBody>
       </Table>
 
-      <div className="flex min-w-0 items-center gap-2 px-0.5">
+      <div className="flex min-w-0 items-center gap-2 px-4">
         <label htmlFor="addLine" className="shrink-0 text-[11px] text-muted-foreground">
           Add line
         </label>
         <select
           id="addLine"
-          className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1 text-sm"
+          className="min-w-0 flex-1 rounded-md border bg-card px-2 py-1 text-sm"
           value=""
           onChange={e => { if (e.target.value) add(e.target.value) }}
         >
@@ -143,7 +148,7 @@ export function MaterialsTable({ lines, catalog, formulas, onChange, isAdmin }: 
       </div>
 
       {removed.length > 0 && (
-        <div className="space-y-1 text-sm text-muted-foreground">
+        <div className="space-y-1 px-4 text-sm text-muted-foreground">
           <p>Removed lines (will not return on recalculation):</p>
           {removed.map(l => {
             const item = l.roleKey ? byRole.get(l.roleKey) : undefined

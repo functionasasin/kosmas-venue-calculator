@@ -100,50 +100,56 @@ export function VenueDetail() {
   if (!venue) return <div className="p-8">Loading…</div>
 
   return (
-    <div className="mx-auto max-w-6xl p-6">
-      <div className="mx-auto rounded-lg border bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-t-lg border-b px-4 py-3">
-          <h1 className="text-2xl font-semibold">{venue.name}</h1>
-          <div className="flex flex-wrap gap-1.5">
-            {/* Base UI composes via `render`, not Radix's `asChild`. */}
-            <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
-              render={<Link to="/" />}>
-              Venues
-            </Button>
-            <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
-              onClick={recalculate}>
-              Recalculate
-            </Button>
-            <Button variant="outline" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
-              onClick={() => exportMaterialsPdf(venue.name, lines, catalogAll)}>
-              Export PDF
-            </Button>
-            <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]" onClick={save}>
-              Save
-            </Button>
-          </div>
+    // Full-bleed: no page gutter and no card. The white surface is the window,
+    // so the grey `--background` never shows on this screen — the only greys
+    // left are the rail tint and the table's section bands, and those now mean
+    // something instead of competing with a third one.
+    <div className="flex min-h-svh flex-col bg-card lg:flex-row">
+      {/* 232px, not 200: the warnings are full sentences and wrap to five or
+          more lines each in a narrower rail. Below lg it stacks and the whole
+          page scrolls; from lg it is a full-height surface pinned to the
+          viewport, with only the inputs area scrolling, so that a venue with
+          three checks still leaves Courts reachable at row 26. */}
+      <aside className="w-full shrink-0 border-b bg-muted/50 lg:sticky lg:top-0 lg:flex
+                        lg:h-svh lg:w-58 lg:flex-col lg:border-r lg:border-b-0">
+        <div className="border-b px-4 py-3">
+          <Link to="/"
+            className="mb-1.5 inline-block text-[11px] text-muted-foreground transition-colors hover:text-foreground">
+            ← Venues
+          </Link>
+          <h1 className="text-lg font-semibold tracking-tight">{venue.name}</h1>
+        </div>
+        <div className="space-y-4 p-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+          <VenueInputsForm value={venue} onChange={onInputs} />
+          {warnings.length > 0 && (
+            <div className="border-t pt-4">
+              <WarningsPanel warnings={warnings} />
+            </div>
+          )}
+        </div>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Sticky so Save stays reachable on a long BOM. Opaque, or rows show
+            through it as they scroll under. */}
+        <div className="sticky top-0 z-10 flex h-13 shrink-0 flex-wrap items-center
+                        justify-end gap-1.5 border-b bg-card px-4">
+          <Button variant="outline" size="sm" className="h-auto bg-card px-[.55rem] py-[.25rem] text-[11px]"
+            onClick={recalculate}>
+            Recalculate
+          </Button>
+          <Button variant="outline" size="sm" className="h-auto bg-card px-[.55rem] py-[.25rem] text-[11px]"
+            onClick={() => exportMaterialsPdf(venue.name, lines, catalogAll)}>
+            Export PDF
+          </Button>
+          <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]" onClick={save}>
+            Save
+          </Button>
         </div>
 
-        <div className="flex flex-col lg:flex-row lg:items-stretch">
-          {/* 256px, not 200: the warnings are full sentences and wrap to five or
-              more lines each in a narrower rail. It scrolls internally so that a
-              venue with three checks still leaves Courts on screen at row 26 —
-              which is the whole reason the rail is sticky. */}
-          <div className="w-full space-y-4 border-b bg-background p-4 lg:w-64 lg:shrink-0
-                          lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto
-                          lg:rounded-bl-lg lg:border-r lg:border-b-0">
-            <VenueInputsForm value={venue} onChange={onInputs} />
-            {warnings.length > 0 && (
-              <div className="border-t pt-4">
-                <WarningsPanel warnings={warnings} />
-              </div>
-            )}
-          </div>
-
-          <div className="min-w-0 flex-1 p-4">
-            <MaterialsTable lines={lines} catalog={catalogAll}
-              formulas={formulas} onChange={setLines} isAdmin={role === 'admin'} />
-          </div>
+        <div className="min-w-0 flex-1 py-4">
+          <MaterialsTable lines={lines} catalog={catalogAll}
+            formulas={formulas} onChange={setLines} isAdmin={role === 'admin'} />
         </div>
       </div>
 

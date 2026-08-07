@@ -17,7 +17,9 @@ export function VenueInputsForm({ value, onChange }: Props) {
   const set = <K extends keyof VenueInputs>(k: K, v: VenueInputs[K]) =>
     onChange({ ...value, [k]: v })
 
-  const selectClass = 'h-8 w-full rounded-md border bg-background px-2 py-1 text-sm'
+  // bg-card, not bg-background: the rail is a tinted surface now, and a
+  // transparent control would pick the tint up instead of reading as a field.
+  const selectClass = 'h-8 w-full rounded-md border bg-card px-2 py-1 text-sm'
   const lb = 'text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground'
 
   return (
@@ -29,7 +31,7 @@ export function VenueInputsForm({ value, onChange }: Props) {
         <div className="space-y-1">
           <Label htmlFor="courts" className={lb}>Courts</Label>
           <Input id="courts" type="number" min="1" value={value.courts}
-            className="h-8"
+            className="h-8 bg-card"
             onChange={e => set('courts', Number(e.target.value))} />
         </div>
         <div className="space-y-1">
@@ -49,13 +51,13 @@ export function VenueInputsForm({ value, onChange }: Props) {
         <div className="space-y-1">
           <Label htmlFor="secCams" className={lb}>Security cameras</Label>
           <Input id="secCams" type="number" min="0" value={value.securityCameras}
-            className="h-8"
+            className="h-8 bg-card"
             onChange={e => set('securityCameras', Number(e.target.value))} />
         </div>
         <div className="space-y-1">
           <Label htmlFor="kisi" className={lb}>Kisi doors</Label>
           <Input id="kisi" type="number" min="0" value={value.kisiDoors}
-            className="h-8"
+            className="h-8 bg-card"
             onChange={e => set('kisiDoors', Number(e.target.value))} />
         </div>
         <div className="flex items-end gap-2 pb-1">

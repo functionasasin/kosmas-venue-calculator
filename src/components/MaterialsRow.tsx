@@ -86,7 +86,7 @@ export function MaterialsRow({
 
   const picker = (
     <select
-      className="w-full min-w-0 bg-transparent text-sm lg:w-auto lg:max-w-full"
+      className="w-full min-w-0 truncate bg-transparent text-sm lg:w-auto lg:max-w-full"
       aria-label={swapLabel}
       value={line.roleKey ?? ''}
       onChange={e => onSwap(e.target.value)}
@@ -121,11 +121,15 @@ export function MaterialsRow({
   )
 
   return (
+    // Full-row hover with a marker on the leading edge. At full-bleed width the
+    // Qty pill can sit 1400px from the item name, and this is what lets the eye
+    // follow one row across that gap — it replaces the max-width that used to
+    // keep the two columns close.
     <TableRow
       title={formula}
-      className="max-sm:flex max-sm:flex-col max-sm:gap-1 max-sm:p-2"
+      className="group/row hover:bg-muted/30 max-sm:flex max-sm:flex-col max-sm:gap-1 max-sm:p-2"
     >
-      <TableCell className="py-1 max-sm:block max-sm:w-full">
+      <TableCell className="py-1 pl-4 group-hover/row:shadow-[inset_2px_0_0_var(--foreground)] max-sm:block max-sm:w-full">
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">{picker}</div>
           {/* Replaces the Remove column below lg, matching spec §6's table.
@@ -148,14 +152,14 @@ export function MaterialsRow({
         )}
       </TableCell>
 
-      <TableCell className="hidden w-[140px] py-1 text-xs text-muted-foreground lg:table-cell">
+      <TableCell className="hidden w-[26%] truncate py-1 text-xs text-muted-foreground lg:table-cell">
         {formula}
       </TableCell>
 
       {/* The one and only quantity control. Below sm this cell becomes the
           card's second line and carries the formula beside it. */}
       <TableCell
-        className="w-14 py-1 text-right max-sm:flex max-sm:w-full max-sm:items-center
+        className="w-[110px] py-1 text-right max-sm:flex max-sm:w-full max-sm:items-center
                    max-sm:justify-between max-sm:gap-2"
       >
         <span className="hidden text-xs text-muted-foreground max-sm:inline">
@@ -164,7 +168,7 @@ export function MaterialsRow({
         <span className="max-sm:w-28">{qty}</span>
       </TableCell>
 
-      <TableCell className="hidden w-16 py-1 text-right lg:table-cell">
+      <TableCell className="hidden w-24 py-1 pr-4 text-right lg:table-cell">
         <Button size="sm" variant="ghost" onClick={onRemove}>Remove</Button>
       </TableCell>
 
