@@ -1,11 +1,12 @@
 import type { RoleKey } from './roleKeys'
 
-// tiers-reference.md § Basic is retired (2026-08-10) — the co-founders' original
-// breakdown had a Basic tier below Basic+, which PodPlay has since dropped;
-// Basic+ is now the lowest tier. Legacy 'basic' rows are read as 'basic_plus'
-// in data/venues.ts. Don't reintroduce the tier.
+// Two tiers were removed in 2026-08. Basic (retired 2026-08-10 — Basic+ covers
+// the entry case) and Pro+ (folded into Pro on 2026-08-10: nothing in the
+// engine ever read the tier to size a venue, so Pro+ drove no formula that
+// `kisiDoors`/`securityCameras` did not already drive). Legacy rows are read as
+// 'basic_plus' and 'pro' in data/venues.ts. Don't reintroduce either.
 export type Tier =
-  | 'basic_plus' | 'pro' | 'pro_plus'
+  | 'basic_plus' | 'pro'
   | 'autonomous' | 'autonomous_plus'
 
 export type Brand = 'podplay' | 'pingpod' | 'pickleball_kingdom'

@@ -9,19 +9,18 @@ export interface GateResult {
 // BBPOS terminals only. It is the lowest tier since Basic was retired.
 const NO_HARDWARE_TIERS: Tier[] = ['basic_plus']
 
-// tiers-reference.md § Tier capabilities matrix — security cameras are
-// Autonomous+ only (optionally Pro+ with custom monitoring). Plain Autonomous
-// has NO surveillance: its "some security features" is Kisi door/access
-// monitoring, not cameras.
-const SECURITY_CAMERA_TIERS: Tier[] = ['autonomous_plus', 'pro_plus']
+// Security cameras are Autonomous+ or Pro-with-monitoring (the old Pro+ case,
+// folded into Pro on 2026-08-10). Plain Autonomous has NO surveillance: its
+// "some security features" is Kisi door/access monitoring, not cameras — that
+// boundary is the whole Autonomous / Autonomous+ distinction and survives the
+// merge untouched.
+const SECURITY_CAMERA_TIERS: Tier[] = ['pro', 'autonomous_plus']
 
-// tiers-reference.md § Tier capabilities matrix — Kisi doors apply to
-// Autonomous, Autonomous+ and Pro+.
-const KISI_TIERS: Tier[] = ['autonomous', 'autonomous_plus', 'pro_plus']
-
-// tiers-reference.md § PH market note — Kisi hardware, NVRs and security
-// cameras are not stocked in PH and ship from the US/HK.
-const LONG_LEAD_TIME_TIERS: Tier[] = ['pro_plus', 'autonomous', 'autonomous_plus']
+// There is deliberately no KISI_TIERS gate. Before the Pro/Pro+ merge it read
+// ['autonomous', 'autonomous_plus', 'pro_plus']; with Pro absorbing Pro+ the
+// only remaining tier that forbids doors is Basic+, which is already blocked
+// above for having no hardware at all. A gate listing every reachable tier is
+// unreachable code, so it was removed rather than left to look load-bearing.
 
 export function evaluateGates(inputs: VenueInputs): GateResult {
   const warnings: Warning[] = []
@@ -72,21 +71,9 @@ export function evaluateGates(inputs: VenueInputs): GateResult {
         code: 'INPUT_INCONSISTENT',
         level: 'error',
         message:
-          'Security cameras apply to Autonomous+ (or Pro+ with monitoring) ' +
-          'only. On other tiers they would silently upgrade the switch SKU.',
-      }],
-    }
-  }
-
-  if (inputs.kisiDoors > 0 && !KISI_TIERS.includes(inputs.tier)) {
-    return {
-      blocked: true,
-      warnings: [{
-        code: 'INPUT_INCONSISTENT',
-        level: 'error',
-        message:
-          'Kisi doors apply to Autonomous, Autonomous+ and Pro+ only. ' +
-          'On other tiers they would silently change the gateway SKU.',
+          'Security cameras apply to Pro (with monitoring) and Autonomous+ ' +
+          'only. Autonomous is access control without surveillance — adding ' +
+          'cameras there would upgrade the switch SKU for a tier that has none.',
       }],
     }
   }
@@ -110,13 +97,20 @@ export function evaluateGates(inputs: VenueInputs): GateResult {
     }
   }
 
-  if (inputs.tier === 'pro_plus') {
+  // Was scoped to the Pro+ tier. It is really a property of having custom
+  // access/monitoring bolted onto Pro — which is what Pro+ meant — so it now
+  // keys off the inputs that constitute it. A plain Pro venue no longer gets a
+  // "not canonical" caveat it never needed, and a Pro venue with doors or
+  // cameras gets it whether or not anyone remembered to label the deal.
+  const customAccess = inputs.kisiDoors > 0 || inputs.securityCameras > 0
+
+  if (inputs.tier === 'pro' && customAccess) {
     warnings.push({
       code: 'TIER_NOT_CANONICAL',
       level: 'warn',
       message:
-        'Pro+ has no canonical BOM — confirm scope per deal. Treat this ' +
-        'output as a starting point.',
+        'Pro with door access or security cameras has no canonical BOM — ' +
+        'confirm scope per deal. Treat this output as a starting point.',
     })
   }
 
@@ -162,8 +156,11 @@ export function evaluateGates(inputs: VenueInputs): GateResult {
     })
   }
 
-  // tiers-reference.md § PH market note
-  if (LONG_LEAD_TIME_TIERS.includes(inputs.tier)) {
+  // tiers-reference.md § PH market note. Also de-tiered: the lead time belongs
+  // to the imported hardware, not to the label. Scoped to tiers it fired on a
+  // Pro+ venue with zero doors and zero cameras — a warning about hardware the
+  // venue was not buying, which is how warnings get ignored.
+  if (customAccess || inputs.tier === 'autonomous' || inputs.tier === 'autonomous_plus') {
     warnings.push({
       code: 'TIER_LEAD_TIME',
       level: 'warn',

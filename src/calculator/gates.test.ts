@@ -29,8 +29,18 @@ describe('evaluateGates', () => {
     expect(r.warnings[0].code).toBe('BRAND_UNSUPPORTED')
   })
 
-  it('blocks security cameras on Pro tier, because they silently upgrade the switch SKU', () => {
-    const r = evaluateGates({ ...base, securityCameras: 4 })
+  // Pro permits cameras since it absorbed Pro+, whose court-side list had
+  // "optional security cameras". planSwitches reads securityCameras directly,
+  // so the upgraded switch SKU it produces is correct for a venue that has them.
+  it('allows security cameras on Pro, because Pro+ permitted them and Pro absorbed Pro+', () => {
+    expect(evaluateGates({ ...base, securityCameras: 4 }).blocked).toBe(false)
+  })
+
+  // The one camera gate that survives the merge, and the load-bearing one:
+  // Autonomous is access control WITHOUT surveillance. This is the whole
+  // Autonomous / Autonomous+ boundary, and it has been collapsed before.
+  it('still blocks security cameras on Autonomous, because that tier has no surveillance at all', () => {
+    const r = evaluateGates({ ...base, tier: 'autonomous', kisiDoors: 2, securityCameras: 4 })
     expect(r.blocked).toBe(true)
     expect(r.warnings[0].code).toBe('INPUT_INCONSISTENT')
   })
@@ -41,14 +51,32 @@ describe('evaluateGates', () => {
     }).blocked).toBe(false)
   })
 
-  it('blocks Kisi doors on Pro tier', () => {
-    expect(evaluateGates({ ...base, kisiDoors: 2 }).blocked).toBe(true)
-  })
-
-  it('warns without blocking on Pro+, because its BOM is not canonicalized', () => {
-    const r = evaluateGates({ ...base, tier: 'pro_plus' })
+  // Pro absorbed Pro+ on 2026-08-10, so doors on Pro are now the supported way
+  // to spec the old Pro+ deal rather than an inconsistency. The BOM was always
+  // input-driven — pickGateway reads kisiDoors, never the tier — so a door
+  // count here yields the UDM-SE it always would have.
+  it('allows Kisi doors on Pro and warns instead of blocking, because Pro absorbed Pro+', () => {
+    const r = evaluateGates({ ...base, kisiDoors: 2 })
     expect(r.blocked).toBe(false)
     expect(r.warnings.map(w => w.code)).toContain('TIER_NOT_CANONICAL')
+  })
+
+  // The caveat belongs to having custom access/monitoring, not to a tier label.
+  // Scoped to the tier it fired on a Pro+ venue with nothing bolted on, and
+  // stayed silent on a Pro deal that had doors but was never relabelled.
+  it('leaves an ordinary Pro venue with no caveats at all, so the warning still means something', () => {
+    const r = evaluateGates(base)
+    expect(r.warnings.map(w => w.code)).not.toContain('TIER_NOT_CANONICAL')
+    expect(r.warnings.map(w => w.code)).not.toContain('TIER_LEAD_TIME')
+  })
+
+  // Lead time is a property of the imported hardware, not of the label. A Pro
+  // venue with cameras is buying exactly the stock that ships from US/HK.
+  it('warns about lead time whenever imported hardware is specced, tier notwithstanding', () => {
+    expect(evaluateGates({ ...base, securityCameras: 3 }).warnings.map(w => w.code))
+      .toContain('TIER_LEAD_TIME')
+    expect(evaluateGates({ ...base, tier: 'autonomous', kisiDoors: 1 }).warnings.map(w => w.code))
+      .toContain('TIER_LEAD_TIME')
   })
 
   it('warns without blocking on Autonomous+, because NVR and HDD rack U are excluded', () => {
