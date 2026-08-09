@@ -1,7 +1,11 @@
 import type { RoleKey } from './roleKeys'
 
+// tiers-reference.md § Basic is retired (2026-08-10) — the co-founders' original
+// breakdown had a Basic tier below Basic+, which PodPlay has since dropped;
+// Basic+ is now the lowest tier. Legacy 'basic' rows are read as 'basic_plus'
+// in data/venues.ts. Don't reintroduce the tier.
 export type Tier =
-  | 'basic' | 'basic_plus' | 'pro' | 'pro_plus'
+  | 'basic_plus' | 'pro' | 'pro_plus'
   | 'autonomous' | 'autonomous_plus'
 
 export type Brand = 'podplay' | 'pingpod' | 'pickleball_kingdom'

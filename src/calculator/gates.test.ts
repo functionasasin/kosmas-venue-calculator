@@ -17,14 +17,10 @@ describe('evaluateGates', () => {
     expect(r.warnings).toHaveLength(0)
   })
 
-  it('blocks Basic tier, because BBPOS terminals are the whole footprint and a rack BOM would be a lie', () => {
-    const r = evaluateGates({ ...base, tier: 'basic' })
+  it('blocks Basic+, because BBPOS terminals are the whole footprint and a rack BOM would be a lie', () => {
+    const r = evaluateGates({ ...base, tier: 'basic_plus' })
     expect(r.blocked).toBe(true)
     expect(r.warnings[0].code).toBe('TIER_NO_HARDWARE')
-  })
-
-  it('blocks Basic+ for the same reason', () => {
-    expect(evaluateGates({ ...base, tier: 'basic_plus' }).blocked).toBe(true)
   })
 
   it('blocks PingPod, because its audio stack and port expansion are unimplemented', () => {

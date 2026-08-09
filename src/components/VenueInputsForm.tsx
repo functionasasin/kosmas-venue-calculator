@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 
 const TIERS: Tier[] = [
-  'basic', 'basic_plus', 'pro', 'pro_plus', 'autonomous', 'autonomous_plus',
+  'basic_plus', 'pro', 'pro_plus', 'autonomous', 'autonomous_plus',
 ]
 const BRANDS: Brand[] = ['podplay', 'pickleball_kingdom', 'pingpod']
 

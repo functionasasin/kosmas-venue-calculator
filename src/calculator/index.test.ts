@@ -71,8 +71,8 @@ describe('worked example: 14-court Pro venue', () => {
 })
 
 describe('gates short-circuit the whole calculation', () => {
-  it('returns no lines for Basic tier', () => {
-    const r = run(pro(8, { tier: 'basic' }))
+  it('returns no lines for Basic+ tier', () => {
+    const r = run(pro(8, { tier: 'basic_plus' }))
     expect(r.lines).toHaveLength(0)
     expect(r.codes).toContain('TIER_NO_HARDWARE')
   })

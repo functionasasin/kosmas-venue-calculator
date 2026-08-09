@@ -5,9 +5,9 @@ export interface GateResult {
   warnings: Warning[]
 }
 
-// tiers-reference.md § Hardware footprint per tier — Basic and Basic+ have no
-// rack kit; BBPOS terminals only.
-const NO_HARDWARE_TIERS: Tier[] = ['basic', 'basic_plus']
+// tiers-reference.md § Hardware footprint per tier — Basic+ has no rack kit;
+// BBPOS terminals only. It is the lowest tier since Basic was retired.
+const NO_HARDWARE_TIERS: Tier[] = ['basic_plus']
 
 // tiers-reference.md § Tier capabilities matrix — security cameras are
 // Autonomous+ only (optionally Pro+ with custom monitoring). Plain Autonomous
@@ -44,9 +44,9 @@ export function evaluateGates(inputs: VenueInputs): GateResult {
         code: 'TIER_NO_HARDWARE',
         level: 'error',
         message:
-          'Basic and Basic+ venues have no rack kit — BBPOS terminals only. ' +
-          'The two tiers are hardware-identical; the difference is software ' +
-          '(web app vs native apps). There is nothing here for this tool to size.',
+          'Basic+ venues have no rack kit — BBPOS terminals only. Everything ' +
+          'else in the tier is software. There is nothing here for this tool ' +
+          'to size.',
       }],
     }
   }

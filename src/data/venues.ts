@@ -6,11 +6,19 @@ export interface Venue extends VenueInputs {
   name: string
 }
 
+// tiers-reference.md § Basic is retired (2026-08-10): "If you find 'Basic' in
+// an older deck, spreadsheet field, or quote, read it as Basic+." The tier
+// column is plain `text` with no check constraint, so a row written before the
+// retirement still says 'basic'. Coercing on read keeps it out of the Tier
+// union — otherwise the select renders a value matching no option and silently
+// displays some other tier as current.
+export const readTier = (v: unknown): Tier => (v === 'basic' ? 'basic_plus' : v as Tier)
+
 const fromRow = (r: Record<string, unknown>): Venue => ({
   id: r.id as string,
   name: r.name as string,
   courts: r.courts as number,
-  tier: r.tier as Tier,
+  tier: readTier(r.tier),
   securityCameras: r.security_cameras as number,
   kisiDoors: r.kisi_doors as number,
   brand: r.brand as Brand,

@@ -19,13 +19,13 @@ The spec and plan cite `docs/podplay-ph-venue-sizing.md` (the sizing authority),
 
 Don't copy them here — the sizing doc is still being edited there, and a copy would fork into a competing authority. Rule changes go: edit the sizing doc first, then the code. Never modify `podplay-bom-reference.md` (read-only sheet dump).
 
-## The 6-tier model
+## The 5-tier model
 
-`Tier` is `basic | basic_plus | pro | pro_plus | autonomous | autonomous_plus`. Full definitions in `podplay-tiers-reference.md`; what matters when writing formulas:
+`Tier` is `basic_plus | pro | pro_plus | autonomous | autonomous_plus`. Full definitions in `podplay-tiers-reference.md`; what matters when writing formulas:
 
 | Tier | Rack | Court-side | In this tool |
 |---|---|---|---|
-| Basic / Basic+ | none | BBPOS terminals only | blocked — nothing to size |
+| Basic+ | none | BBPOS terminals only | blocked — nothing to size |
 | Pro | Mac mini · UDM · USW-Pro · UPS · patch panel | display · iPad · Apple TV · replay cam · PoE adapter · Flic | fully covered |
 | Pro+ | Pro + partial Kisi + optional NVR | Pro + optional readers/cameras | computed as a starting point |
 | Autonomous | Pro + Kisi Controller Pro 2 (1 per 4 doors), **no NVR** | Pro + Reader Pro 2.1/door + push-to-exit on mag-lock doors, **no security cameras** | Kisi kit added by hand |
@@ -33,7 +33,7 @@ Don't copy them here — the sizing doc is still being edited there, and a copy 
 
 **Autonomous and Autonomous+ are not interchangeable.** The boundary is surveillance: Autonomous is access control only. A warning that tells an Autonomous venue it's missing an NVR is wrong. `security_cameras > 0` is valid on Autonomous+ / Pro+ only; `kisi_doors > 0` on Autonomous / Autonomous+ / Pro+.
 
-**Basic and Basic+ are hardware-identical** — the difference is software (web app vs native iOS/Android). Don't word the block as though Basic+ adds hardware.
+**Basic was retired on 2026-08-10 and Basic+ is now the lowest tier.** The co-founders' original breakdown had a Basic tier below Basic+; PodPlay dropped it because bare Basic doesn't sell in SEA/Asia — customers here want the deployment customized, so Basic+ is the realistic entry case. Don't reintroduce it. Basic+ adds no hardware over the retired tier — BBPOS terminals are the entire footprint and everything else in the tier is software — so don't word the block as though Basic+ adds hardware. Note the tiers doc describes that software as "native iOS + Android apps"; that is PodPlay's claim, unverified here, and it has no bearing on sizing either way. `venues.tier` is plain `text` with no check constraint, so rows written before the retirement can still hold `'basic'`; `readTier` in `src/data/venues.ts` coerces those to `basic_plus` on read, per the doc's "read it as Basic+".
 
 **On tier semantics, `podplay-tiers-reference.md` outranks the sizing doc.** The sizing doc is the authority for *sizing*; for what a tier includes the order is co-founder tier definitions → spreadsheet hardware gating → other PodPlay docs. PodPlay's own materials disagree with each other, and the tiers doc is the resolution. Pro+ isn't in the calculation spreadsheet at all, which is why it has no formula-driven BOM.
 
