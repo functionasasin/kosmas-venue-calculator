@@ -2,10 +2,10 @@ import type { VenueInputs, Tier, Brand } from '@/calculator/types'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { tierOptionLabel } from '@/lib/tierLabel'
+import { tierLabel } from '@/lib/tierLabel'
 
 const TIERS: Tier[] = [
-  'basic_plus', 'pro', 'autonomous', 'autonomous_plus',
+  'basic_plus', 'pro', 'pro_plus', 'autonomous', 'autonomous_plus',
 ]
 const BRANDS: Brand[] = ['podplay', 'pickleball_kingdom', 'pingpod']
 
@@ -39,11 +39,8 @@ export function VenueInputsForm({ value, onChange }: Props) {
           <Label htmlFor="tier" className={lb}>Tier</Label>
           <select id="tier" className={selectClass} value={value.tier}
             onChange={e => set('tier', e.target.value as Tier)}>
-            {/* Pro is offered as "Pro / Pro+" — one stored value covering both,
-                since which one a venue is depends on doors and cameras that
-                have not been entered yet at the moment of choosing. */}
             {TIERS.map(t => (
-              <option key={t} value={t}>{tierOptionLabel(t)}</option>
+              <option key={t} value={t}>{tierLabel(t)}</option>
             ))}
           </select>
         </div>

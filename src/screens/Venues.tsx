@@ -90,9 +90,7 @@ export function Venues() {
                   {v.name}
                 </TableCell>
                 <TableCell className="py-1.5 text-right tabular-nums">{v.courts}</TableCell>
-                {/* Resolved, not raw: a Pro venue with doors reads "Pro+" here
-                    exactly as it will on its exported sheet. */}
-                <TableCell className="py-1.5 pr-4">{tierLabel(v)}</TableCell>
+                <TableCell className="py-1.5 pr-4">{tierLabel(v.tier)}</TableCell>
               </TableRow>
             ))}
             {venues.length === 0 && (

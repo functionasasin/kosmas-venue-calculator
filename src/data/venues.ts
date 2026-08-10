@@ -6,13 +6,15 @@ export interface Venue extends VenueInputs {
   name: string
 }
 
-// Two tiers were removed in 2026-08 and the `tier` column is plain `text` with
-// no check constraint, so rows written before then still hold the old values.
-// tiers-reference.md § Basic is retired: "If you find 'Basic' ... read it as
-// Basic+." Pro+ folded into Pro on the same principle. Coercing on read keeps
-// them out of the Tier union — otherwise the select renders a value matching
-// no option and silently displays some other tier as current.
-const RETIRED: Record<string, Tier> = { basic: 'basic_plus', pro_plus: 'pro' }
+// tiers-reference.md § Basic is retired (2026-08-10): "If you find 'Basic' in
+// an older deck, spreadsheet field, or quote, read it as Basic+." The tier
+// column is plain `text` with no check constraint, so a row written before the
+// retirement still says 'basic'. Coercing on read keeps it out of the Tier
+// union — otherwise the select renders a value matching no option and silently
+// displays some other tier as current.
+//
+// 'pro_plus' is NOT in here: Pro+ is a live tier, not a retired one.
+const RETIRED: Record<string, Tier> = { basic: 'basic_plus' }
 
 export const readTier = (v: unknown): Tier =>
   RETIRED[v as string] ?? (v as Tier)

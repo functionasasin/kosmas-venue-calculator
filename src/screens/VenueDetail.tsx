@@ -82,11 +82,10 @@ export function VenueDetail() {
 
   const diff = pending ? diffLines(lines, pending) : []
 
-  // The table is a snapshot from the last recalculation; the checks and the
-  // exported sheet's tier read the inputs live. Between an input edit and a
-  // recalculation those disagree — a venue can print "Tier: Pro+" over a line
-  // list still naming the Pro gateway. This is what detects that gap, using
-  // the same merge the Recalculate dialog previews.
+  // The table is a snapshot from the last recalculation, while the checks read
+  // the inputs live. Edit courts from 8 to 12 and the sheet still exports the
+  // 8-court quantities, with nothing on the page saying so. This detects that
+  // gap using the same merge the Recalculate dialog previews.
   const staleRows = useMemo(
     () => (result ? diffLines(lines, mergeRecalculation(lines, result.lines)) : []),
     [result, lines],
@@ -106,7 +105,7 @@ export function VenueDetail() {
   const doExport = () => {
     if (!venue) return
     setStaleExport(false)
-    exportMaterialsPdf(venue.name, tierLabel(venue), lines, catalogAll)
+    exportMaterialsPdf(venue.name, tierLabel(venue.tier), lines, catalogAll)
   }
 
   const onInputs = (inputs: VenueInputs) =>
@@ -189,9 +188,9 @@ export function VenueDetail() {
         <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Inputs changed since this list was calculated</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">
-            The sheet would be headed <strong>{tierLabel(venue)}</strong> but its
-            lines still reflect the previous inputs. Recalculating first keeps the
-            two consistent.
+            These lines still reflect the inputs as they were at the last
+            recalculation. Exporting now hands over quantities that do not match
+            the venue on screen.
           </p>
           <pre className="max-h-56 overflow-auto rounded-md bg-muted p-3 text-xs">
             {staleRows.join('\n')}

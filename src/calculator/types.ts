@@ -1,12 +1,17 @@
 import type { RoleKey } from './roleKeys'
 
-// Two tiers were removed in 2026-08. Basic (retired 2026-08-10 — Basic+ covers
-// the entry case) and Pro+ (folded into Pro on 2026-08-10: nothing in the
-// engine ever read the tier to size a venue, so Pro+ drove no formula that
-// `kisiDoors`/`securityCameras` did not already drive). Legacy rows are read as
-// 'basic_plus' and 'pro' in data/venues.ts. Don't reintroduce either.
+// tiers-reference.md § Basic is retired (2026-08-10) — Basic+ covers the entry
+// case and is now the lowest tier. Legacy 'basic' rows are read as 'basic_plus'
+// in data/venues.ts. Don't reintroduce it.
+//
+// Pro+ IS distinct from Pro and must stay so. The capabilities matrix gives Pro
+// Door Access "No" and Remote Monitoring "No"; Pro+ gets "Partial / Custom" and
+// "Optional". Folding Pro+ into Pro was tried on 2026-08-10 and reverted: it is
+// true that no sizing module reads `tier`, but the gates in gates.ts do, and
+// those gates are what the tier means. Merging them let a Pro venue be specced
+// with the very door access and cameras that define it as not-Pro.
 export type Tier =
-  | 'basic_plus' | 'pro'
+  | 'basic_plus' | 'pro' | 'pro_plus'
   | 'autonomous' | 'autonomous_plus'
 
 export type Brand = 'podplay' | 'pingpod' | 'pickleball_kingdom'
