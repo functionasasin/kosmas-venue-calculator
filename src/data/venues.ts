@@ -39,6 +39,21 @@ export async function getVenue(id: string): Promise<Venue> {
   return fromRow(data)
 }
 
+/**
+ * Hard delete. `venue_lines.venue_id` is `on delete cascade`, so the venue's
+ * whole materials list goes with it and there is nothing to clean up after —
+ * and nothing to recover either. Callers must confirm first.
+ *
+ * Not admin-gated, deliberately: the `venues` RLS policy is
+ * `for all to authenticated using (true)`, so every signed-in account can
+ * already delete through the API. A role check here would look like a boundary
+ * without being one — the same trap `0002_rls.sql` warns about.
+ */
+export async function deleteVenue(id: string) {
+  const { error } = await supabase.from('venues').delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function saveVenue(v: Partial<Venue> & { name: string }) {
   const row = {
     ...(v.id ? { id: v.id } : {}),
