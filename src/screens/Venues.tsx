@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { listVenues, saveVenue, type Venue } from '@/data/venues'
 import { useRole } from '@/auth/useRole'
+import { tierLabel } from '@/lib/tierLabel'
 import { useAuth } from '@/auth/AuthProvider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -89,7 +90,9 @@ export function Venues() {
                   {v.name}
                 </TableCell>
                 <TableCell className="py-1.5 text-right tabular-nums">{v.courts}</TableCell>
-                <TableCell className="py-1.5 pr-4">{v.tier}</TableCell>
+                {/* Resolved, not raw: a Pro venue with doors reads "Pro+" here
+                    exactly as it will on its exported sheet. */}
+                <TableCell className="py-1.5 pr-4">{tierLabel(v)}</TableCell>
               </TableRow>
             ))}
             {venues.length === 0 && (

@@ -86,26 +86,38 @@ export function buildPdfBody(
   return { rows, headerRowIndices }
 }
 
+/**
+ * `tierLabel` is passed in already resolved rather than derived here — Pro and
+ * Pro+ are one stored tier, and which of the two a venue is depends on its door
+ * and camera counts. Keeping that in lib/tierLabel.ts means the PDF and the
+ * screen cannot disagree about what a venue is called.
+ *
+ * Titled "HARDWARE ITEMS" — it describes what is on the page. The sheet carries
+ * no prices, and that exclusion is deliberate and tested, so a pricing-flavoured
+ * title would promise something the document does not contain.
+ */
 export function exportMaterialsPdf(
   venueName: string,
+  tierLabel: string,
   lines: StoredLine[],
   catalog: Item[],
 ): void {
   const doc = new jsPDF()
 
   doc.setFontSize(16)
-  doc.text('MATERIALS', 14, 20)
+  doc.text('HARDWARE ITEMS', 14, 20)
   doc.setFontSize(12)
   doc.text(venueName, 14, 28)
   doc.setFontSize(10)
+  doc.text(`Tier: ${tierLabel}`, 14, 35)
   doc.text(`Date: ${new Date().toLocaleDateString('en-PH', {
     year: 'numeric', month: 'long', day: 'numeric',
-  })}`, 14, 35)
+  })}`, 14, 41)
 
   const { rows, headerRowIndices } = buildPdfBody(lines, catalog)
 
   autoTable(doc, {
-    startY: 42,
+    startY: 48,
     head: [['Item / Model', 'Qty']],
     body: rows,
     styles: { fontSize: 9 },
@@ -121,12 +133,12 @@ export function exportMaterialsPdf(
 
   const finalY =
     (doc as unknown as { lastAutoTable?: { finalY: number } })
-      .lastAutoTable?.finalY ?? 42
+      .lastAutoTable?.finalY ?? 48
   doc.setFontSize(8)
   doc.text(
     'Cabling is specified separately and is excluded from this list.',
     14, finalY + 8,
   )
 
-  doc.save(`materials-${venueName.toLowerCase().replace(/\s+/g, '-')}.pdf`)
+  doc.save(`hardware-items-${venueName.toLowerCase().replace(/\s+/g, '-')}.pdf`)
 }

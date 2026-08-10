@@ -205,9 +205,31 @@ describe('the exported PDF footer', () => {
   // deleted. Deleting it currently keeps every other test in this file green.
   it('states that cabling is excluded, on every export', () => {
     textCalls.length = 0
-    exportMaterialsPdf('Test Venue', lines, catalog)
+    exportMaterialsPdf('Test Venue', 'Pro', lines, catalog)
     expect(textCalls.some(t =>
       t.includes('Cabling is specified separately and is excluded from this list.'),
     )).toBe(true)
+  })
+})
+
+describe('the exported PDF header', () => {
+  // This sheet is handed to a client, and it carries no prices by design —
+  // that omission is enforced elsewhere in this file. The title has to keep
+  // describing the contents, or the document promises something it lacks.
+  it('is titled for the hardware it lists, never for pricing it does not carry', () => {
+    textCalls.length = 0
+    exportMaterialsPdf('Test Venue', 'Pro', lines, catalog)
+    expect(textCalls.some(t => t.includes('HARDWARE ITEMS'))).toBe(true)
+    expect(textCalls.some(t => /pricing|price|cost|₱/i.test(t))).toBe(false)
+  })
+
+  // Pro and Pro+ are one stored tier resolved from the door and camera counts,
+  // so the sheet prints whichever the venue actually is. Printing the raw
+  // stored value would label every Pro+ deployment "pro" on the handout.
+  it('prints the resolved tier it was given, not a stored tier key', () => {
+    textCalls.length = 0
+    exportMaterialsPdf('Test Venue', 'Pro+', lines, catalog)
+    expect(textCalls.some(t => t === 'Tier: Pro+')).toBe(true)
+    expect(textCalls.some(t => /pro_plus|basic_plus|autonomous_plus/.test(t))).toBe(false)
   })
 })

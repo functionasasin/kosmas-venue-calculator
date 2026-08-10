@@ -9,10 +9,31 @@ import { VenueInputsForm } from '@/components/VenueInputsForm'
 import { MaterialsTable } from '@/components/MaterialsTable'
 import { WarningsPanel } from '@/components/WarningsPanel'
 import { exportMaterialsPdf } from '@/pdf/exportMaterials'
+import { tierLabel } from '@/lib/tierLabel'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useRole } from '@/auth/useRole'
 import { toast } from 'sonner'
+
+/**
+ * Role-keyed comparison of two line sets, rendered for the diff dialog. Shared
+ * by the Recalculate preview and the staleness check so the two can never
+ * disagree about whether anything would change.
+ */
+function diffLines(before: StoredLine[], after: StoredLine[]): string[] {
+  const prev = new Map(before.map(l => [l.roleKey, l]))
+  const next = new Map(after.map(l => [l.roleKey, l]))
+  const rows: string[] = []
+  for (const [role, l] of next) {
+    const was = prev.get(role)
+    if (!was) rows.push(`+ ${role}: ${l.qty}`)
+    else if (was.qty !== l.qty) rows.push(`~ ${role}: ${was.qty} → ${l.qty}`)
+  }
+  for (const [role] of prev) {
+    if (!next.has(role)) rows.push(`− ${role}: removed`)
+  }
+  return rows
+}
 
 export function VenueDetail() {
   const { id } = useParams<{ id: string }>()
@@ -59,21 +80,18 @@ export function VenueDetail() {
     setPending(mergeRecalculation(lines, result.lines))
   }
 
-  const diff = (() => {
-    if (!pending) return []
-    const before = new Map(lines.map(l => [l.roleKey, l]))
-    const after = new Map(pending.map(l => [l.roleKey, l]))
-    const rows: string[] = []
-    for (const [role, l] of after) {
-      const prev = before.get(role)
-      if (!prev) rows.push(`+ ${role}: ${l.qty}`)
-      else if (prev.qty !== l.qty) rows.push(`~ ${role}: ${prev.qty} → ${l.qty}`)
-    }
-    for (const [role] of before) {
-      if (!after.has(role)) rows.push(`− ${role}: removed`)
-    }
-    return rows
-  })()
+  const diff = pending ? diffLines(lines, pending) : []
+
+  // The table is a snapshot from the last recalculation; the checks and the
+  // exported sheet's tier read the inputs live. Between an input edit and a
+  // recalculation those disagree — a venue can print "Tier: Pro+" over a line
+  // list still naming the Pro gateway. This is what detects that gap, using
+  // the same merge the Recalculate dialog previews.
+  const staleRows = useMemo(
+    () => (result ? diffLines(lines, mergeRecalculation(lines, result.lines)) : []),
+    [result, lines],
+  )
+  const stale = staleRows.length > 0
 
   // Only an empty venue is populated automatically. Applying on every load
   // would resurrect lines the user suppressed.
@@ -82,6 +100,14 @@ export function VenueDetail() {
       setLines(current => mergeRecalculation(current, result.lines))
     }
   }, [result, lines.length])
+
+  const [staleExport, setStaleExport] = useState(false)
+
+  const doExport = () => {
+    if (!venue) return
+    setStaleExport(false)
+    exportMaterialsPdf(venue.name, tierLabel(venue), lines, catalogAll)
+  }
 
   const onInputs = (inputs: VenueInputs) =>
     setVenue(v => (v ? { ...v, ...inputs } : v))
@@ -137,9 +163,15 @@ export function VenueDetail() {
           <Button variant="outline" size="sm" className="h-auto bg-card px-[.55rem] py-[.25rem] text-[11px]"
             onClick={recalculate}>
             Recalculate
+            {/* The table is stale relative to the inputs. Marking the button is
+                what stops the export warning being the first anyone hears of it. */}
+            {stale && (
+              <span aria-hidden className="ml-1 inline-block size-1.5 rounded-full bg-yellow-500" />
+            )}
+            {stale && <span className="sr-only">(inputs have changed)</span>}
           </Button>
           <Button variant="outline" size="sm" className="h-auto bg-card px-[.55rem] py-[.25rem] text-[11px]"
-            onClick={() => exportMaterialsPdf(venue.name, lines, catalogAll)}>
+            onClick={() => (stale ? setStaleExport(true) : doExport())}>
             Export PDF
           </Button>
           <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]" onClick={save}>
@@ -152,6 +184,26 @@ export function VenueDetail() {
             formulas={formulas} onChange={setLines} isAdmin={role === 'admin'} />
         </div>
       </div>
+
+      <Dialog open={staleExport} onOpenChange={setStaleExport}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Inputs changed since this list was calculated</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            The sheet would be headed <strong>{tierLabel(venue)}</strong> but its
+            lines still reflect the previous inputs. Recalculating first keeps the
+            two consistent.
+          </p>
+          <pre className="max-h-56 overflow-auto rounded-md bg-muted p-3 text-xs">
+            {staleRows.join('\n')}
+          </pre>
+          <div className="flex gap-2">
+            <Button onClick={() => { setStaleExport(false); recalculate() }}>
+              Recalculate first
+            </Button>
+            <Button variant="outline" onClick={doExport}>Export anyway</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={pending !== null} onOpenChange={o => !o && setPending(null)}>
         <DialogContent className="max-h-[85vh] overflow-y-auto">
