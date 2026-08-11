@@ -27,3 +27,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local Supabase CLI state and data snapshots — neither belongs in git.
+supabase/.temp/
+backups/
