@@ -5,26 +5,32 @@ export interface GateResult {
   warnings: Warning[]
 }
 
-// tiers-reference.md § Hardware footprint per tier — Basic+ has no rack kit;
-// BBPOS terminals only. It is the lowest tier since Basic was retired.
-const NO_HARDWARE_TIERS: Tier[] = ['basic_plus']
+// tiers-reference.md § Hardware footprint per tier — neither of the two lowest
+// tiers has a rack kit. They differ only in software (Basic is the booking
+// website; Basic+ adds a cross-platform owner app), which is why they share a
+// gate but not a message.
+const NO_HARDWARE_TIERS: Tier[] = ['basic', 'basic_plus']
 
 // tiers-reference.md § Tier capabilities matrix — security cameras are
-// Autonomous+ only (optionally Pro+ with custom monitoring). Plain Autonomous
-// has NO surveillance: its "some security features" is Kisi door/access
-// monitoring, not cameras. Plain Pro has none either — the matrix gives it
-// Remote Monitoring "No".
-const SECURITY_CAMERA_TIERS: Tier[] = ['autonomous_plus', 'pro_plus']
+// Autonomous+ only. Plain Autonomous has NO surveillance: its "some security
+// features" is Kisi door/access monitoring, not cameras. Pro has none either —
+// the matrix gives it Remote Monitoring "No".
+const SECURITY_CAMERA_TIERS: Tier[] = ['autonomous_plus']
 
-// tiers-reference.md § Tier capabilities matrix — Kisi doors apply to
-// Autonomous, Autonomous+ and Pro+. Pro is Door Access "No", and this gate is
-// what enforces that. These two lists are not bookkeeping: they are the
-// definition of the tiers, and deleting them makes Pro and Pro+ the same thing.
-const KISI_TIERS: Tier[] = ['autonomous', 'autonomous_plus', 'pro_plus']
+// tiers-reference.md § Tier capabilities matrix — Kisi doors start at
+// Autonomous. Pro is Door Access "No", and this gate is what enforces it.
+//
+// These two lists are not bookkeeping: they are what the tiers mean. No sizing
+// module reads `inputs.tier` — pickGateway keys off kisiDoors, planSwitches off
+// the camera/door/court counts — so these gates are the only thing standing
+// between a tier and hardware that tier does not include. Deleting them does
+// not merge two labels; it lets a Pro venue be specced with the very door
+// access that defines it as not-Pro. Tried on 2026-08-10, reverted same day.
+const KISI_TIERS: Tier[] = ['autonomous', 'autonomous_plus']
 
 // tiers-reference.md § PH market note — Kisi hardware, NVRs and security
 // cameras are not stocked in PH and ship from the US/HK.
-const LONG_LEAD_TIME_TIERS: Tier[] = ['pro_plus', 'autonomous', 'autonomous_plus']
+const LONG_LEAD_TIME_TIERS: Tier[] = ['autonomous', 'autonomous_plus']
 
 export function evaluateGates(inputs: VenueInputs): GateResult {
   const warnings: Warning[] = []
@@ -46,10 +52,12 @@ export function evaluateGates(inputs: VenueInputs): GateResult {
       warnings: [{
         code: 'TIER_NO_HARDWARE',
         level: 'error',
-        message:
-          'Basic+ venues have no rack kit — BBPOS terminals only. Everything ' +
-          'else in the tier is software. There is nothing here for this tool ' +
-          'to size.',
+        message: inputs.tier === 'basic'
+          ? 'Basic venues have no hardware at all — the booking website is ' +
+            'the entire deliverable. There is nothing here for this tool to size.'
+          : 'Basic+ venues have no rack kit — BBPOS terminals only. ' +
+            'Everything else in the tier is software, including the owner ' +
+            'app. There is nothing here for this tool to size.',
       }],
     }
   }
@@ -75,8 +83,8 @@ export function evaluateGates(inputs: VenueInputs): GateResult {
         code: 'INPUT_INCONSISTENT',
         level: 'error',
         message:
-          'Security cameras apply to Autonomous+ (or Pro+ with monitoring) ' +
-          'only. On other tiers they would silently upgrade the switch SKU.',
+          'Security cameras apply to Autonomous+ only. On other tiers they ' +
+          'would silently upgrade the switch SKU.',
       }],
     }
   }
@@ -88,8 +96,9 @@ export function evaluateGates(inputs: VenueInputs): GateResult {
         code: 'INPUT_INCONSISTENT',
         level: 'error',
         message:
-          'Kisi doors apply to Autonomous, Autonomous+ and Pro+ only. ' +
-          'On other tiers they would silently change the gateway SKU.',
+          'Kisi doors apply to Autonomous and Autonomous+ only — door access ' +
+          'is all-or-nothing, with no partial tier beneath it. On other tiers ' +
+          'they would silently change the gateway SKU.',
       }],
     }
   }
@@ -111,16 +120,6 @@ export function evaluateGates(inputs: VenueInputs): GateResult {
           'least one door. Zero doors would select the wrong gateway.',
       }],
     }
-  }
-
-  if (inputs.tier === 'pro_plus') {
-    warnings.push({
-      code: 'TIER_NOT_CANONICAL',
-      level: 'warn',
-      message:
-        'Pro+ has no canonical BOM — confirm scope per deal. Treat this ' +
-        'output as a starting point.',
-    })
   }
 
   // tiers-reference.md § Hardware footprint per tier — the Autonomous tiers are

@@ -87,10 +87,10 @@ export function buildPdfBody(
 }
 
 /**
- * `tierLabel` is passed in already resolved rather than derived here — Pro and
- * Pro+ are one stored tier, and which of the two a venue is depends on its door
- * and camera counts. Keeping that in lib/tierLabel.ts means the PDF and the
- * screen cannot disagree about what a venue is called.
+ * `tierLabel` is passed in already resolved rather than derived here, so the
+ * PDF and the screen cannot disagree about what a venue is called. Nothing
+ * about the tier is inferred from the hardware counts: Basic and Basic+ are
+ * identical in hardware, so there would be nothing to infer it from.
  *
  * Titled "HARDWARE ITEMS" — it describes what is on the page. The sheet carries
  * no prices, and that exclusion is deliberate and tested, so a pricing-flavoured

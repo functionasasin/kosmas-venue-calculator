@@ -23,6 +23,18 @@ describe('evaluateGates', () => {
     expect(r.warnings[0].code).toBe('TIER_NO_HARDWARE')
   })
 
+  // Basic and Basic+ are both blocked but they are not the same tier: Basic is
+  // the booking website alone, Basic+ adds BBPOS terminals. Naming terminals in
+  // a Basic message would tell a buyer to order hardware the tier has none of.
+  it('blocks Basic without attributing Basic+ hardware to it', () => {
+    const r = evaluateGates({ ...base, tier: 'basic' })
+    expect(r.blocked).toBe(true)
+    expect(r.warnings[0].code).toBe('TIER_NO_HARDWARE')
+    expect(warningText(r, 'TIER_NO_HARDWARE')).not.toMatch(/BBPOS|terminal/i)
+    expect(warningText(evaluateGates({ ...base, tier: 'basic_plus' }), 'TIER_NO_HARDWARE'))
+      .toMatch(/BBPOS/)
+  })
+
   it('blocks PingPod, because its audio stack and port expansion are unimplemented', () => {
     const r = evaluateGates({ ...base, brand: 'pingpod' })
     expect(r.blocked).toBe(true)
@@ -30,10 +42,10 @@ describe('evaluateGates', () => {
   })
 
   // Pro is Door Access "No" and Remote Monitoring "No" in the capabilities
-  // matrix. These two gates are not validation bookkeeping — they ARE what
-  // distinguishes Pro from Pro+. Folding the tiers together on 2026-08-10
-  // deleted them and made a Pro venue accepting doors and cameras, i.e. a Pro+
-  // venue wearing the wrong name. Both gates were restored the same day.
+  // matrix. These two gates are not validation bookkeeping — no sizing module
+  // reads `tier`, so they are the only thing keeping a Pro venue off hardware
+  // Pro does not include. Deleting them on 2026-08-10 let a Pro venue take
+  // doors and cameras; both were restored the same day.
   it('blocks security cameras on Pro tier, because they silently upgrade the switch SKU', () => {
     const r = evaluateGates({ ...base, securityCameras: 4 })
     expect(r.blocked).toBe(true)
@@ -52,21 +64,10 @@ describe('evaluateGates', () => {
     expect(r.warnings[0].code).toBe('INPUT_INCONSISTENT')
   })
 
-  it('allows both on Pro+, which is the tier that exists to carry them', () => {
-    expect(evaluateGates({ ...base, tier: 'pro_plus', kisiDoors: 2, securityCameras: 4 }).blocked)
-      .toBe(false)
-  })
-
   it('allows security cameras on Autonomous+', () => {
     expect(evaluateGates({
       ...base, tier: 'autonomous_plus', securityCameras: 4, kisiDoors: 2,
     }).blocked).toBe(false)
-  })
-
-  it('warns without blocking on Pro+, because its BOM is not canonicalized', () => {
-    const r = evaluateGates({ ...base, tier: 'pro_plus' })
-    expect(r.blocked).toBe(false)
-    expect(r.warnings.map(w => w.code)).toContain('TIER_NOT_CANONICAL')
   })
 
   it('warns without blocking on Autonomous+, because NVR and HDD rack U are excluded', () => {

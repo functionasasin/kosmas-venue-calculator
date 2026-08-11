@@ -223,13 +223,13 @@ describe('the exported PDF header', () => {
     expect(textCalls.some(t => /pricing|price|cost|₱/i.test(t))).toBe(false)
   })
 
-  // Pro and Pro+ are one stored tier resolved from the door and camera counts,
-  // so the sheet prints whichever the venue actually is. Printing the raw
-  // stored value would label every Pro+ deployment "pro" on the handout.
-  it('prints the resolved tier it was given, not a stored tier key', () => {
+  // The sheet is handed to a client, so it prints the display name it was
+  // given. Printing the raw stored value would put "autonomous_plus" on a
+  // customer-facing document.
+  it('prints the display name it was given, not a stored tier key', () => {
     textCalls.length = 0
-    exportMaterialsPdf('Test Venue', 'Pro+', lines, catalog)
-    expect(textCalls.some(t => t === 'Tier: Pro+')).toBe(true)
-    expect(textCalls.some(t => /pro_plus|basic_plus|autonomous_plus/.test(t))).toBe(false)
+    exportMaterialsPdf('Test Venue', 'Autonomous+', lines, catalog)
+    expect(textCalls.some(t => t === 'Tier: Autonomous+')).toBe(true)
+    expect(textCalls.some(t => /basic_plus|autonomous_plus/.test(t))).toBe(false)
   })
 })

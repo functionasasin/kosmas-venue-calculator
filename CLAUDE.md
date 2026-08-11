@@ -21,31 +21,33 @@ Don't copy them here — the sizing doc is still being edited there, and a copy 
 
 ## The 5-tier model
 
-`Tier` is `basic_plus | pro | pro_plus | autonomous | autonomous_plus`. Full definitions in `podplay-tiers-reference.md`; what matters when writing formulas:
+`Tier` is `basic | basic_plus | pro | autonomous | autonomous_plus`, confirmed with PodPlay on 2026-08-11. Full definitions in `podplay-tiers-reference.md`; what matters when writing formulas:
 
 | Tier | Rack | Court-side | In this tool |
 |---|---|---|---|
+| Basic | none | none — booking website only | blocked — nothing to size |
 | Basic+ | none | BBPOS terminals only | blocked — nothing to size |
 | Pro | Mac mini · UDM · USW-Pro · UPS · patch panel | display · iPad · Apple TV · replay cam · PoE adapter · Flic | fully covered |
-| Pro+ | Pro + partial Kisi + optional NVR | Pro + optional readers/cameras | computed as a starting point |
 | Autonomous | Pro + Kisi Controller Pro 2 (1 per 4 doors), **no NVR** | Pro + Reader Pro 2.1/door + push-to-exit on mag-lock doors, **no security cameras** | Kisi kit added by hand |
 | Autonomous+ | Autonomous + UNVR/UNVR-Pro + 8TB HDDs | Autonomous + EmpireTech PoE cameras + PFA130-E boxes | Kisi kit, NVR, HDDs added by hand |
 
-**Autonomous and Autonomous+ are not interchangeable.** The boundary is surveillance: Autonomous is access control only. A warning that tells an Autonomous venue it's missing an NVR is wrong. `security_cameras > 0` is valid on Autonomous+ / Pro+ only; `kisi_doors > 0` on Autonomous / Autonomous+ / Pro+.
+**There is no Pro+.** It was recorded as a tier between Pro and Autonomous carrying "Partial / Custom" door access and optional monitoring, and was removed on 2026-08-11. Door access is now all-or-nothing: any venue wanting a Kisi door is Autonomous. Don't reintroduce a partial tier, and don't read an old "Pro+" quote as either Pro or Autonomous automatically — which it is depends on whether it had doors, and that's a per-deal call.
 
-**The gates in `gates.ts` ARE the tier definitions — do not "simplify" them away.** It is true that no sizing module reads `inputs.tier`: `pickGateway` keys off `kisiDoors`, `planSwitches` off `securityCameras || kisiDoors || courts`, `totalPorts` off `courts + securityCameras`. **That does not make the tier a mere label.** Pro+ was folded into Pro on 2026-08-10 on exactly that reasoning and reverted the same day. The capabilities matrix gives Pro Door Access "No" and Remote Monitoring "No"; Pro+ gets "Partial / Custom" and "Optional". `SECURITY_CAMERA_TIERS` and `KISI_TIERS` are what enforce that, so deleting them does not merge two labels — it lets a Pro venue be specced with the very hardware that defines it as not-Pro.
+**Autonomous and Autonomous+ are not interchangeable.** The boundary is surveillance: Autonomous is access control only. A warning that tells an Autonomous venue it's missing an NVR is wrong. `security_cameras > 0` is valid on Autonomous+ only; `kisi_doors > 0` on Autonomous / Autonomous+.
 
-**Corollary: the "+" is chosen, never inferred.** A matching attempt to derive Pro vs Pro+ from `kisiDoors > 0 || securityCameras > 0` cannot work, because on Pro those are always zero by definition — the inference has no signal. The tiers describe operating models (Pro is "Premium tech-enabled club", Autonomous is "Staff-light operations"), and the tool has no input for how a venue is staffed. Pro+ and Autonomous can hold identical hardware and remain different tiers.
+**The gates in `gates.ts` ARE the tier definitions — do not "simplify" them away.** It is true that no sizing module reads `inputs.tier`: `pickGateway` keys off `kisiDoors`, `planSwitches` off `securityCameras || kisiDoors || courts`, `totalPorts` off `courts + securityCameras`. **That does not make the tier a mere label** — it makes `SECURITY_CAMERA_TIERS` and `KISI_TIERS` the *only* thing keeping a tier off hardware it doesn't include. Deleting them was tried on 2026-08-10 and reverted the same day: it let a Pro venue be specced with the very door access that defines it as not-Pro.
 
-**Basic was retired on 2026-08-10 and Basic+ is now the lowest tier.** The co-founders' original breakdown had a Basic tier below Basic+; PodPlay dropped it because bare Basic doesn't sell in SEA/Asia — customers here want the deployment customized, so Basic+ is the realistic entry case. Don't reintroduce it. Basic+ adds no hardware over the retired tier — BBPOS terminals are the entire footprint and everything else in the tier is software — so don't word the block as though Basic+ adds hardware. Note the tiers doc describes that software as "native iOS + Android apps"; that is PodPlay's claim, unverified here, and it has no bearing on sizing either way.
+**Corollary: the tier is chosen, never inferred.** Basic and Basic+ are hardware-identical (the difference is a cross-platform owner app), so nothing in the inputs can distinguish them. More generally the tiers describe operating models — Pro is "Premium tech-enabled club", Autonomous is "Staff-light operations" — and the tool has no input for how a venue is staffed.
 
-**`venues.tier` is plain `text` with no check constraint**, so a row written before the Basic retirement can still hold `'basic'`. `readTier` in `src/data/venues.ts` maps it to `basic_plus` on read. `'pro_plus'` is deliberately NOT in that map — Pro+ is live, not retired. Without it the tier `<select>` renders a value matching no option and silently shows some other tier as current — a mismatch that only surfaces on the next save. Two tests guard it; extend that map, don't replace it, if a tier is ever retired again.
+**Basic is live, and its 2026-08-10 retirement was undone.** Basic was briefly removed on the reasoning that bare Basic doesn't sell in SEA/Asia; that's a real market observation but it was wrong as a statement of the lineup. Basic is the booking website alone — **no hardware at all**, not even BBPOS terminals, which start at Basic+. Both tiers block here, but with different messages: naming terminals in the Basic block would tell a buyer to order hardware that tier doesn't have. A test guards that.
 
-**On tier semantics, `podplay-tiers-reference.md` outranks the sizing doc.** The sizing doc is the authority for *sizing*; for what a tier includes the order is co-founder tier definitions → spreadsheet hardware gating → other PodPlay docs. PodPlay's own materials disagree with each other, and the tiers doc is the resolution. Pro+ isn't in the calculation spreadsheet at all, which is why it has no formula-driven BOM — that absence is a spreadsheet gap, not evidence the tier is redundant.
+**`venues.tier` is plain `text` with no check constraint**, so a row can hold a tier the app no longer offers — `'pro_plus'` is the live example. `readTier` in `src/data/venues.ts` passes the five live tiers through and falls back to `'pro'` for anything else. **That fallback is a guard, not a translation**: it doesn't claim Pro+ meant Pro. It only stops the tier `<select>` rendering an option that doesn't exist, which otherwise shows the wrong tier as current and surfaces only on the next save. If such a row has doors or cameras, Pro's gates block it — which is the point, since the tier then gets re-picked deliberately. Three tests guard this.
 
-**Basic's retirement followed the required order** — written into `podplay-tiers-reference.md` first, dated 2026-08-10, then the code. Keep that order. (The doc is internally inconsistent on Basic: its phase matrix and PH note still name the retired tier. Fix it there, not here.)
+**On tier semantics, `podplay-tiers-reference.md` outranks the sizing doc.** The sizing doc is the authority for *sizing*; for what a tier includes the order is co-founder tier definitions → spreadsheet hardware gating → other PodPlay docs. PodPlay's own materials disagree with each other, and the tiers doc is the resolution.
 
-**PH reality:** nearly every PH deployment is Pro. Kisi hardware, NVRs and security cameras aren't stocked locally and ship from US/HK — non-Pro tiers carry a lead-time cost, not just a scope caveat.
+**Tier changes follow a required order** — write `podplay-tiers-reference.md` first, then the code. Both the Basic retirement (2026-08-10) and its reversal plus the Pro+ removal (2026-08-11) were done that way. Keep it.
+
+**PH reality:** nearly every PH deployment is Pro. Kisi hardware, NVRs and security cameras aren't stocked locally and ship from US/HK — the Autonomous tiers carry a lead-time cost, not just a scope caveat. Basic and Basic+ are uncommon here too, but that's demand, not policy.
 
 ## Don't invent quantities the source defers
 
