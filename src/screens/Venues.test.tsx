@@ -75,3 +75,29 @@ describe('Venues delete', () => {
     expect(screen.getByText('Tela Park')).toBeTruthy()
   })
 })
+
+// Base UI's Button assumes a native <button> unless told otherwise, so styling
+// a router Link with it left an anchor still carrying button semantics. The
+// browser console said so outright: "A component that acts as a button expected
+// a native <button> ... Rendering a non-<button> removes native button
+// semantics, which can impact forms and accessibility."
+describe('Venues navigation controls', () => {
+  it('exposes Catalog as a link, since it navigates rather than acts', async () => {
+    await renderVenues()
+    const catalog = screen.getByRole('link', { name: 'Catalog' })
+    expect(catalog.getAttribute('href')).toBe('/catalog')
+  })
+
+  // The concrete regression: an anchor announced as a button loses the
+  // affordances a link has — open in a new tab, copy address, and the
+  // middle-click that goes with them. Base UI reaches that state two different
+  // ways, so both are pinned: type="button" when it assumes a native button,
+  // role="button" when told it isn't one.
+  it('does not leave button semantics on the anchor', async () => {
+    await renderVenues()
+    const catalog = screen.getByRole('link', { name: 'Catalog' })
+    expect(catalog.tagName).toBe('A')
+    expect(catalog.hasAttribute('type')).toBe(false)
+    expect(catalog.getAttribute('role')).toBeNull()
+  })
+})

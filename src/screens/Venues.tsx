@@ -4,7 +4,8 @@ import { listVenues, saveVenue, deleteVenue, type Venue } from '@/data/venues'
 import { useRole } from '@/auth/useRole'
 import { tierLabel } from '@/lib/tierLabel'
 import { useAuth } from '@/auth/AuthProvider'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -68,11 +69,17 @@ export function Venues() {
         <h1 className="text-lg font-semibold tracking-tight">Venues</h1>
         <div className="flex gap-1.5">
           {role === 'admin' && (
-            // Base UI composes via `render`, not Radix's `asChild`.
-            <Button variant="outline" size="sm" className="h-auto bg-card px-[.55rem] py-[.25rem] text-[11px]"
-              render={<Link to="/catalog" />}>
+            // A link wearing button styling, not a Button rendering a link.
+            // Base UI's Button insists on button semantics either way: left
+            // alone it stamps type="button" on the anchor, and nativeButton
+            // ={false} replaces that with an explicit role="button", which
+            // overrides the native link role instead of restoring it. Applying
+            // the variants directly keeps the anchor a plain anchor.
+            <Link to="/catalog"
+              className={cn(buttonVariants({ variant: 'outline', size: 'sm' }),
+                'h-auto bg-card px-[.55rem] py-[.25rem] text-[11px]')}>
               Catalog
-            </Button>
+            </Link>
           )}
           <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
             onClick={() => setCreating(true)}>
