@@ -32,6 +32,16 @@ const KISI_TIERS: Tier[] = ['autonomous', 'autonomous_plus']
 // cameras are not stocked in PH and ship from the US/HK.
 const LONG_LEAD_TIME_TIERS: Tier[] = ['autonomous', 'autonomous_plus']
 
+// Exported for VenueInputsForm, which disables the matching input rather than
+// letting someone enter a count the calculation will only reject afterwards.
+// The form asks rather than deciding: a second copy of these lists is how the
+// picker and the gate drift apart.
+export const allowsSecurityCameras = (tier: Tier): boolean =>
+  SECURITY_CAMERA_TIERS.includes(tier)
+
+export const allowsKisiDoors = (tier: Tier): boolean =>
+  KISI_TIERS.includes(tier)
+
 export function evaluateGates(inputs: VenueInputs): GateResult {
   const warnings: Warning[] = []
 

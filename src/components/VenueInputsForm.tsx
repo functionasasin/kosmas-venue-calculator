@@ -1,4 +1,5 @@
 import type { VenueInputs, Tier, Brand } from '@/calculator/types'
+import { allowsSecurityCameras, allowsKisiDoors } from '@/calculator/gates'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -18,10 +19,31 @@ export function VenueInputsForm({ value, onChange }: Props) {
   const set = <K extends keyof VenueInputs>(k: K, v: VenueInputs[K]) =>
     onChange({ ...value, [k]: v })
 
+  const camerasOn = allowsSecurityCameras(value.tier)
+  const doorsOn = allowsKisiDoors(value.tier)
+
+  // Counts the new tier cannot carry are cleared in the same update as the tier
+  // itself. Leaving them would strand a value behind a disabled control: the
+  // calculation blocks on securityCameras > 0, and there is no longer any input
+  // able to bring it back to zero.
+  const setTier = (tier: Tier) =>
+    onChange({
+      ...value,
+      tier,
+      securityCameras: allowsSecurityCameras(tier) ? value.securityCameras : 0,
+      kisiDoors: allowsKisiDoors(tier) ? value.kisiDoors : 0,
+    })
+
   // bg-card, not bg-background: the rail is a tinted surface now, and a
   // transparent control would pick the tint up instead of reading as a field.
   const selectClass = 'h-8 w-full rounded-md border bg-card px-2 py-1 text-sm'
   const lb = 'text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground'
+  // A disabled field with no explanation reads as broken, so each one carries
+  // the tier that would enable it. aria-describedby, not a title: the reason has
+  // to reach a screen reader, and a disabled input never receives hover.
+  const hint = 'text-[10px] leading-tight text-muted-foreground'
+  const fieldClass = (on: boolean) =>
+    `h-8 bg-card ${on ? '' : 'cursor-not-allowed opacity-50'}`
 
   return (
     <div className="space-y-3">
@@ -38,7 +60,7 @@ export function VenueInputsForm({ value, onChange }: Props) {
         <div className="space-y-1">
           <Label htmlFor="tier" className={lb}>Tier</Label>
           <select id="tier" className={selectClass} value={value.tier}
-            onChange={e => set('tier', e.target.value as Tier)}>
+            onChange={e => setTier(e.target.value as Tier)}>
             {TIERS.map(t => (
               <option key={t} value={t}>{tierLabel(t)}</option>
             ))}
@@ -54,14 +76,24 @@ export function VenueInputsForm({ value, onChange }: Props) {
         <div className="space-y-1">
           <Label htmlFor="secCams" className={lb}>Security cameras</Label>
           <Input id="secCams" type="number" min="0" value={value.securityCameras}
-            className="h-8 bg-card"
+            disabled={!camerasOn}
+            aria-describedby={camerasOn ? undefined : 'secCamsHint'}
+            className={fieldClass(camerasOn)}
             onChange={e => set('securityCameras', Number(e.target.value))} />
+          {!camerasOn && (
+            <p id="secCamsHint" className={hint}>Autonomous+ only</p>
+          )}
         </div>
         <div className="space-y-1">
           <Label htmlFor="kisi" className={lb}>Kisi doors</Label>
           <Input id="kisi" type="number" min="0" value={value.kisiDoors}
-            className="h-8 bg-card"
+            disabled={!doorsOn}
+            aria-describedby={doorsOn ? undefined : 'kisiHint'}
+            className={fieldClass(doorsOn)}
             onChange={e => set('kisiDoors', Number(e.target.value))} />
+          {!doorsOn && (
+            <p id="kisiHint" className={hint}>Autonomous and Autonomous+ only</p>
+          )}
         </div>
         <div className="flex items-end gap-2 pb-1">
           <Checkbox id="retention" checked={value.extendedRetention}

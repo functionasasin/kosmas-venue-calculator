@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { evaluateGates, type GateResult } from './gates'
-import type { VenueInputs } from './types'
+import {
+  evaluateGates, allowsSecurityCameras, allowsKisiDoors, type GateResult,
+} from './gates'
+import type { VenueInputs, Tier } from './types'
 
 const base: VenueInputs = {
   courts: 8, tier: 'pro', securityCameras: 0,
@@ -107,5 +109,39 @@ describe('evaluateGates', () => {
     const r = evaluateGates({ ...base, tier: 'autonomous', kisiDoors: 0 })
     expect(r.blocked).toBe(true)
     expect(r.warnings[0].code).toBe('INPUT_INCONSISTENT')
+  })
+})
+
+// The form disables the camera and door inputs per tier. It must not carry its
+// own copy of these rules: a second list is how the picker and the gate drift
+// apart, which is how a venue ends up offered an input the calculation then
+// rejects. These predicates are the one definition, exported for the form.
+describe('input permissions', () => {
+  const ALL: Tier[] = ['basic', 'basic_plus', 'pro', 'autonomous', 'autonomous_plus']
+
+  it('permits security cameras on Autonomous+ alone', () => {
+    expect(ALL.filter(allowsSecurityCameras)).toEqual(['autonomous_plus'])
+  })
+
+  it('permits Kisi doors on the two Autonomous tiers', () => {
+    expect(ALL.filter(allowsKisiDoors)).toEqual(['autonomous', 'autonomous_plus'])
+  })
+
+  // Behavioural agreement, not just matching lists: whatever the predicate says
+  // is allowed must be what evaluateGates actually accepts. Restricted to the
+  // tiers that reach these gates — Basic and Basic+ are stopped earlier by
+  // TIER_NO_HARDWARE, so a camera count never gets that far.
+  const REACHES_GATE: Tier[] = ['pro', 'autonomous', 'autonomous_plus']
+  const rejects = (i: Partial<VenueInputs>) =>
+    evaluateGates({ ...base, ...i }).warnings.some(w => w.code === 'INPUT_INCONSISTENT')
+
+  it('enables exactly the inputs the gates go on to accept', () => {
+    for (const tier of REACHES_GATE) {
+      const doors = tier === 'pro' ? 0 : 1
+      expect(allowsSecurityCameras(tier))
+        .toBe(!rejects({ tier, securityCameras: 1, kisiDoors: doors }))
+      expect(allowsKisiDoors(tier))
+        .toBe(!rejects({ tier, securityCameras: 0, kisiDoors: 1 }))
+    }
   })
 })
