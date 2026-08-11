@@ -10,12 +10,12 @@ const CATEGORY: Partial<Record<RoleKey, string>> = {
   patch_panel_24: 'network', access_point: 'network',
   mac_mini: 'compute', mac_mini_shelf: 'compute',
   replay_ssd_2tb: 'storage',
-  ups: 'power', c14_adapter: 'power',
+  ups: 'power',
   rack_12u: 'rack',
-  replay_camera: 'camera', junction_box: 'camera',
+  replay_camera: 'camera',
   ipad: 'court', ipad_poe_adapter: 'court', ipad_wall_mount: 'court',
-  ipad_fence_bracket: 'court', apple_tv: 'court', apple_tv_mount: 'court',
-  hdmi_cable: 'court', display: 'court', tilt_mount: 'court',
+  ipad_fence_bracket: 'court', apple_tv: 'court',
+  hdmi_cable: 'court', display: 'court',
   flic: 'accessory', signage: 'signage',
   cat6_0m5: 'cable', cat6_1m: 'cable', cat6_3m: 'cable',
 }
@@ -41,11 +41,11 @@ const line = (roleKey: RoleKey | null, qty: StoredLine['qty']): StoredLine => ({
 const proPodPlay8: StoredLine[] = [
   line('gateway_udm_pro', 1), line('switch_24_pro', 1), line('patch_panel_24', 1),
   line('cat6_0m5', 26), line('cat6_1m', 2), line('cat6_3m', 2),
-  line('ups', 1), line('c14_adapter', 2),
-  line('replay_camera', 8), line('junction_box', 8),
+  line('ups', 1),
+  line('replay_camera', 8),
   line('ipad', 8), line('ipad_poe_adapter', 8), line('ipad_wall_mount', 8),
-  line('apple_tv', 8), line('apple_tv_mount', 8), line('hdmi_cable', 8),
-  line('display', 8), line('tilt_mount', 8),
+  line('apple_tv', 8), line('hdmi_cable', 8),
+  line('display', 8),
   line('flic', 18), line('signage', 16),
   line('mac_mini', 1), line('mac_mini_shelf', 1),
   line('access_point', 'TBD'), line('ipad_fence_bracket', 'TBD'),
@@ -60,16 +60,18 @@ const counts = (lines: StoredLine[]) =>
 describe('section assignment', () => {
   // The four counts together are the contract. Getting Rack right while
   // Court-side silently absorbs a cable line would still be wrong.
-  it('splits an 8-court Pro PodPlay venue 9 / 12 / 3 / 2', () => {
+  // Removed 2026-08-11 as out of scope: the junction box, Apple TV mount and
+  // tilt mount (court-side, 12 -> 9) and the C14 adapter (rack, 9 -> 8).
+  it('splits an 8-court Pro venue 8 / 9 / 3 / 2', () => {
     expect(counts(proPodPlay8)).toEqual({
-      rack: 9, court: 12, cabling: 3, decide: 2,
+      rack: 8, court: 9, cabling: 3, decide: 2,
     })
   })
 
-  it('accounts for all 26 lines', () => {
+  it('accounts for all 22 lines', () => {
     const total = groupIntoSections(proPodPlay8, catalog)
       .reduce((n, s) => n + s.lines.length, 0)
-    expect(total).toBe(26)
+    expect(total).toBe(22)
   })
 
   it('orders sections rack, court, cabling, decide', () => {
@@ -84,7 +86,7 @@ describe('section assignment', () => {
       .find(s => s.id === 'rack')!
     expect(rack.lines.map(l => l.roleKey)).toEqual([
       'gateway_udm_pro', 'switch_24_pro', 'patch_panel_24',
-      'ups', 'c14_adapter', 'mac_mini', 'mac_mini_shelf',
+      'ups', 'mac_mini', 'mac_mini_shelf',
       'replay_ssd_2tb', 'rack_12u',
     ])
   })

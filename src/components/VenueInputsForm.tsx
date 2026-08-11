@@ -1,4 +1,4 @@
-import type { VenueInputs, Tier, Brand } from '@/calculator/types'
+import type { VenueInputs, Tier } from '@/calculator/types'
 import { allowsSecurityCameras, allowsKisiDoors } from '@/calculator/gates'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -8,7 +8,6 @@ import { tierLabel } from '@/lib/tierLabel'
 const TIERS: Tier[] = [
   'basic', 'basic_plus', 'pro', 'autonomous', 'autonomous_plus',
 ]
-const BRANDS: Brand[] = ['podplay', 'pickleball_kingdom', 'pingpod']
 
 interface Props {
   value: VenueInputs
@@ -64,13 +63,6 @@ export function VenueInputsForm({ value, onChange }: Props) {
             {TIERS.map(t => (
               <option key={t} value={t}>{tierLabel(t)}</option>
             ))}
-          </select>
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="brand" className={lb}>Brand</Label>
-          <select id="brand" className={selectClass} value={value.brand}
-            onChange={e => set('brand', e.target.value as Brand)}>
-            {BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
           </select>
         </div>
         <div className="space-y-1">

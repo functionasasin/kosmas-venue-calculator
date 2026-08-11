@@ -4,7 +4,7 @@ import type { VenueInputs, Qty } from './types'
 
 const pro = (over: Partial<VenueInputs> = {}): VenueInputs => ({
   courts: 8, tier: 'pro', securityCameras: 0, kisiDoors: 0,
-  brand: 'podplay', extendedRetention: false, ...over,
+  extendedRetention: false, ...over,
 })
 
 const qty = (inputs: VenueInputs, role: string): Qty | undefined =>
@@ -14,9 +14,8 @@ describe('planPerCourt', () => {
   it('gives one of each court device per court', () => {
     const i = pro()
     for (const role of [
-      'replay_camera', 'junction_box', 'ipad', 'ipad_poe_adapter',
-      'ipad_wall_mount', 'apple_tv', 'apple_tv_mount', 'hdmi_cable',
-      'display', 'tilt_mount',
+      'replay_camera', 'ipad', 'ipad_poe_adapter',
+      'ipad_wall_mount', 'apple_tv', 'hdmi_cable', 'display',
     ]) {
       expect(qty(i, role)).toBe(8)
     }
@@ -35,16 +34,13 @@ describe('planPerCourt', () => {
     expect(qty(pro({ courts: 14 }), 'mac_mini_shelf')).toBe(1)
   })
 
-  // The source quantifies the security camera but defers its junction box with
-  // a literal "TBD". Emitting a number here would be a fabricated quantity that
-  // reads as authoritative on a printed BOM.
-  it('emits security cameras as a count but their junction box as TBD, which is all the source gives', () => {
+  // Junction boxes are out of scope for Kosmas as of 2026-08-11. The camera
+  // itself is still quantified; only its PFA130-E mount went away, along with
+  // the deferred TBD line the source gave for the security one.
+  it('emits security cameras as a count and no junction box of either kind', () => {
     const i = pro({ tier: 'autonomous_plus', securityCameras: 4, kisiDoors: 1 })
     expect(qty(i, 'security_camera')).toBe(4)
-    expect(qty(i, 'security_junction_box')).toBe('TBD')
-    // The REPLAY junction box is genuinely per-court and must not be confused
-    // with the security one, despite both being a PFA130-E.
-    expect(qty(i, 'junction_box')).toBe(8)
+    expect(planPerCourt(i).some(l => l.roleKey.includes('junction'))).toBe(false)
   })
 
   it('omits security lines entirely when there are none', () => {
@@ -55,11 +51,12 @@ describe('planPerCourt', () => {
     expect(qty(pro(), 'access_point')).toBe('TBD')
   })
 
-  it('emits a TBD fence bracket for PodPlay, matching the doc convention', () => {
+  // The source auto-sizes this only for Pickleball Kingdom and defers it for
+  // everyone else. Kosmas builds no PBK venues, so it is always deferred —
+  // deriving `= courts` from the wall-mount row beside it would put a
+  // fabricated quantity on a printed BOM.
+  it('always defers the fence bracket, since the source auto-sizes it for a brand we do not build', () => {
     expect(qty(pro(), 'ipad_fence_bracket')).toBe('TBD')
-  })
-
-  it('gives a real fence bracket count for Pickleball Kingdom', () => {
-    expect(qty(pro({ brand: 'pickleball_kingdom' }), 'ipad_fence_bracket')).toBe(8)
+    expect(qty(pro({ courts: 14 }), 'ipad_fence_bracket')).toBe('TBD')
   })
 })

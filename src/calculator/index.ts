@@ -98,18 +98,15 @@ export function calculateBOM(inputs: VenueInputs, catalog: Item[]): BomResult {
       'The materials list carries a TBD line; replace it before ordering.',
   })
 
-  // venue-sizing.md § Per-court AV + kiosk quantities — the fence bracket
-  // auto-sizes only for Pickleball Kingdom.
-  if (inputs.brand !== 'pickleball_kingdom') {
-    warnings.push({
-      code: 'FENCE_BRACKET_MANUAL',
-      level: 'warn',
-      message:
-        'The iPad fence bracket auto-sizes only for Pickleball Kingdom. ' +
-        'The materials list carries a TBD line; specify the mount before ' +
-        'ordering.',
-    })
-  }
+  // venue-sizing.md § Per-court AV + kiosk quantities — the source defers this
+  // quantity for every brand Kosmas deploys, so it is always a TBD line.
+  warnings.push({
+    code: 'FENCE_BRACKET_MANUAL',
+    level: 'warn',
+    message:
+      'The iPad fence bracket is not auto-sized — the source defers it. The ' +
+      'materials list carries a TBD line; specify the mount before ordering.',
+  })
 
   // A countable line whose item has no recorded wattage contributes 0 to the
   // PoE total, which would make an over-budget venue look safe. Silence there

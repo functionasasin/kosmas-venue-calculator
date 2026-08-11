@@ -4,7 +4,7 @@ import type { VenueInputs } from './types'
 
 const pro = (courts: number, over: Partial<VenueInputs> = {}): VenueInputs => ({
   courts, tier: 'pro', securityCameras: 0, kisiDoors: 0,
-  brand: 'podplay', extendedRetention: false, ...over,
+  extendedRetention: false, ...over,
 })
 
 describe('totalPorts', () => {

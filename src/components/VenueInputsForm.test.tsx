@@ -5,7 +5,7 @@ import type { VenueInputs } from '@/calculator/types'
 
 const inputs: VenueInputs = {
   courts: 8, tier: 'pro', securityCameras: 0,
-  kisiDoors: 0, brand: 'podplay', extendedRetention: false,
+  kisiDoors: 0, extendedRetention: false,
 }
 
 const tierSelect = () => screen.getByLabelText('Tier') as HTMLSelectElement

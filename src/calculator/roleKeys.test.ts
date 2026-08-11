@@ -6,8 +6,20 @@ describe('ROLE_KEYS', () => {
     expect(new Set(ROLE_KEYS).size).toBe(ROLE_KEYS.length)
   })
 
-  it('separates replay and security junction boxes, because a venue with both needs both counts', () => {
-    expect(ROLE_KEYS).toContain('junction_box')
-    expect(ROLE_KEYS).toContain('security_junction_box')
+  // Removed 2026-08-11 as out of scope for Kosmas. The source sizes every one
+  // of these at 1 per court, so the tempting mistake is to re-add the key and
+  // let the catalog fill it later — but a role key with no item behind it
+  // renders an explicit "no item mapped" row on the materials list, which is
+  // worse than the line being absent. Key and item go together.
+  it.each([
+    'junction_box', 'security_junction_box', 'apple_tv_mount', 'tilt_mount',
+  ])('has no %s role, since Kosmas does not spec that hardware', key => {
+    expect(ROLE_KEYS).not.toContain(key)
+  })
+
+  it('keeps the devices those mounts served, so only the mounting hardware went', () => {
+    expect(ROLE_KEYS).toContain('replay_camera')
+    expect(ROLE_KEYS).toContain('apple_tv')
+    expect(ROLE_KEYS).toContain('display')
   })
 })

@@ -72,20 +72,6 @@ export function evaluateGates(inputs: VenueInputs): GateResult {
     }
   }
 
-  if (inputs.brand === 'pingpod') {
-    return {
-      blocked: true,
-      warnings: [{
-        code: 'BRAND_UNSUPPORTED',
-        level: 'error',
-        message:
-          'PingPod venues are not supported. They require an audio stack, ' +
-          'front-desk hardware and a port-count expansion that the sizing ' +
-          'doc does not quantify.',
-      }],
-    }
-  }
-
   if (inputs.securityCameras > 0 && !SECURITY_CAMERA_TIERS.includes(inputs.tier)) {
     return {
       blocked: true,

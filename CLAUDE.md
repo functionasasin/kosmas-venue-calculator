@@ -51,7 +51,13 @@ Don't copy them here — the sizing doc is still being edited there, and a copy 
 
 ## Don't invent quantities the source defers
 
-The spreadsheet marks some quantities `"TBD"` on purpose. Reproduce the TBD; don't derive a plausible number. Currently: **security camera junction box** (`IF(Z13=0,0,"TBD")` — not `= security_cameras`; the *replay* junction box genuinely is `= courts`, and both being a `PFA130-E` is what invites the mistake), **iPad fence bracket** for non-Pickleball-Kingdom brands, and **access points** for all PodPlay venues. A fabricated quantity reads as authoritative on a printed BOM.
+The spreadsheet marks some quantities `"TBD"` on purpose. Reproduce the TBD; don't derive a plausible number. Currently: **security camera junction box** (`IF(Z13=0,0,"TBD")` — not `= security_cameras`; the *replay* junction box genuinely is `= courts`, and both being a `PFA130-E` is what invites the mistake), the **iPad fence bracket** (auto-sized only for Pickleball Kingdom venues, which Kosmas does not build — so always deferred here; don't copy `= courts` off the wall-mount row beside it), and **access points** for every venue. A fabricated quantity reads as authoritative on a printed BOM.
+
+## There is no brand input
+
+Removed 2026-08-11. The source gates five rules on the venue operator's brand — PodPlay / PingPod / Pickleball Kingdom — but Kosmas builds only PodPlay-brand venues, and `podplay-ph-venue-sizing.md` § Camera color says outright that "KOSMAS / PodPlay venues" are the same thing for these purposes. The picker offered one real value plus one that blocked the calculation (PingPod) and one for venues we don't build.
+
+Removing it changed no output: the fence bracket was already TBD for every non-PBK venue, signage (`courts × 2`) and access points (TBD) never varied, and the PingPod-only rows (audio amp, sound processor, speakers, front-desk kit) were never emitted. The `BRAND_UNSUPPORTED` gate went with it — nothing can select PingPod any more. **`venues.brand` still exists in the schema** as `not null default 'podplay'`; the app neither reads nor writes it. Don't reintroduce the input to "support" a brand without checking whether Kosmas actually deploys it.
 
 Related: the source's Kisi controller formula tests an empty cell and so always returns 1 regardless of door count. Implement the *intent* (1 per 4 doors), not the bug — see `podplay-tiers-reference.md`.
 

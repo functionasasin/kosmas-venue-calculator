@@ -5,7 +5,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 const venues = [
   {
     id: 'v1', name: 'Tela Park', courts: 8, tier: 'pro' as const,
-    securityCameras: 0, kisiDoors: 0, brand: 'podplay' as const,
+    securityCameras: 0, kisiDoors: 0 as const,
     extendedRetention: false,
   },
 ]

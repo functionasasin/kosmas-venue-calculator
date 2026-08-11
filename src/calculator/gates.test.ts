@@ -6,7 +6,7 @@ import type { VenueInputs, Tier } from './types'
 
 const base: VenueInputs = {
   courts: 8, tier: 'pro', securityCameras: 0,
-  kisiDoors: 0, brand: 'podplay', extendedRetention: false,
+  kisiDoors: 0, extendedRetention: false,
 }
 
 const warningText = (r: GateResult, code: string) =>
@@ -35,12 +35,6 @@ describe('evaluateGates', () => {
     expect(warningText(r, 'TIER_NO_HARDWARE')).not.toMatch(/BBPOS|terminal/i)
     expect(warningText(evaluateGates({ ...base, tier: 'basic_plus' }), 'TIER_NO_HARDWARE'))
       .toMatch(/BBPOS/)
-  })
-
-  it('blocks PingPod, because its audio stack and port expansion are unimplemented', () => {
-    const r = evaluateGates({ ...base, brand: 'pingpod' })
-    expect(r.blocked).toBe(true)
-    expect(r.warnings[0].code).toBe('BRAND_UNSUPPORTED')
   })
 
   // Pro is Door Access "No" and Remote Monitoring "No" in the capabilities

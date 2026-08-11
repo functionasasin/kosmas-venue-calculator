@@ -15,14 +15,22 @@ export type Tier =
   | 'basic' | 'basic_plus' | 'pro'
   | 'autonomous' | 'autonomous_plus'
 
-export type Brand = 'podplay' | 'pingpod' | 'pickleball_kingdom'
-
+// There is no `brand` input. The source spreadsheet gates five rules on the
+// venue operator's brand (PodPlay / PingPod / Pickleball Kingdom), but Kosmas
+// deploys only the first — venue-sizing.md § Camera color says outright that
+// "KOSMAS / PodPlay venues" are one and the same for these purposes. Offering
+// the other two put two values in the picker that either blocked the
+// calculation outright (PingPod) or described venues we do not build.
+//
+// Removing it changes no output: the fence bracket was already TBD for every
+// non-Pickleball-Kingdom venue, signage and access points never varied, and the
+// PingPod-only hardware rows were never emitted. `venues.brand` stays in the
+// schema as `not null default 'podplay'`, which is what a Kosmas venue is.
 export interface VenueInputs {
   courts: number
   tier: Tier
   securityCameras: number
   kisiDoors: number
-  brand: Brand
   extendedRetention: boolean
 }
 

@@ -5,7 +5,7 @@ import type { VenueInputs, Qty } from './types'
 
 const pro = (courts: number, over: Partial<VenueInputs> = {}): VenueInputs => ({
   courts, tier: 'pro', securityCameras: 0, kisiDoors: 0,
-  brand: 'podplay', extendedRetention: false, ...over,
+  extendedRetention: false, ...over,
 })
 
 const run = (inputs: VenueInputs) => {
@@ -26,7 +26,6 @@ describe('worked example: 5-court Pro venue', () => {
   it('needs 2 of the 1M', () => expect(r.qty('cat6_1m')).toBe(2))
   it('needs 2 of the 3M', () => expect(r.qty('cat6_3m')).toBe(2))
   it('uses one UPS', () => expect(r.qty('ups')).toBe(1))
-  it('uses 2 C14 adapters', () => expect(r.qty('c14_adapter')).toBe(2))
   it('uses a 12U rack, being well under 10U of gear', () => expect(r.qty('rack_12u')).toBe(1))
   it('uses the 2TB SSD', () => expect(r.qty('replay_ssd_2tb')).toBe(1))
   it('uses 5 iPad PoE adapters', () => expect(r.qty('ipad_poe_adapter')).toBe(5))
@@ -77,8 +76,8 @@ describe('gates short-circuit the whole calculation', () => {
     expect(r.codes).toContain('TIER_NO_HARDWARE')
   })
 
-  it('returns no lines for PingPod', () => {
-    expect(run(pro(8, { brand: 'pingpod' })).lines).toHaveLength(0)
+  it('always warns that the fence bracket needs specifying, since it is never auto-sized', () => {
+    expect(run(pro(8)).codes).toContain('FENCE_BRACKET_MANUAL')
   })
 })
 

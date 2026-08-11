@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import type { VenueInputs, Tier, Brand } from '@/calculator/types'
+import type { VenueInputs, Tier } from '@/calculator/types'
 
 export interface Venue extends VenueInputs {
   id: string
@@ -30,7 +30,6 @@ const fromRow = (r: Record<string, unknown>): Venue => ({
   tier: readTier(r.tier),
   securityCameras: r.security_cameras as number,
   kisiDoors: r.kisi_doors as number,
-  brand: r.brand as Brand,
   extendedRetention: r.extended_retention as boolean,
 })
 
@@ -71,7 +70,6 @@ export async function saveVenue(v: Partial<Venue> & { name: string }) {
     tier: v.tier ?? 'pro',
     security_cameras: v.securityCameras ?? 0,
     kisi_doors: v.kisiDoors ?? 0,
-    brand: v.brand ?? 'podplay',
     extended_retention: v.extendedRetention ?? false,
     updated_at: new Date().toISOString(),
   }

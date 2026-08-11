@@ -4,14 +4,14 @@ import type { RoleKey } from './roleKeys'
 // venue-sizing.md § Per-court AV + kiosk quantities, § Replay camera +
 // junction box, § iPad PoE adapter quantity — all scale 1:1 with courts.
 const PER_COURT: RoleKey[] = [
-  'replay_camera', 'junction_box',
+  'replay_camera',
   'ipad', 'ipad_poe_adapter', 'ipad_wall_mount',
-  'apple_tv', 'apple_tv_mount', 'hdmi_cable',
-  'display', 'tilt_mount',
+  'apple_tv', 'hdmi_cable',
+  'display',
 ]
 
 export function planPerCourt(inputs: VenueInputs): CalculatedLine[] {
-  const { courts, securityCameras, brand } = inputs
+  const { courts, securityCameras } = inputs
   const lines: CalculatedLine[] = PER_COURT.map(roleKey => ({
     roleKey,
     qty: courts,
@@ -36,21 +36,14 @@ export function planPerCourt(inputs: VenueInputs): CalculatedLine[] {
   lines.push({ roleKey: 'mac_mini', qty: 1, formula: '1 per venue' })
   lines.push({ roleKey: 'mac_mini_shelf', qty: 1, formula: '1 per venue' })
 
-  // venue-sizing.md § Replay camera + junction box — the security camera IS
-  // quantified, but its junction box is NOT: the source gives it as
-  // IF(Z13=0, 0, "TBD"). Emitting `securityCameras` here would invent a rule.
-  // Do not copy the replay junction box (= courts) across; they are separate
-  // lines that happen to share the PFA130-E part.
+  // venue-sizing.md § Replay camera + junction box — the camera is quantified
+  // directly. Its PFA130-E junction box is out of scope for Kosmas and is not
+  // emitted; the source's deferred TBD line went with it.
   if (securityCameras > 0) {
     lines.push({
       roleKey: 'security_camera',
       qty: securityCameras,
       formula: `${securityCameras} specified`,
-    })
-    lines.push({
-      roleKey: 'security_junction_box',
-      qty: 'TBD',
-      formula: 'not quantified by the source — confirm per venue',
     })
   }
 
@@ -64,20 +57,16 @@ export function planPerCourt(inputs: VenueInputs): CalculatedLine[] {
     formula: 'coverage survey — not derivable',
   })
 
-  // venue-sizing.md § Per-court AV + kiosk quantities — the fence bracket
-  // auto-sizes only for Pickleball Kingdom; every other brand reads TBD.
+  // venue-sizing.md § Per-court AV + kiosk quantities — the source auto-sizes
+  // the fence bracket for Pickleball Kingdom venues only and defers every other
+  // brand. Kosmas builds none of those, so it is always deferred here; the
+  // locking wall mount above is the default kiosk mount.
   lines.push(
-    brand === 'pickleball_kingdom'
-      ? {
-          roleKey: 'ipad_fence_bracket',
-          qty: courts,
-          formula: `1 per court (${courts})`,
-        }
-      : {
-          roleKey: 'ipad_fence_bracket',
-          qty: 'TBD',
-          formula: 'specify mount manually',
-        },
+    {
+      roleKey: 'ipad_fence_bracket',
+      qty: 'TBD',
+      formula: 'specify mount manually',
+    },
   )
 
   return lines

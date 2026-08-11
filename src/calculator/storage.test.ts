@@ -5,7 +5,7 @@ import type { VenueInputs } from './types'
 
 const pro = (courts: number, extendedRetention = false): VenueInputs => ({
   courts, tier: 'pro', securityCameras: 0, kisiDoors: 0,
-  brand: 'podplay', extendedRetention,
+  extendedRetention,
 })
 
 describe('planSsd', () => {
@@ -42,8 +42,10 @@ describe('planPower', () => {
     expect(ups?.qty).toBe(1)
   })
 
-  it('gives 2 C14 adapters, for the Mac mini and the ISP modem', () => {
-    const c14 = planPower().find(l => l.roleKey === 'c14_adapter')
-    expect(c14?.qty).toBe(2)
+  // The C14-to-Universal adapters went out of scope on 2026-08-11, leaving the
+  // UPS as the only power line. Asserting the absence keeps a reinstated pair
+  // from arriving silently on a printed BOM.
+  it('emits the UPS alone, with no C14 adapter line', () => {
+    expect(planPower().map(l => l.roleKey)).toEqual(['ups'])
   })
 })
