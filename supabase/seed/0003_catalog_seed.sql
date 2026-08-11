@@ -2,17 +2,20 @@
 -- docs/podplay-ph-venue-sizing.md (both in the Kosmas Setup repo).
 --
 -- Every poe_watts is MAXIMUM draw, not typical. The PoE budget check rests on
--- these numbers, and the sizing doc's 427W densest-config figure only
--- reproduces with the replay camera's 17.5W max, not the 5W typical it also
--- quotes. Where a figure is unknown, leave it null: the calculator raises
--- POE_DATA_INCOMPLETE rather than silently under-counting.
+-- these numbers. Where a figure is unknown, leave it null: the calculator
+-- raises POE_DATA_INCOMPLETE rather than silently under-counting.
+--
+-- NOTE: the sizing doc's 427W / 71% densest-config figure assumes the Dahua
+-- replay camera at 17.5W. We stock the Uniview Owlview at 2.8W max, so a real
+-- 14-court venue now lands near 221W / 37%. The doc's figure still reproduces
+-- against the engine's test catalog, which keeps the 17.5W camera on purpose.
 --
 -- Prices are deliberately absent. They are entered through the admin catalog
 -- form and never leave it.
 
 insert into items (name, category, role_key, supplier, poe_watts, rack_u, notes, print_note) values
-  ('EmpireTech / Dahua IPC-HDW5459T-ZE-IL (Replay Camera)', 'camera', 'replay_camera', 'Drextech', 17.5, 0, 'Sizing doc primary pick. 802.3at, 17.5W MAX (5W typical — the budget needs max). Set illumination to IR, and Video Standard NTSC / Anti-Flicker 60Hz.', null),
-  ('EmpireTech / Dahua IPC-HDW5459T-ZE-IL (Security Camera)', 'camera', 'security_camera', 'Drextech', 17.5, 0, 'Autonomous+ only.', null),
+  ('Uniview IPC3624LE-ADF28K-WP (Owlview)', 'camera', 'replay_camera', 'Drextech', 2.8, 0, 'The stocked replay camera (10 on hand; the unit on the Tela Park rig). 4MP 2.8mm fixed, 802.3af, 2.8W MAX — bench-tested, RTSP VLC-verified. Uses the Uniview RTSP path /unicast/c1/s0/live, NOT the Dahua /cam/realmonitor.', null),
+  ('EmpireTech / Dahua IPC-HDW5459T-ZE-IL (Security Camera)', 'camera', 'security_camera', 'Drextech', 17.5, 0, 'Autonomous+ only. Not stocked in PH — ships from US/HK.', null),
   ('iPad (A16) 128GB', 'court', 'ipad', 'Apple', null, 0, null, null),
   ('PoE to USB-C Adapter (802.3af, 12W)', 'court', 'ipad_poe_adapter', 'Shopee/Lazada', 13, 0, 'Must do power AND data over USB-C. Do NOT substitute the 25W UACC-PoE+-USBC on dense venues.', null),
   ('iPad Locking Wall Mount', 'court', 'ipad_wall_mount', null, null, 0, null, null),
@@ -27,7 +30,7 @@ insert into items (name, category, role_key, supplier, poe_watts, rack_u, notes,
   ('UniFi Dream Machine Pro', 'network', 'gateway_udm_pro', 'Drextech', null, 1, null, null),
   ('UniFi U7-LR (Access Point)', 'network', 'access_point', 'Drextech', null, 0, 'VERIFY MAX PoE DRAW before relying on the budget check — U7-LR is 802.3at, and the sizing doc does not state a figure. Quantity is a coverage decision, never a formula output.', null),
   ('Zoerax Honi Cat6 24-Port Patch Panel', 'network', 'patch_panel_24', 'Drextech', null, 1, 'FRONT ports patch to the switch; BACK terminates court runs.', null),
-  ('AD-LINK Cat6 48-Port Patch Panel', 'network', 'patch_panel_48', 'Drextech', null, 1, 'PH deviation from 2x 24-port.', null),
+  ('Zoerax Honi Cat6 48-Port Patch Panel', 'network', 'patch_panel_48', 'Drextech', null, 1, 'PH deviation from 2x 24-port. Replaced the AD-LINK panel on 2026-08-11 to standardise both sizes on Zoerax — the exact 48-port SKU, PH price and whether it ships the cable-management bar the AD-LINK had are NOT yet confirmed.', null),
   ('Vention Cat6 UTP 0.5M', 'cable', 'cat6_0m5', 'Lazada', null, 0, null, 'UTP, stranded, booted RJ45 — not shielded, not solid-core.'),
   ('Vention Cat6 UTP 1M', 'cable', 'cat6_1m', 'Lazada', null, 0, null, null),
   ('Vention Cat6 UTP 3M', 'cable', 'cat6_3m', 'Lazada', null, 0, null, null),
@@ -44,7 +47,8 @@ insert into items (name, category, role_key, supplier, poe_watts, rack_u, notes,
   ('Flic Button (Gen 2)', 'accessory', 'flic', 'flic.io', null, 0, null, null),
   ('Aluminum Printed Sign 6x8', 'signage', 'signage', null, null, 0, 'PH supplier not yet sourced.', null);
 
--- Alternates, inactive so they do not claim a role key. Activate by
--- deactivating the incumbent first.
+-- Alternates, inactive so they do not claim a role key. Only one active item
+-- may hold a role_key (unique index items_role_key_active), so activating one
+-- of these means deactivating the incumbent FIRST or the write is rejected.
 insert into items (name, category, role_key, supplier, poe_watts, rack_u, is_active, notes) values
-  ('Uniview IPC3624LE-ADF28K-WP (Owlview)', 'camera', null, 'Drextech', null, 0, false, '10 on hand; the unit on the Tela Park rig. 4MP 2.8mm fixed, 802.3af. VERIFY MAX PoE DRAW before activating as replay_camera — it is materially lower than the Dahua''s 17.5W, and the budget check depends on it.');
+  ('EmpireTech / Dahua IPC-HDW5459T-ZE-IL (Replay Camera)', 'camera', null, 'Drextech', 17.5, 0, false, 'Sizing-doc primary pick, but not what we stock — the Uniview Owlview is. 802.3at, 17.5W MAX (5W typical — the budget needs max), i.e. 6x the Uniview, so reactivating it materially changes the PoE budget. Set illumination to IR, and Video Standard NTSC / Anti-Flicker 60Hz.');
