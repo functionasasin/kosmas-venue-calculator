@@ -24,3 +24,14 @@ export const ROLE_KEYS = [
 ] as const
 
 export type RoleKey = (typeof ROLE_KEYS)[number]
+
+/**
+ * `items.role_key` and `venue_lines.origin_role_key` are plain `text` with no
+ * check constraint, so the database can hand back anything — including a role
+ * retired by a later release, which is exactly what happened to the junction
+ * boxes and the HDMI cable. Narrowing to null keeps the `RoleKey` type honest;
+ * an unrecognised key was already inert (it matches no formula), and null is
+ * the case every consumer already handles. Mirrors `readTier` in data/venues.ts.
+ */
+export const readRoleKey = (v: string | null | undefined): RoleKey | null =>
+  v != null && (ROLE_KEYS as readonly string[]).includes(v) ? (v as RoleKey) : null

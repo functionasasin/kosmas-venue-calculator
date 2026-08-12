@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type { CalculatedLine, Item, Qty } from '@/calculator/types'
-import type { RoleKey } from '@/calculator/roleKeys'
+import { readRoleKey, type RoleKey } from '@/calculator/roleKeys'
 
 export interface StoredLine {
   id: string
@@ -80,13 +80,17 @@ export async function listLines(venueId: string): Promise<StoredLine[]> {
     id: r.id,
     venueId: r.venue_id,
     itemId: r.item_id,
-    roleKey: r.items?.role_key ?? null,
+    roleKey: readRoleKey(r.items?.role_key),
     // qty_tbd is the round-trip for the 'TBD' sentinel; without it a saved
     // TBD reloads as 0 and prints as 0 on the handed-out list.
     qty: r.qty_tbd ? ('TBD' as const) : r.qty,
-    originRoleKey: r.origin_role_key ?? null,
+    originRoleKey: readRoleKey(r.origin_role_key),
     sortOrder: r.sort_order,
-    source: r.source,
+    // Unlike the role keys, `source` IS constrained in the schema —
+    // check (source in ('formula','manual')) — so the database cannot return
+    // anything else. PostgREST reports it as plain text because it does not
+    // introspect check constraints, hence the assertion rather than a guard.
+    source: r.source as StoredLine['source'],
     suppressed: r.suppressed,
     note: r.note,
   }))

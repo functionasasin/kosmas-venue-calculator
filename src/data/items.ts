@@ -1,20 +1,27 @@
 import { supabase } from '@/lib/supabase'
 import type { Item } from '@/calculator/types'
-import type { RoleKey } from '@/calculator/roleKeys'
+import { readRoleKey } from '@/calculator/roleKeys'
+import type { Tables } from '@/lib/database.types'
 
-const fromRow = (r: Record<string, unknown>): Item => ({
-  id: r.id as string,
-  name: r.name as string,
-  category: r.category as string,
-  roleKey: (r.role_key as RoleKey | null) ?? null,
-  supplier: (r.supplier as string | null) ?? null,
-  poeWatts: (r.poe_watts as number | null) ?? null,
-  rackU: (r.rack_u as number | null) ?? null,
-  unitPrice: (r.unit_price as number | null) ?? null,
-  currency: (r.currency as string | null) ?? null,
-  isActive: r.is_active as boolean,
-  notes: (r.notes as string | null) ?? null,
-  printNote: (r.print_note as string | null) ?? null,
+/**
+ * The row shape comes from the generated schema types, so a renamed or retyped
+ * column fails the build here rather than surfacing as `undefined` on a printed
+ * BOM. `role_key` still needs narrowing: it is unconstrained `text`, so only
+ * the compiler's word that it is a string comes for free.
+ */
+const fromRow = (r: Tables<'items'>): Item => ({
+  id: r.id,
+  name: r.name,
+  category: r.category,
+  roleKey: readRoleKey(r.role_key),
+  supplier: r.supplier,
+  poeWatts: r.poe_watts,
+  rackU: r.rack_u,
+  unitPrice: r.unit_price,
+  currency: r.currency,
+  isActive: r.is_active,
+  notes: r.notes,
+  printNote: r.print_note,
 })
 
 export async function listItems(includeInactive = false): Promise<Item[]> {

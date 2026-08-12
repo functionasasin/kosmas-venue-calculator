@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ROLE_KEYS } from './roleKeys'
+import { ROLE_KEYS, readRoleKey } from './roleKeys'
 
 describe('ROLE_KEYS', () => {
   it('contains no duplicates, because a duplicate would let two catalog items claim one role', () => {
@@ -22,5 +22,26 @@ describe('ROLE_KEYS', () => {
     expect(ROLE_KEYS).toContain('replay_camera')
     expect(ROLE_KEYS).toContain('apple_tv')
     expect(ROLE_KEYS).toContain('display')
+  })
+})
+
+describe('readRoleKey', () => {
+  it('passes every live role through unchanged, so the guard cannot mask a real value', () => {
+    for (const key of ROLE_KEYS) expect(readRoleKey(key)).toBe(key)
+  })
+
+  // `items.role_key` and `venue_lines.origin_role_key` are unconstrained text.
+  // The live case is a role this release retired: rows written while it existed
+  // still name it, and the removals of 2026-08-11/13 created exactly that.
+  it('nulls a retired role rather than letting it pose as a valid one', () => {
+    expect(readRoleKey('junction_box')).toBeNull()
+    expect(readRoleKey('hdmi_cable')).toBeNull()
+  })
+
+  it('nulls anything unrecognised, including absent values', () => {
+    expect(readRoleKey('nonsense')).toBeNull()
+    expect(readRoleKey('')).toBeNull()
+    expect(readRoleKey(null)).toBeNull()
+    expect(readRoleKey(undefined)).toBeNull()
   })
 })

@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "backup": "node scripts/backup.mjs"
+    "backup": "node scripts/backup.mjs",
+    "types:gen": "supabase gen types typescript --linked > src/lib/database.types.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

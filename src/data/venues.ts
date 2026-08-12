@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type { VenueInputs, Tier } from '@/calculator/types'
+import type { Tables } from '@/lib/database.types'
 
 export interface Venue extends VenueInputs {
   id: string
@@ -23,14 +24,14 @@ const LIVE: readonly Tier[] = [
 export const readTier = (v: unknown): Tier =>
   LIVE.includes(v as Tier) ? (v as Tier) : 'pro'
 
-const fromRow = (r: Record<string, unknown>): Venue => ({
-  id: r.id as string,
-  name: r.name as string,
-  courts: r.courts as number,
+const fromRow = (r: Tables<'venues'>): Venue => ({
+  id: r.id,
+  name: r.name,
+  courts: r.courts,
   tier: readTier(r.tier),
-  securityCameras: r.security_cameras as number,
-  kisiDoors: r.kisi_doors as number,
-  extendedRetention: r.extended_retention as boolean,
+  securityCameras: r.security_cameras,
+  kisiDoors: r.kisi_doors,
+  extendedRetention: r.extended_retention,
 })
 
 export async function listVenues(): Promise<Venue[]> {
