@@ -6,7 +6,7 @@ import type { RoleKey } from './roleKeys'
 const PER_COURT: RoleKey[] = [
   'replay_camera',
   'ipad', 'ipad_poe_adapter', 'ipad_wall_mount',
-  'apple_tv', 'hdmi_cable',
+  'apple_tv',
   'display',
 ]
 

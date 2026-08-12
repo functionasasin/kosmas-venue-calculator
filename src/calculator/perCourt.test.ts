@@ -15,7 +15,7 @@ describe('planPerCourt', () => {
     const i = pro()
     for (const role of [
       'replay_camera', 'ipad', 'ipad_poe_adapter',
-      'ipad_wall_mount', 'apple_tv', 'hdmi_cable', 'display',
+      'ipad_wall_mount', 'apple_tv', 'display',
     ]) {
       expect(qty(i, role)).toBe(8)
     }

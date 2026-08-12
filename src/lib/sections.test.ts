@@ -15,7 +15,7 @@ const CATEGORY: Partial<Record<RoleKey, string>> = {
   replay_camera: 'camera',
   ipad: 'court', ipad_poe_adapter: 'court', ipad_wall_mount: 'court',
   ipad_fence_bracket: 'court', apple_tv: 'court',
-  hdmi_cable: 'court', display: 'court',
+  display: 'court',
   flic: 'accessory', signage: 'signage',
   cat6_0m5: 'cable', cat6_1m: 'cable', cat6_3m: 'cable',
 }
@@ -44,7 +44,7 @@ const proPodPlay8: StoredLine[] = [
   line('ups', 1),
   line('replay_camera', 8),
   line('ipad', 8), line('ipad_poe_adapter', 8), line('ipad_wall_mount', 8),
-  line('apple_tv', 8), line('hdmi_cable', 8),
+  line('apple_tv', 8),
   line('display', 8),
   line('flic', 18), line('signage', 16),
   line('mac_mini', 1), line('mac_mini_shelf', 1),
@@ -61,17 +61,18 @@ describe('section assignment', () => {
   // The four counts together are the contract. Getting Rack right while
   // Court-side silently absorbs a cable line would still be wrong.
   // Removed 2026-08-11 as out of scope: the junction box, Apple TV mount and
-  // tilt mount (court-side, 12 -> 9) and the C14 adapter (rack, 9 -> 8).
-  it('splits an 8-court Pro venue 8 / 9 / 3 / 2', () => {
+  // tilt mount, plus the HDMI cable on 2026-08-13 (court-side, 12 -> 8) and the
+  // C14 adapter (rack, 9 -> 8).
+  it('splits an 8-court Pro venue 8 / 8 / 3 / 2', () => {
     expect(counts(proPodPlay8)).toEqual({
-      rack: 8, court: 9, cabling: 3, decide: 2,
+      rack: 8, court: 8, cabling: 3, decide: 2,
     })
   })
 
-  it('accounts for all 22 lines', () => {
+  it('accounts for all 21 lines', () => {
     const total = groupIntoSections(proPodPlay8, catalog)
       .reduce((n, s) => n + s.lines.length, 0)
-    expect(total).toBe(22)
+    expect(total).toBe(21)
   })
 
   it('orders sections rack, court, cabling, decide', () => {

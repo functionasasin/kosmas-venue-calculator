@@ -13,6 +13,7 @@ describe('ROLE_KEYS', () => {
   // worse than the line being absent. Key and item go together.
   it.each([
     'junction_box', 'security_junction_box', 'apple_tv_mount', 'tilt_mount',
+    'hdmi_cable',
   ])('has no %s role, since Kosmas does not spec that hardware', key => {
     expect(ROLE_KEYS).not.toContain(key)
   })

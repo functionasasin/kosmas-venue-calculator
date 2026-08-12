@@ -10,7 +10,7 @@ export const ROLE_KEYS = [
   'replay_camera',
   'security_camera',
   'ipad', 'ipad_poe_adapter', 'ipad_wall_mount', 'ipad_fence_bracket',
-  'apple_tv', 'hdmi_cable', 'display',
+  'apple_tv', 'display',
   'switch_24_pro', 'switch_24_std', 'switch_48_pro',
   'gateway_udm_se', 'gateway_udm_pro',
   'access_point',
