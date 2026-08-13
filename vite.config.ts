@@ -69,5 +69,10 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // Vitest's default `css: { include: [] }` stubs every id matching
+    // `\.css(?:$|\?)` to `{ code: '' }` before Vite's own raw-asset loader
+    // ever runs — the `?raw` query does not exempt it. Without this,
+    // `import x from './index.css?raw'` silently resolves to ''.
+    css: { include: [/\.css\?raw$/] },
   },
 })

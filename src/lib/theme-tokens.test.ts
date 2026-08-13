@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { contrast, DARK, LIGHT, type ThemeTokens } from './theme-tokens'
+import { contrast, cssVarName, DARK, LIGHT, TOKEN_NAMES, type ThemeTokens } from './theme-tokens'
+// `?raw` rather than node:fs — tsconfig.app.json sets types: ["vite/client"]
+// and include: ["src"], so a node:fs import fails `tsc -b` even though Vitest
+// would run it. vite/client declares '*?raw', and Vitest serves raw imports
+// regardless of the (absent) test.css setting.
+import indexCss from '../index.css?raw'
 
 // Floors as explicit (foreground, background) pairs. 4.5:1 wherever the text is
 // small — the rail's 10px uppercase labels, the 11px checks, the 12px formula
@@ -46,4 +51,53 @@ it('keeps the logo mark red even where it is low contrast', () => {
 // value, which is invisible until someone looks at the wrong theme.
 it('defines identical token sets in both modes', () => {
   expect(Object.keys(DARK).sort()).toEqual(Object.keys(LIGHT).sort())
+})
+
+/**
+ * Extracts a marker-delimited token block.
+ *
+ * Marker comments rather than selector matching: the first '.dark' in the file
+ * is `@custom-variant dark (&:is(.dark *))` on line 6, so searching for the
+ * selector finds the custom-variant line and parses the wrong block entirely.
+ */
+function tokenBlock(css: string, mode: 'light' | 'dark'): Record<string, string> {
+  const open = `/* theme:${mode} */`
+  const close = `/* /theme:${mode} */`
+  const start = css.indexOf(open)
+  const end = css.indexOf(close)
+  if (start === -1 || end === -1) throw new Error(`no ${open} … ${close} markers in index.css`)
+  const out: Record<string, string> = {}
+  for (const line of css.slice(start + open.length, end).split('\n')) {
+    const m = /^\s*(--[a-z-]+)\s*:\s*(.+?);/.exec(line)
+    if (m) out[m[1]] = m[2].trim()
+  }
+  return out
+}
+
+describe('index.css', () => {
+  it.each([['light', LIGHT], ['dark', DARK]] as const)(
+    '%s block declares every token at the audited value',
+    (mode, pal) => {
+      const declared = tokenBlock(indexCss, mode)
+      for (const token of TOKEN_NAMES) {
+        expect(declared[cssVarName(token)]).toBe(pal[token])
+      }
+    },
+  )
+
+  // The block overrode --border, which @layer base applies to every element via
+  // `* { @apply border-border }`. It made an OS-dark user see near-black borders
+  // on this light-only app, and it would have overridden an explicit Light
+  // choice too — a media query does not care what class is on <html>.
+  it('has no prefers-color-scheme block left to fight the theme class', () => {
+    expect(indexCss).not.toContain('prefers-color-scheme')
+  })
+
+  // Unlayered `:root { font: … var(--sans) }` beats the layered
+  // `html { @apply font-sans }`, so this line is what picks the app's typeface.
+  // Repointing it at --font-sans would silently switch every screen to Geist.
+  it('leaves the typeface alone', () => {
+    expect(indexCss).toContain('--sans: system-ui')
+    expect(indexCss).toContain('font: 18px/145% var(--sans);')
+  })
 })
