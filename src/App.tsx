@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { ThemeProvider } from 'next-themes'
 import { AuthProvider, useAuth } from '@/auth/AuthProvider'
 import { useRole } from '@/auth/useRole'
 import { Login } from '@/screens/Login'
@@ -30,11 +31,13 @@ function Routed() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routed />
-        <Toaster />
-      </BrowserRouter>
-    </AuthProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routed />
+          <Toaster />
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
