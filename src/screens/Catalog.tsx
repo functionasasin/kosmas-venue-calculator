@@ -105,7 +105,7 @@ export function Catalog() {
             {items.map(item => (
               <TableRow key={item.id}
                 className={`group/row hover:bg-muted/30 ${item.isActive ? '' : 'opacity-50'}`}>
-                <TableCell className="py-1.5 pl-4 font-medium group-hover/row:shadow-[inset_2px_0_0_var(--foreground)]">
+                <TableCell className="py-1.5 pl-4 font-medium group-hover/row:shadow-[inset_2px_0_0_var(--brand)]">
                   {item.name}
                   {!item.isActive && <Badge variant="outline" className="ml-2">inactive</Badge>}
                 </TableCell>

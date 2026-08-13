@@ -115,7 +115,7 @@ export function Venues() {
                 className="group/row cursor-pointer hover:bg-muted/30"
                 onClick={() => navigate(`/venues/${v.id}`)}
               >
-                <TableCell className="py-1.5 pl-4 font-medium group-hover/row:shadow-[inset_2px_0_0_var(--foreground)]">
+                <TableCell className="py-1.5 pl-4 font-medium group-hover/row:shadow-[inset_2px_0_0_var(--brand)]">
                   {v.name}
                 </TableCell>
                 <TableCell className="py-1.5 text-right tabular-nums">{v.courts}</TableCell>

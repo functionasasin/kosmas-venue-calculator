@@ -2,8 +2,8 @@ import type { Warning } from '@/calculator/types'
 
 const STYLES: Record<Warning['level'], string> = {
   info: 'border-l-muted-foreground/40 bg-muted/40',
-  warn: 'border-l-yellow-500 bg-yellow-500/10',
-  critical: 'border-l-orange-600 bg-orange-600/10',
+  warn: 'border-l-attention bg-attention/10',
+  critical: 'border-l-critical bg-critical/10',
   error: 'border-l-destructive bg-destructive/10',
 }
 

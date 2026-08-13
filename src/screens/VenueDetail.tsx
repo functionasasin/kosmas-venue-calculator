@@ -175,7 +175,7 @@ export function VenueDetail() {
             {/* The table is stale relative to the inputs. Marking the button is
                 what stops the export warning being the first anyone hears of it. */}
             {stale && (
-              <span aria-hidden className="ml-1 inline-block size-1.5 rounded-full bg-yellow-500" />
+              <span aria-hidden className="ml-1 inline-block size-1.5 rounded-full bg-attention" />
             )}
             {stale && <span className="sr-only">(inputs have changed)</span>}
           </Button>

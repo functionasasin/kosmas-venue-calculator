@@ -112,7 +112,7 @@ export function MaterialsRow({
   ) : (
     <Button
       size="sm" variant="ghost"
-      className="h-6 px-1.5 text-sm font-semibold text-yellow-700 dark:text-yellow-500"
+      className="h-6 px-1.5 text-sm font-semibold text-attention-foreground"
       title="Not derivable — set it manually"
       onClick={() => setResolving(true)}
     >
@@ -129,7 +129,7 @@ export function MaterialsRow({
       title={formula}
       className="group/row hover:bg-muted/30 max-sm:flex max-sm:flex-col max-sm:gap-1 max-sm:p-2"
     >
-      <TableCell className="py-1 pl-4 group-hover/row:shadow-[inset_2px_0_0_var(--foreground)] max-sm:block max-sm:w-full">
+      <TableCell className="py-1 pl-4 group-hover/row:shadow-[inset_2px_0_0_var(--brand)] max-sm:block max-sm:w-full">
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">{picker}</div>
           {/* Replaces the Remove column below lg, matching spec §6's table.

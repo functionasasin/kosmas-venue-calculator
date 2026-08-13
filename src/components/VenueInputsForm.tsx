@@ -45,7 +45,7 @@ export function VenueInputsForm({ value, onChange }: Props) {
   // to reach a screen reader, and a disabled input never receives hover.
   const hint = 'text-[10px] leading-tight text-muted-foreground'
   const fieldClass = (on: boolean) =>
-    `h-8 bg-card ${on ? '' : 'cursor-not-allowed opacity-50'}`
+    `h-8 bg-card ${on ? '' : 'cursor-not-allowed'}`
 
   return (
     <div className="space-y-3">
