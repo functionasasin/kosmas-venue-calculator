@@ -14,11 +14,23 @@ import {
  * differ per deal. Warnings are never included — they are internal working
  * notes and this document gets handed to someone.
  *
- * Cabling is omitted for every account, admin included. The omission is stated
- * in the footer rather than left silent, because an unexplained gap in a
- * handed-out list is the one failure this document cannot afford.
+ * Cabling is omitted for every account, admin included. So is everything that
+ * would land in "Needs a decision": a TBD quantity, a role that maps to no
+ * item, an unrecognised category. A line nobody has settled yet does not belong
+ * on a sheet handed to whoever is ordering — the screen still carries it, and
+ * the screen is where it gets settled. Both omissions are stated in the footer
+ * rather than left silent, because an unexplained gap in a handed-out list is
+ * the one failure this document cannot afford.
+ *
+ * Access points are what makes that footer load-bearing rather than decorative:
+ * perCourt.ts emits them 'TBD' for every venue, because the count is a coverage
+ * decision and never a formula output, so they reach no exported BOM at all.
+ * The sheet is therefore not a complete order on its own, and says so.
  */
-const PRINT_ORDER: SectionId[] = ['rack', 'court', 'decide']
+const PRINT_ORDER: SectionId[] = ['rack', 'court']
+
+/** The whitelist above, as a membership test — anything else is dropped. */
+const PRINT_SECTIONS = new Set<SectionId>(PRINT_ORDER)
 
 export function buildPdfBody(
   lines: StoredLine[], catalog: Item[],
@@ -43,12 +55,11 @@ export function buildPdfBody(
       byId.get(line.itemId) ??
       (line.roleKey ? byRole.get(line.roleKey) : undefined)
 
-    // An unmapped role is printed explicitly, in Needs a decision — it has no
-    // item and so no category, and it is precisely an unresolved line.
-    if (!item) {
-      push('decide', [`[NO ITEM MAPPED: ${line.roleKey ?? 'unknown'}]`, '—'])
-      continue
-    }
+    // An unmapped role has no item and so no name to print — it is a data
+    // problem to fix on the screen, not a line to hand someone. It used to
+    // print as [NO ITEM MAPPED: …] under Needs a decision; with that section
+    // gone there is nowhere honest to put it, so it is dropped like the rest.
+    if (!item) continue
 
     // Two separate questions, deliberately answered from two different
     // resolutions of the item. Whether the line PRINTS is decided from the
@@ -69,7 +80,16 @@ export function buildPdfBody(
     // and for the cabling check; only roleKey is right for the group.
     const section = sectionForLine(line, byRole)
 
-    push(section, [item.name, line.qty === 'TBD' ? 'TBD' : String(line.qty)])
+    // Drops the 'decide' lines — a TBD quantity, or a role that resolves to
+    // nothing. Checked here rather than left to PRINT_ORDER silently skipping
+    // the bucket, so that deleting a section from PRINT_ORDER cannot look like
+    // a formatting change when it is really a change to what the sheet claims.
+    if (!PRINT_SECTIONS.has(section)) continue
+
+    // String() rather than a TBD ternary: sectionForLine sends every TBD line
+    // to 'decide', so the guard above has already dropped them and a ternary
+    // here would be an unreachable branch implying they can still print.
+    push(section, [item.name, String(line.qty)])
 
     // print_note only — `notes` are internal working notes and must not reach
     // a document that gets handed to someone. It stays under its own line.
@@ -181,7 +201,7 @@ export function exportMaterialsPdf(
 
   // A table ending near the bottom used to push this sentence off the page
   // silently; now it would also land under the contact strip. The sentence is
-  // the only thing keeping the cabling omission from being unexplained, so it
+  // the only thing keeping the two omissions from being unexplained, so it
   // gets its own page rather than being dropped or overprinted.
   let noteY = finalY + 8
   if (noteY > NOTE_MAX_Y) {
@@ -191,7 +211,8 @@ export function exportMaterialsPdf(
   doc.setTextColor(60, 60, 60)
   doc.setFontSize(8)
   doc.text(
-    'Cabling is specified separately and is excluded from this list.',
+    'Cabling and any items with quantities still to be confirmed are specified '
+    + 'separately and are excluded from this list.',
     14, noteY,
   )
 

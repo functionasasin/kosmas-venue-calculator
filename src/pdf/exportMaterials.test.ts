@@ -71,11 +71,12 @@ const names = (rows: string[][]) => rows.map(r => r[0])
 
 describe('the exported body', () => {
   // The screen groups; a flat printout would hand the person on site a
-  // differently organised document to the one that was sized.
-  it('groups into Rack, Court-side and Needs a decision, in that order', () => {
+  // differently organised document to the one that was sized. Needs a decision
+  // is deliberately absent — see the TBD tests below.
+  it('groups into Rack and Court-side, in that order', () => {
     const { rows, headerRowIndices } = buildPdfBody(lines, catalog)
     const headers = [...headerRowIndices].sort((a, b) => a - b).map(i => rows[i][0])
-    expect(headers).toEqual(['Rack', 'Court-side', 'Needs a decision'])
+    expect(headers).toEqual(['Rack', 'Court-side'])
   })
 
   // The user's requirement: cable lengths are not committed to in a BOM.
@@ -85,55 +86,63 @@ describe('the exported body', () => {
     expect(names(rows)).not.toContain('Cabling')
   })
 
-  it('prints a TBD as TBD rather than as a number', () => {
+  // The user's requirement: a quantity nobody has settled does not belong on a
+  // sheet handed to whoever is ordering. Access points are the case that makes
+  // this bite — perCourt.ts emits them TBD for every venue, so this assertion
+  // is about every export, not an edge case.
+  it('omits a TBD line rather than printing an unsettled quantity', () => {
     const { rows } = buildPdfBody(lines, catalog)
-    const ap = rows.find(r => r[0] === 'UniFi U7-LR')
-    expect(ap?.[1]).toBe('TBD')
+    expect(names(rows)).not.toContain('UniFi U7-LR')
+    expect(rows.some(r => r[1] === 'TBD')).toBe(false)
   })
 
-  it('puts Needs a decision last so an unresolved line ends the document', () => {
-    const { rows, headerRowIndices } = buildPdfBody(lines, catalog)
-    const last = Math.max(...headerRowIndices)
-    expect(rows[last][0]).toBe('Needs a decision')
+  // The other half of that requirement, and the reason dropping it is safe:
+  // the line is not lost, it is still on the screen waiting to be settled. If
+  // this ever fails, the PDF is not hiding the line — the tool is losing it.
+  it('leaves a dropped TBD line visible on the screen', () => {
+    const onScreen = groupIntoSections(lines, catalog)
+      .flatMap(s => s.lines).map(l => l.roleKey)
+    expect(onScreen).toContain('access_point')
   })
 
-  // An unmapped line has no item and therefore no category. Dropping it would
-  // make the handed-out list quietly incomplete.
-  it('keeps an unmapped line, in Needs a decision', () => {
+  // An unmapped line has no item and so no name to print. It is a data problem
+  // to fix on the screen, not a row to hand someone: the placeholder it used to
+  // print told the reader nothing they could act on.
+  it('omits an unmapped line instead of printing a placeholder', () => {
     const orphan: StoredLine = { ...line('flic', 4), itemId: '' }
     const { rows } = buildPdfBody([...lines, orphan], catalog)
-    expect(names(rows).some(n => n.includes('NO ITEM MAPPED'))).toBe(true)
+    expect(names(rows).some(n => n.includes('NO ITEM MAPPED'))).toBe(false)
+    expect(rows.some(r => r[1] === '—')).toBe(false)
   })
 
-  // groupIntoSections (the screen) resolves the section by roleKey only. If
-  // buildPdfBody instead sectioned by the itemId-resolved item's category, a
-  // line whose roleKey does not resolve (e.g. items.role_key is NULL, as in
-  // listLines) would land in Rack/Court-side on paper while the screen calls
-  // it unresolved and puts it in Needs a decision. itemId here deliberately
-  // resolves to a *different* item than roleKey would, so this only passes if
-  // the section is derived the same way groupIntoSections derives it.
-  it('agrees with the screen when roleKey does not resolve but itemId does', () => {
+  // groupIntoSections (the screen) resolves the section by roleKey only, and a
+  // line whose roleKey does not resolve is unsettled — the screen files it
+  // under Needs a decision. The PDF must decide the same way and then drop it.
+  // Sectioning by the itemId-resolved item's category instead would land this
+  // line under Rack on paper while the screen calls it unresolved, which is the
+  // failure this guards: itemId here deliberately resolves to a different item
+  // than roleKey would.
+  it('drops what the screen files under Needs a decision', () => {
     const divergent: StoredLine = {
       ...line('ups', 1), roleKey: 'flic', itemId: 'id-ups',
     }
-    const { rows, headerRowIndices } = buildPdfBody([divergent], catalog)
-    const pdfSection = rows[[...headerRowIndices][0]][0]
-    const screenSection = groupIntoSections([divergent], catalog)[0].label
-    expect(pdfSection).toBe(screenSection)
-    expect(pdfSection).toBe('Needs a decision')
+    expect(groupIntoSections([divergent], catalog)[0].label).toBe('Needs a decision')
+    expect(buildPdfBody([divergent], catalog).rows).toEqual([])
   })
 
-  // itemId resolution must survive even when the section can't resolve: the
-  // name printed is still the itemId-pointed item's name, not a fabricated
-  // "unmapped" placeholder — itemId is authoritative and its item is real,
-  // only its role mapping is gone (e.g. deactivated, or role reassigned).
-  it('still prints the itemId-resolved name when the item has no roleKey', () => {
-    const deactivated = catalog.map(i =>
-      i.roleKey === 'ups' ? { ...i, roleKey: null, isActive: false, name: 'Retired KSTAR UPS' } : i)
-    const orphanedRole: StoredLine = { ...line('ups', 1), roleKey: null }
-    const { rows } = buildPdfBody([orphanedRole], deactivated)
-    expect(names(rows)).toContain('Retired KSTAR UPS')
-    expect(names(rows).some(n => n.includes('NO ITEM MAPPED'))).toBe(false)
+  // itemId is authoritative for the NAME, roleKey for the SECTION, and the two
+  // are resolved separately. This line points its itemId at the UPS while its
+  // roleKey says display, so it only passes if the name comes off itemId and
+  // the group off roleKey — collapsing either onto the other flips one of these
+  // assertions. The deactivated/null-roleKey variants of this used to live here
+  // too; those lines are now dropped outright, so this is the reachable case.
+  it('takes the name from itemId and the section from roleKey', () => {
+    const divergent: StoredLine = {
+      ...line('ups', 1), roleKey: 'display', itemId: 'id-ups',
+    }
+    const { rows, headerRowIndices } = buildPdfBody([divergent], catalog)
+    expect(rows[[...headerRowIndices][0]][0]).toBe('Court-side')
+    expect(names(rows)).toContain('KSTAR UPS')
   })
 
   // items.role_key is nullable (0001_schema.sql) and listLines maps a null
@@ -220,16 +229,21 @@ describe('the exported body', () => {
 })
 
 describe('the exported PDF footer', () => {
-  // The footer sentence is the only thing that keeps the cabling omission
-  // from being silent — buildPdfBody's rows never mention cabling once it's
-  // excluded, so nothing else in this file would catch the footer being
-  // deleted. Deleting it currently keeps every other test in this file green.
-  it('states that cabling is excluded, on every export', () => {
+  // The footer sentence is the only thing that keeps the two omissions from
+  // being silent — buildPdfBody's rows never mention cabling or the dropped
+  // TBD lines once they're excluded, so nothing else in this file would catch
+  // the footer being deleted. Deleting it keeps every other test here green.
+  //
+  // The TBD half matters more than the cabling half: access points are TBD for
+  // every venue, so every sheet is missing them, and a reader with no note
+  // would have no way to know the list is not a complete order.
+  it('states that cabling and unconfirmed quantities are excluded', () => {
     textCalls.length = 0
     exportMaterialsPdf('Test Venue', 'Pro', lines, catalog)
-    expect(textCalls.some(t =>
-      t.includes('Cabling is specified separately and is excluded from this list.'),
-    )).toBe(true)
+    const note = textCalls.find(t => t.startsWith('Cabling'))
+    expect(note).toBeDefined()
+    expect(note).toContain('quantities still to be confirmed')
+    expect(note).toContain('excluded from this list')
   })
 })
 
@@ -295,7 +309,7 @@ describe('the Kosmas letterhead', () => {
     reset()
     tableEnd.finalY = FOOTER_BAND.y - 10
     exportMaterialsPdf('Test Venue', 'Pro', lines, catalog)
-    expect(textCalls.some(t => t.includes('Cabling is specified separately'))).toBe(true)
+    expect(textCalls.some(t => t.startsWith('Cabling'))).toBe(true)
     expect(imageCalls.some(c => c.page === 2)).toBe(true)
   })
 
