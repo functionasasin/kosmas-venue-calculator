@@ -37,7 +37,7 @@ export function MaterialsSection({
           role="button"
           tabIndex={0}
           aria-expanded={open}
-          className={`cursor-pointer py-1.5 pl-4 text-[11px] font-semibold uppercase tracking-[.03em] max-sm:block ${decide ? 'bg-attention/20 text-attention-foreground dark:bg-attention/14' : 'bg-muted text-brand'}`}
+          className={`cursor-pointer py-1.5 pl-4 text-[11px] font-semibold uppercase tracking-[.03em] max-sm:block ${decide ? 'bg-attention/20 text-attention-foreground hover:bg-attention/28 dark:bg-attention/14 dark:hover:bg-attention/20' : 'bg-muted text-brand hover:bg-accent'}`}
           onClick={() => setOpen(o => !o)}
           onKeyDown={e => {
             if (e.key === 'Enter' || e.key === ' ') {

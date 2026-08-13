@@ -79,7 +79,13 @@ export const LIGHT: ThemeTokens = {
   railhdForeground: '#FFFFFF',
   gold: '#D2AB67',
   attention: '#F0B100',
-  attentionForeground: '#A65F00',
+  // Darkened from #A65F00 (2026-08-13 review): the "needs a decision" band is
+  // bg-attention/20 composited over --card, not --attention itself, and this
+  // token was only ever checked against solid --card. #A65F00 clears --card at
+  // 5.57:1 but the actual composited band (#FCEFCC) only reaches 4.31:1 —
+  // under the 4.5:1 floor. #9A5800 is the minimal darkening that clears both:
+  // 4.88:1 on the composited band, 5.57:1 on --card.
+  attentionForeground: '#9A5800',
   critical: '#C2410C',
   scrim: 'rgba(0,0,0,.10)',
   mark: '#E31F26',
@@ -153,4 +159,29 @@ export function contrast(a: string, b: string): number {
   const la = luminance(a)
   const lb = luminance(b)
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05)
+}
+
+/**
+ * Alpha-composites `fg` at `alphaPct`% over the opaque `bg`, returning a solid
+ * hex. Exists because `contrast()` takes solid hex only, but utilities like
+ * `bg-attention/20` never paint a flat colour — they lay `fg` translucent over
+ * whatever surface is beneath, and text sitting on that band is judged against
+ * the *composited* result, not against `fg` or `bg` alone. Tailwind's opacity
+ * modifier compiles to a `color-mix(..., transparent)` that reduces
+ * algebraically to a plain sRGB alpha blend, so a straight per-channel blend
+ * here reproduces the exact colour the browser paints.
+ */
+export function compositeOver(fg: string, bg: string, alphaPct: number): string {
+  const mf = /^#([0-9a-f]{6})$/i.exec(fg.trim())
+  const mb = /^#([0-9a-f]{6})$/i.exec(bg.trim())
+  if (!mf || !mb) throw new Error(`compositeOver() needs 6-digit hex, got ${fg} / ${bg}`)
+  const nf = parseInt(mf[1], 16)
+  const nb = parseInt(mb[1], 16)
+  const a = alphaPct / 100
+  const blend = (shift: number) =>
+    Math.round(a * ((nf >> shift) & 255) + (1 - a) * ((nb >> shift) & 255))
+  const r = blend(16)
+  const g = blend(8)
+  const b = blend(0)
+  return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('').toUpperCase()
 }

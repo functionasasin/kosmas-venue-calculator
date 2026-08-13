@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { contrast, cssVarName, DARK, LIGHT, TOKEN_NAMES, type ThemeTokens } from './theme-tokens'
+import { compositeOver, contrast, cssVarName, DARK, LIGHT, TOKEN_NAMES, type ThemeTokens } from './theme-tokens'
 // `?raw` rather than node:fs — tsconfig.app.json sets types: ["vite/client"]
 // and include: ["src"], so a node:fs import fails `tsc -b` even though Vitest
 // would run it. This depends on `test.css.include` in vite.config.ts: without
@@ -35,6 +35,19 @@ describe.each([['light', LIGHT], ['dark', DARK]] as const)('%s palette', (_name,
   it.each(MARKS)('%s on %s is distinguishable at 3:1', (fg, bg) => {
     expect(contrast(pal[fg], pal[bg])).toBeGreaterThanOrEqual(3)
   })
+})
+
+// MaterialsSection renders the "needs a decision" caption as text-attention-
+// foreground on bg-attention/20 (light) / dark:bg-attention/14 (dark) — a
+// translucent tint over --card, not a solid attention fill. No pair above
+// covers that composited surface, and attentionForeground was previously only
+// checked against solid --card, which let a band that fails AA ship unnoticed.
+it.each([
+  ['light', LIGHT, 20],
+  ['dark', DARK, 14],
+] as const)('the decide band still carries its own label at 4.5:1 (%s)', (_name, pal, alphaPct) => {
+  const band = compositeOver(pal.attention, pal.card, alphaPct)
+  expect(contrast(pal.attentionForeground, band)).toBeGreaterThanOrEqual(4.5)
 })
 
 // The mark is 1.68:1 on the navy header and ships that way on purpose: WCAG
