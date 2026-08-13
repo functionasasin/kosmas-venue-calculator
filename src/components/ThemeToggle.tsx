@@ -12,9 +12,10 @@ import { Button } from '@/components/ui/button'
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme()
 
-  // next-themes resolves on the client, after mount. Rendering a concrete
-  // label before then can name the wrong direction and swap a frame later, so
-  // hold a neutral one for the first tick.
+  // resolvedTheme is already correct on first render (next-themes computes it
+  // in a lazy useState initialiser), so this isn't guarding against a known
+  // flash. It's a cheap belt-and-braces safeguard against ever naming the
+  // wrong direction before the provider has mounted.
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 

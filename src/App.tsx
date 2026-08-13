@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from 'next-themes'
+import { THEME_STORAGE_KEY } from '@/theme-init'
 import { AuthProvider, useAuth } from '@/auth/AuthProvider'
 import { useRole } from '@/auth/useRole'
 import { Login } from '@/screens/Login'
@@ -31,7 +32,12 @@ function Routed() {
 
 export default function App() {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      storageKey={THEME_STORAGE_KEY}
+    >
       <AuthProvider>
         <BrowserRouter>
           <Routed />
