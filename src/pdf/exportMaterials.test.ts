@@ -3,6 +3,7 @@ import type { Item } from '@/calculator/types'
 import type { RoleKey } from '@/calculator/roleKeys'
 import type { StoredLine } from '@/data/venueLines'
 import { groupIntoSections } from '@/lib/sections'
+import { FOOTER_BAND, FOOTER_PNG, HEADER_PNG } from './letterhead'
 import { buildPdfBody, exportMaterialsPdf } from './exportMaterials'
 
 // exportMaterialsPdf is exercised (rather than only buildPdfBody) for the
@@ -11,16 +12,36 @@ import { buildPdfBody, exportMaterialsPdf } from './exportMaterials'
 // jspdf-autotable are stubbed because they draw vector graphics that jsdom
 // has no reason to be exercised by in a unit test — only the calls to
 // `text` matter here.
-const { textCalls } = vi.hoisted(() => ({ textCalls: [] as string[] }))
+const { textCalls, imageCalls } = vi.hoisted(() => ({
+  textCalls: [] as string[],
+  imageCalls: [] as { data: string; page: number }[],
+}))
 vi.mock('jspdf', () => {
   class FakeJsPDF {
+    pages = 1
+    page = 1
     setFontSize() { return this }
+    setTextColor() { return this }
     text(str: string) { textCalls.push(str); return this }
+    addPage() { this.pages++; this.page = this.pages; return this }
+    getNumberOfPages() { return this.pages }
+    setPage(n: number) { this.page = n; return this }
+    addImage(data: string) { imageCalls.push({ data, page: this.page }); return this }
     save() { /* no-op: no real download in a unit test */ }
   }
   return { default: FakeJsPDF }
 })
-vi.mock('jspdf-autotable', () => ({ default: vi.fn() }))
+// Stubbed like jsPDF, but it reports back where the table ended: that number
+// decides whether the closing note still fits above the contact strip, and it
+// is the only input to that branch.
+const { tableEnd } = vi.hoisted(() => ({
+  tableEnd: { finalY: undefined as number | undefined },
+}))
+vi.mock('jspdf-autotable', () => ({
+  default: vi.fn((doc: { lastAutoTable?: { finalY: number } }) => {
+    if (tableEnd.finalY !== undefined) doc.lastAutoTable = { finalY: tableEnd.finalY }
+  }),
+}))
 
 const item = (roleKey: RoleKey, category: string, name: string): Item => ({
   id: `id-${roleKey}`, name, category, roleKey,
@@ -231,5 +252,59 @@ describe('the exported PDF header', () => {
     exportMaterialsPdf('Test Venue', 'Autonomous+', lines, catalog)
     expect(textCalls.some(t => t === 'Tier: Autonomous+')).toBe(true)
     expect(textCalls.some(t => /basic_plus|autonomous_plus/.test(t))).toBe(false)
+  })
+})
+
+describe('the Kosmas letterhead', () => {
+  const reset = () => {
+    textCalls.length = 0
+    imageCalls.length = 0
+    tableEnd.finalY = undefined
+  }
+
+  const bandsOn = (page: number) =>
+    imageCalls.filter(c => c.page === page).map(c => c.data)
+
+  // This sheet is handed to a client alongside quotes and letters that all come
+  // out of the same corporate template, so it carries the same two bands. Both,
+  // not just the logo: the contact strip is how the person holding the printout
+  // reaches Kosmas about what is on it.
+  it('puts the logo band and the contact strip on the page', () => {
+    reset()
+    exportMaterialsPdf('Test Venue', 'Pro', lines, catalog)
+    expect(bandsOn(1)).toEqual([HEADER_PNG, FOOTER_PNG])
+  })
+
+  // A materials list is routinely longer than one page. Branding only the first
+  // would hand over a document whose later pages — the ones with the court-side
+  // hardware on them — look like they came from nobody.
+  it('bands every page, not only the first', () => {
+    reset()
+    // Forces the second page: the note no longer fits above the contact strip.
+    tableEnd.finalY = FOOTER_BAND.y - 10
+    exportMaterialsPdf('Test Venue', 'Pro', lines, catalog)
+    expect(bandsOn(1)).toEqual([HEADER_PNG, FOOTER_PNG])
+    expect(bandsOn(2)).toEqual([HEADER_PNG, FOOTER_PNG])
+  })
+
+  // The cabling sentence is the only thing that explains the gap in the list.
+  // Before the bands existed it could run off the bottom of the page unnoticed;
+  // now it would print underneath the contact strip, which is worse — it would
+  // look present in the code and be unreadable on paper. It gets a page.
+  it('never lets the cabling note print under the contact strip', () => {
+    reset()
+    tableEnd.finalY = FOOTER_BAND.y - 10
+    exportMaterialsPdf('Test Venue', 'Pro', lines, catalog)
+    expect(textCalls.some(t => t.includes('Cabling is specified separately'))).toBe(true)
+    expect(imageCalls.some(c => c.page === 2)).toBe(true)
+  })
+
+  // The counterpart to the test above: a short list must not be padded with an
+  // empty second page just because the overflow branch exists.
+  it('stays on one page when the note fits', () => {
+    reset()
+    tableEnd.finalY = 120
+    exportMaterialsPdf('Test Venue', 'Pro', lines, catalog)
+    expect(imageCalls.every(c => c.page === 1)).toBe(true)
   })
 })

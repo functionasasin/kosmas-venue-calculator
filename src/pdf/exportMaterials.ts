@@ -4,6 +4,9 @@ import type { Item } from '@/calculator/types'
 import type { StoredLine } from '@/data/venueLines'
 import type { SectionId } from '@/lib/sections'
 import { SECTION_LABELS, itemsByRole, sectionForItem, sectionForLine } from '@/lib/sections'
+import {
+  FOOTER_BAND, FOOTER_PNG, HEADER_BAND, HEADER_PNG, KOSMAS_NAVY, KOSMAS_NAVY_TINT,
+} from './letterhead'
 
 /**
  * Grouped to mirror the screen: whoever holds the printout should be reading
@@ -86,6 +89,34 @@ export function buildPdfBody(
   return { rows, headerRowIndices }
 }
 
+/** First line the letterhead leaves free, and where the title block starts. */
+const CONTENT_TOP = HEADER_BAND.h + 6
+const TITLE_Y = CONTENT_TOP + 4
+
+/** Lowest baseline the closing note can take and still clear the contact strip. */
+const NOTE_MAX_Y = FOOTER_BAND.y - 5
+
+/**
+ * Stamped last, over every page the document ended up with, so a table that
+ * spilled onto page three is banded too. Both crops are opaque white outside
+ * the artwork, which is why this runs after the content is laid out rather than
+ * from autoTable's didDrawPage — the margins above keep the content out of the
+ * bands, and drawing last means a stray overlap covers the band, never the
+ * hardware list.
+ */
+function stampLetterhead(doc: jsPDF): void {
+  const pages = doc.getNumberOfPages()
+  for (let page = 1; page <= pages; page++) {
+    doc.setPage(page)
+    doc.addImage(
+      HEADER_PNG, 'PNG', HEADER_BAND.x, HEADER_BAND.y, HEADER_BAND.w, HEADER_BAND.h,
+    )
+    doc.addImage(
+      FOOTER_PNG, 'PNG', FOOTER_BAND.x, FOOTER_BAND.y, FOOTER_BAND.w, FOOTER_BAND.h,
+    )
+  }
+}
+
 /**
  * `tierLabel` is passed in already resolved rather than derived here, so the
  * PDF and the screen cannot disagree about what a venue is called. Nothing
@@ -95,6 +126,12 @@ export function buildPdfBody(
  * Titled "HARDWARE ITEMS" — it describes what is on the page. The sheet carries
  * no prices, and that exclusion is deliberate and tested, so a pricing-flavoured
  * title would promise something the document does not contain.
+ *
+ * The page is the Kosmas corporate letterhead: same bands, same brand navy as
+ * `Corporate Letter Format_V4.0.docx`. What the sheet says and the order it says
+ * it in is unchanged — only the palette and the two bands are new. This document
+ * is handed to a client, so it should look like it came from the same company as
+ * every other letter they get.
  */
 export function exportMaterialsPdf(
   venueName: string,
@@ -104,41 +141,61 @@ export function exportMaterialsPdf(
 ): void {
   const doc = new jsPDF()
 
+  doc.setTextColor(...KOSMAS_NAVY)
   doc.setFontSize(16)
-  doc.text('HARDWARE ITEMS', 14, 20)
+  doc.text('HARDWARE ITEMS', 14, TITLE_Y)
   doc.setFontSize(12)
-  doc.text(venueName, 14, 28)
+  doc.text(venueName, 14, TITLE_Y + 8)
+  doc.setTextColor(60, 60, 60)
   doc.setFontSize(10)
-  doc.text(`Tier: ${tierLabel}`, 14, 35)
+  doc.text(`Tier: ${tierLabel}`, 14, TITLE_Y + 15)
   doc.text(`Date: ${new Date().toLocaleDateString('en-PH', {
     year: 'numeric', month: 'long', day: 'numeric',
-  })}`, 14, 41)
+  })}`, 14, TITLE_Y + 21)
 
   const { rows, headerRowIndices } = buildPdfBody(lines, catalog)
 
   autoTable(doc, {
-    startY: 48,
+    startY: TITLE_Y + 28,
+    // Keeps a table that runs onto a second page clear of the bands, which are
+    // stamped after the fact and would otherwise paint over the top and bottom
+    // rows. On page one startY already clears the header.
+    margin: { top: CONTENT_TOP, bottom: 297 - FOOTER_BAND.y + 8 },
     head: [['Item / Model', 'Qty']],
     body: rows,
     styles: { fontSize: 9 },
-    headStyles: { fillColor: [40, 40, 40] },
+    headStyles: { fillColor: KOSMAS_NAVY },
     columnStyles: { 1: { halign: 'right', cellWidth: 20 } },
     didParseCell: data => {
       if (data.section === 'body' && headerRowIndices.has(data.row.index)) {
         data.cell.styles.fontStyle = 'bold'
-        data.cell.styles.fillColor = [235, 235, 235]
+        data.cell.styles.fillColor = KOSMAS_NAVY_TINT
+        data.cell.styles.textColor = KOSMAS_NAVY
       }
     },
   })
 
   const finalY =
     (doc as unknown as { lastAutoTable?: { finalY: number } })
-      .lastAutoTable?.finalY ?? 48
+      .lastAutoTable?.finalY ?? TITLE_Y + 28
+
+  // A table ending near the bottom used to push this sentence off the page
+  // silently; now it would also land under the contact strip. The sentence is
+  // the only thing keeping the cabling omission from being unexplained, so it
+  // gets its own page rather than being dropped or overprinted.
+  let noteY = finalY + 8
+  if (noteY > NOTE_MAX_Y) {
+    doc.addPage()
+    noteY = CONTENT_TOP + 4
+  }
+  doc.setTextColor(60, 60, 60)
   doc.setFontSize(8)
   doc.text(
     'Cabling is specified separately and is excluded from this list.',
-    14, finalY + 8,
+    14, noteY,
   )
+
+  stampLetterhead(doc)
 
   doc.save(`hardware-items-${venueName.toLowerCase().replace(/\s+/g, '-')}.pdf`)
 }
