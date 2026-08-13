@@ -60,7 +60,13 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+        // Stock shadcn tints an expanded row `bg-muted/50`. Dropped: the only
+        // aria-expanded cells here are MaterialsSection's headers, which paint
+        // their own band. Under an opaque one the tint was invisible, and under
+        // the translucent decide band it added a third layer (card → muted/50 →
+        // attention/20) that dragged the caption to 4.31:1. theme-tokens.test.ts
+        // greps this file to keep it from coming back — hence the spelling.
+        "border-b transition-colors data-[state=selected]:bg-muted",
         className
       )}
       {...props}

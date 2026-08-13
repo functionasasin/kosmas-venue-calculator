@@ -146,9 +146,17 @@ export function VenueDetail() {
           <KosmasLogo className="mb-2.5 h-auto w-[9.2rem]" />
           {/* opacity-70 is load-bearing, not decorative: it resolves to 4.70:1
               against --railhd in light mode, against the 4.5:1 floor this 11px
-              text needs. Lowering it (e.g. to opacity-60) drops below that. */}
+              text needs. Lowering it (e.g. to opacity-60) drops below that.
+
+              focus-visible:opacity-100 is part of the ring, not a flourish:
+              `opacity` fades the outline along with the text, and gold at 70%
+              over the navy header is 2.45:1. At full opacity it is 3.65:1.
+              The explicit outline replaces the base layer's `outline-ring/50`,
+              which is --ring on --railhd — the same navy, 1.00:1. */}
           <Link to="/"
-            className="mb-1.5 inline-block text-[11px] opacity-70 transition-opacity hover:opacity-100">
+            className="mb-1.5 inline-block rounded-sm text-[11px] opacity-70 transition-opacity
+                       hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2
+                       focus-visible:outline-offset-2 focus-visible:outline-railhd-ring">
             ← Venues
           </Link>
           <h1 className="text-lg font-semibold tracking-tight">{venue.name}</h1>

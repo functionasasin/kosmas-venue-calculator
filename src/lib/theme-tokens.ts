@@ -37,6 +37,7 @@ export interface ThemeTokens {
   brandForeground: string
   railhd: string
   railhdForeground: string
+  railhdRing: string
   gold: string
   attention: string
   attentionForeground: string
@@ -74,6 +75,8 @@ export const LIGHT: ThemeTokens = {
   // Darkened from the brand red so 11px check text clears 4.5:1. Always renders
   // as a tint (button.tsx uses bg-destructive/10 text-destructive), never as a
   // solid fill — which is what keeps it distinct from the red commit button.
+  // The tint is its own background, so the hover alpha is capped at /16: the
+  // stock /20 put the label at 4.33:1 on the very surface it sits on.
   destructive: '#C2101A',
   border: '#E6E8EC',
   input: '#DCDFE4',
@@ -82,6 +85,10 @@ export const LIGHT: ThemeTokens = {
   brandForeground: '#FFFFFF',
   railhd: '#005490',
   railhdForeground: '#FFFFFF',
+  // The rail header is the one block where --ring is invisible: it is #005490
+  // on #005490, 1.00:1, and the `← Venues` link is the only focusable thing on
+  // it. Gold rather than white so the ring echoes the rule under the header.
+  railhdRing: '#D2AB67',
   gold: '#D2AB67',
   attention: '#F0B100',
   // Darkened from #A65F00 (2026-08-13 review): the "needs a decision" band is
@@ -115,7 +122,13 @@ export const DARK: ThemeTokens = {
   mutedForeground: '#9BA1AA',
   accent: '#16242E',
   accentForeground: '#3AA4EF',
-  destructive: '#F2555B',
+  // Lightened from #F2555B. The destructive button paints this colour as text
+  // on a tint of *itself*, so in dark the two luminances converge: #F2555B on
+  // its own /20 tint over --popover was 3.87:1 at rest and 3.29:1 hovered, and
+  // no alpha fixes it — thinning the tint to clear 4.5:1 leaves no fill to
+  // hover. Lifting the text is the only knob. Also lifts the check text and the
+  // warning rule, and pulls further away from --primary #DB5A5F.
+  destructive: '#FF8A8E',
   border: '#2A2B2F',
   input: '#33353A',
   ring: '#3AA4EF',
@@ -125,6 +138,9 @@ export const DARK: ThemeTokens = {
   // dark the brand carries through the reversed wordmark and the gold rule.
   railhd: '#1C1D20',
   railhdForeground: '#E8E9EA',
+  // Dark's rail header is surface grey, so --ring already reads on it at
+  // 6.21:1. Same value, held as its own token so light can differ.
+  railhdRing: '#3AA4EF',
   gold: '#D2AB67',
   attention: '#F0B100',
   attentionForeground: '#F0B100',
