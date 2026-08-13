@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { contrast, cssVarName, DARK, LIGHT, TOKEN_NAMES, type ThemeTokens } from './theme-tokens'
 // `?raw` rather than node:fs — tsconfig.app.json sets types: ["vite/client"]
 // and include: ["src"], so a node:fs import fails `tsc -b` even though Vitest
-// would run it. vite/client declares '*?raw', and Vitest serves raw imports
-// regardless of the (absent) test.css setting.
+// would run it. This depends on `test.css.include` in vite.config.ts: without
+// it, Vitest's css-disable plugin matches `.css?raw` too and stubs this to ''.
 import indexCss from '../index.css?raw'
 
 // Floors as explicit (foreground, background) pairs. 4.5:1 wherever the text is
