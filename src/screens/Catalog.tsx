@@ -9,6 +9,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { toast } from 'sonner'
 
 export function Catalog() {
@@ -67,10 +68,13 @@ export function Catalog() {
           </Link>
           <h1 className="text-lg font-semibold tracking-tight">Catalog</h1>
         </div>
-        <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
-          onClick={() => setEditing('new')}>
-          Add item
-        </Button>
+        <div className="flex gap-1.5">
+          <ThemeToggle />
+          <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+            onClick={() => setEditing('new')}>
+            Add item
+          </Button>
+        </div>
       </div>
 
       {/* overflow-x-auto lives in ui/table.tsx already; min-w forces the table

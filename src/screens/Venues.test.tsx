@@ -101,3 +101,10 @@ describe('Venues navigation controls', () => {
     expect(catalog.getAttribute('role')).toBeNull()
   })
 })
+
+describe('Venues theme', () => {
+  it('offers the theme toggle from the venues bar', async () => {
+    await renderVenues()
+    expect(screen.getByRole('button', { name: /switch to .* theme/i })).toBeInTheDocument()
+  })
+})

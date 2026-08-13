@@ -12,6 +12,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { toast } from 'sonner'
 
 export function Venues() {
@@ -85,6 +86,7 @@ export function Venues() {
             onClick={() => setCreating(true)}>
             New venue
           </Button>
+          <ThemeToggle />
           <Button variant="ghost" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
             onClick={signOut}>
             Sign out
