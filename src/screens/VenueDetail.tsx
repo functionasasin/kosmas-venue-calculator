@@ -144,6 +144,9 @@ export function VenueDetail() {
             the reversed wordmark and the gold rule instead. */}
         <div className="border-b-2 border-gold bg-railhd px-4 py-3 text-railhd-foreground">
           <KosmasLogo className="mb-2.5 h-auto w-[9.2rem]" />
+          {/* opacity-70 is load-bearing, not decorative: it resolves to 4.70:1
+              against --railhd in light mode, against the 4.5:1 floor this 11px
+              text needs. Lowering it (e.g. to opacity-60) drops below that. */}
           <Link to="/"
             className="mb-1.5 inline-block text-[11px] opacity-70 transition-opacity hover:opacity-100">
             ← Venues
