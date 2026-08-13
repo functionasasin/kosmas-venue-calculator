@@ -33,8 +33,9 @@ export function VenueInputsForm({ value, onChange }: Props) {
       kisiDoors: allowsKisiDoors(tier) ? value.kisiDoors : 0,
     })
 
-  // bg-card, not bg-background: the rail is a tinted surface now, and a
-  // transparent control would pick the tint up instead of reading as a field.
+  // bg-card matches the rail, which is no longer tinted — the fields are
+  // separated from it by their border alone. That border is 1.34:1, recorded
+  // as an accepted deviation in the spec (§4); the focus ring carries at 7.86:1.
   const selectClass = 'h-8 w-full rounded-md border bg-card px-2 py-1 text-sm'
   const lb = 'text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground'
   // A disabled field with no explanation reads as broken, so each one carries

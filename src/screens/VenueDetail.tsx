@@ -11,6 +11,8 @@ import { WarningsPanel } from '@/components/WarningsPanel'
 import { exportMaterialsPdf } from '@/pdf/exportMaterials'
 import { tierLabel } from '@/lib/tierLabel'
 import { Button } from '@/components/ui/button'
+import { KosmasLogo } from '@/components/KosmasLogo'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useRole } from '@/auth/useRole'
 import { toast } from 'sonner'
@@ -135,11 +137,15 @@ export function VenueDetail() {
           page scrolls; from lg it is a full-height surface pinned to the
           viewport, with only the inputs area scrolling, so that a venue with
           three checks still leaves Courts reachable at row 26. */}
-      <aside className="w-full shrink-0 border-b bg-muted/50 lg:sticky lg:top-0 lg:flex
+      <aside className="w-full shrink-0 border-b bg-card lg:sticky lg:top-0 lg:flex
                         lg:h-svh lg:w-58 lg:flex-col lg:border-r lg:border-b-0">
-        <div className="border-b px-4 py-3">
+        {/* Navy in light, surface grey in dark. Deliberate asymmetry: mid-navy
+            on near-black reads as mud, so after dark the brand carries through
+            the reversed wordmark and the gold rule instead. */}
+        <div className="border-b-2 border-gold bg-railhd px-4 py-3 text-railhd-foreground">
+          <KosmasLogo className="mb-2.5 h-auto w-[9.2rem]" />
           <Link to="/"
-            className="mb-1.5 inline-block text-[11px] text-muted-foreground transition-colors hover:text-foreground">
+            className="mb-1.5 inline-block text-[11px] opacity-70 transition-opacity hover:opacity-100">
             ← Venues
           </Link>
           <h1 className="text-lg font-semibold tracking-tight">{venue.name}</h1>
@@ -159,6 +165,7 @@ export function VenueDetail() {
             through it as they scroll under. */}
         <div className="sticky top-0 z-10 flex h-13 shrink-0 flex-wrap items-center
                         justify-end gap-1.5 border-b bg-card px-4">
+          <ThemeToggle />
           <Button variant="outline" size="sm" className="h-auto bg-card px-[.55rem] py-[.25rem] text-[11px]"
             onClick={recalculate}>
             Recalculate

@@ -66,3 +66,13 @@ describe('a venue that already has saved lines', () => {
     expect(await screen.findByText(/PoE load/i)).toBeInTheDocument()
   })
 })
+
+it('carries the Kosmas lockup in the rail header', async () => {
+  await renderDetail()
+  expect(await screen.findByRole('img', { name: 'Kosmas' })).toBeInTheDocument()
+})
+
+it('offers the theme toggle from the toolbar', async () => {
+  await renderDetail()
+  expect(await screen.findByRole('button', { name: /switch to .* theme/i })).toBeInTheDocument()
+})
