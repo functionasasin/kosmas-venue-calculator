@@ -21,6 +21,7 @@ export interface ThemeTokens {
   popoverForeground: string
   primary: string
   primaryForeground: string
+  primaryHover: string
   secondary: string
   secondaryForeground: string
   muted: string
@@ -59,6 +60,10 @@ export const LIGHT: ThemeTokens = {
   // default Button, so primary is red, not navy. Navy is `brand`.
   primary: '#E31F26',
   primaryForeground: '#FFFFFF',
+  // Darker, not bg-primary/80. The stock hover thinned the fill until the
+  // white label sat at 3.75:1; the near-black stock primary got away with it,
+  // the brand red does not.
+  primaryHover: '#C81A20',
   // shadcn's muted button surface, NOT "the second brand colour".
   secondary: '#F1F2F4',
   secondaryForeground: '#12151A',
@@ -103,6 +108,7 @@ export const DARK: ThemeTokens = {
   popoverForeground: '#E8E9EA',
   primary: '#DB5A5F',
   primaryForeground: '#1A0B0C',
+  primaryHover: '#E4767A',
   secondary: '#1C1D20',
   secondaryForeground: '#E8E9EA',
   muted: '#1C1D20',

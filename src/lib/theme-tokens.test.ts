@@ -5,6 +5,8 @@ import { compositeOver, contrast, cssVarName, DARK, LIGHT, TOKEN_NAMES, type The
 // would run it. This depends on `test.css.include` in vite.config.ts: without
 // it, Vitest's css-disable plugin matches `.css?raw` too and stubs this to ''.
 import indexCss from '../index.css?raw'
+// Same reason as above: ?raw, never node:fs — tsconfig has no node types.
+import appSource from '../App.tsx?raw'
 
 // Floors as explicit (foreground, background) pairs. 4.5:1 wherever the text is
 // small — the rail's 10px uppercase labels, the 11px checks, the 12px formula
@@ -18,6 +20,9 @@ const SMALL_TEXT: [keyof ThemeTokens, keyof ThemeTokens][] = [
   ['critical', 'card'],
   ['destructive', 'card'],
   ['primaryForeground', 'primary'],
+  // The hover fill, not just the resting one. bg-primary/80 put the label at
+  // 3.75:1 under the cursor on every commit button in the app.
+  ['primaryForeground', 'primaryHover'],
 ]
 
 const MARKS: [keyof ThemeTokens, keyof ThemeTokens][] = [
@@ -112,5 +117,26 @@ describe('index.css', () => {
   it('leaves the typeface alone', () => {
     expect(indexCss).toContain('--sans: system-ui')
     expect(indexCss).toContain('font: 18px/145% var(--sans);')
+  })
+})
+
+/**
+ * next-themes is what makes the toggle work and what gives the Toaster a theme.
+ * Nothing rendered <App/> in the suite, so the wrapper could be deleted with all
+ * tests still green while the toggle went inert — verified by doing exactly that.
+ *
+ * This reads the source as text rather than mounting App, which would drag in
+ * Supabase and the router for a one-line assertion. It cannot prove the provider
+ * works; it only fails when the wrapper or its configuration goes missing, which
+ * is the regression that actually happened.
+ */
+describe('App', () => {
+  it('mounts the theme provider', () => {
+    expect(appSource).toContain('<ThemeProvider')
+  })
+
+  it('configures it to agree with the pre-paint script', () => {
+    expect(appSource).toContain('attribute="class"')
+    expect(appSource).toContain('storageKey={THEME_STORAGE_KEY}')
   })
 })
