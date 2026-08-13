@@ -143,7 +143,11 @@ export function VenueDetail() {
             on near-black reads as mud, so after dark the brand carries through
             the reversed wordmark and the gold rule instead. */}
         <div className="border-b-2 border-gold bg-railhd px-4 py-3 text-railhd-foreground">
-          <KosmasLogo className="mb-2.5 h-auto w-[9.2rem]" />
+          {/* `block` is not cosmetic: an <svg> is display:inline by default, so
+              it sits on a text baseline and the line box adds half-leading plus
+              descender space beneath it — a gap under the lockup that no margin
+              here accounts for and that shrinks if you edit the wrong number. */}
+          <KosmasLogo className="mb-2.5 block h-auto w-[9.2rem]" />
           {/* opacity-70 is load-bearing, not decorative: it resolves to 4.70:1
               against --railhd in light mode, against the 4.5:1 floor this 11px
               text needs. Lowering it (e.g. to opacity-60) drops below that.

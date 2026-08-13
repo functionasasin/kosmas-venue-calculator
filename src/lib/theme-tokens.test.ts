@@ -185,7 +185,17 @@ describe('index.css', () => {
   // Repointing it at --font-sans would silently switch every screen to Geist.
   it('leaves the typeface alone', () => {
     expect(indexCss).toContain('--sans: system-ui')
-    expect(indexCss).toContain('font: 18px/145% var(--sans);')
+    expect(indexCss).toContain('font: 18px/1.45 var(--sans);')
+  })
+
+  // The leading was `145%`, and a percentage line-height computes to an absolute
+  // length at the element that declares it — 26.1px here — which is then what
+  // inherits. Tailwind's arbitrary font-size utilities set font-size and no
+  // line-height, so all 28 of the app's text-[10px]/text-[11px] labels sat in a
+  // 26.1px line box: ~8px of leading nothing asked for, above and below. It is
+  // what made the rail header read as three items floating in a navy field.
+  it('states the root leading as a ratio, not a percentage', () => {
+    expect(indexCss).not.toMatch(/font:\s*\d+px\s*\/\s*\d+%/)
   })
 })
 

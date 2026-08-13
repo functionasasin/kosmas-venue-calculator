@@ -8,7 +8,14 @@
 :root {
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
 
-  font: 18px/145% var(--sans);
+  /* 1.45, not 145%. A percentage line-height computes to an absolute length at
+     the element that declares it — 145% × 18px = 26.1px — and it is that
+     *computed* length which inherits, not the ratio. Every `text-[10px]` and
+     `text-[11px]` label in the app (28 of them; Tailwind's arbitrary font-size
+     utilities set font-size only) was therefore sitting in a 26.1px line box,
+     carrying ~8px of dead leading it never asked for. Unitless re-resolves
+     against each element's own font-size, which is what was always meant. */
+  font: 18px/1.45 var(--sans);
   letter-spacing: 0.18px;
   color-scheme: light dark;
   font-synthesis: none;
