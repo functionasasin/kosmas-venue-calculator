@@ -9,12 +9,13 @@
       // Mirrors src/theme-init.ts, which is where this logic is tested.
       // Inline and synchronous: it has to run before first paint.
       (function () {
+        var s = null
         try {
-          var s = localStorage.getItem('theme')
-          var dark = s === 'dark' || (s !== 'light' &&
-            window.matchMedia('(prefers-color-scheme: dark)').matches)
-          document.documentElement.classList.toggle('dark', dark)
+          s = localStorage.getItem('theme')
         } catch (e) {}
+        var dark = s === 'dark' || (s !== 'light' &&
+          window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.classList.toggle('dark', dark)
       })()
     </script>
   </head>

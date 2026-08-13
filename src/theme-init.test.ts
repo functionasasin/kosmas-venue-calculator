@@ -1,9 +1,19 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { applyStoredTheme, THEME_STORAGE_KEY } from './theme-init'
 
-function fakeWindow(stored: string | null, prefersDark: boolean) {
+function fakeWindow(
+  stored: string | null | Error,
+  prefersDark: boolean,
+) {
   return {
-    localStorage: { getItem: (k: string) => (k === THEME_STORAGE_KEY ? stored : null) },
+    localStorage: {
+      getItem: (k: string) => {
+        if (k === THEME_STORAGE_KEY && stored instanceof Error) {
+          throw stored
+        }
+        return k === THEME_STORAGE_KEY ? (stored as string | null) : null
+      },
+    },
     matchMedia: (q: string) => ({ matches: prefersDark && q.includes('dark') }),
   } as unknown as Window
 }
@@ -43,5 +53,12 @@ describe('applyStoredTheme', () => {
     root.classList.add('dark')
     applyStoredTheme(fakeWindow('light', false), root)
     expect(root.classList.contains('dark')).toBe(false)
+  })
+
+  it('applies the OS theme when storage is blocked', () => {
+    expect(applyStoredTheme(fakeWindow(new Error('private mode'), true), root)).toBe(
+      'dark',
+    )
+    expect(root.classList.contains('dark')).toBe(true)
   })
 })
