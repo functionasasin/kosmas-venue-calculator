@@ -116,8 +116,8 @@ export const LIGHT: ThemeTokens = {
   scrim: 'rgba(0,0,0,.10)',
   mark: '#E31F26',
   word: '#FFFFFF',
-  tag: '#E8C98C',
-  tm: '#CDDCED',
+  tag: '#D2AB67',
+  tm: '#FFFFFF',
 }
 
 export const DARK: ThemeTokens = {
@@ -179,7 +179,7 @@ export const DARK: ThemeTokens = {
   mark: '#E31F26',
   word: '#FFFFFF',
   tag: '#D2AB67',
-  tm: '#B9C9DA',
+  tm: '#FFFFFF',
 }
 
 function channel(v: number): number {

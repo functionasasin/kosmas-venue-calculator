@@ -100,6 +100,42 @@ it('keeps the logo mark red even where it is low contrast', () => {
   expect(contrast(LIGHT.mark, LIGHT.railhd)).toBeLessThan(3)
 })
 
+/**
+ * The brand book names exactly three logo colours — red #E31F26, blue #005490,
+ * gold #D2AB67 (p7) — and p4 permits "no other colors or alterations". The
+ * tagline is the gold one.
+ *
+ * Light carried #E8C98C until 2026-08-14: gold lightened to sit on the navy
+ * rail head. That reads as a contrast fix but it is a fourth logo colour, which
+ * the book does not allow — and it was never needed, since --gold is already
+ * #D2AB67 and MARKS proves that exact pair clears 3:1 on --railhd. Both modes
+ * now carry the book's value, which is what dark always had.
+ */
+it('paints the tagline the brand book gold in both modes', () => {
+  expect(LIGHT.tag).toBe('#D2AB67')
+  expect(DARK.tag).toBe('#D2AB67')
+  expect(LIGHT.tag).toBe(LIGHT.gold)
+})
+
+/**
+ * Same rule, the other drifted element. --tm carried #CDDCED / #B9C9DA until
+ * 2026-08-14 — pale blue-greys belonging to no approved version.
+ *
+ * The lockup sits only on --railhd today, in both modes, so the White logo
+ * applies and the ™ is white like the wordmark. It stays a token of its own
+ * rather than folding into --word because the Color version paints it #194F81,
+ * which is what putting the lockup on a white surface would need.
+ *
+ * Four pixels wide at the shipped size, so no one would have caught this by
+ * eye. That is the argument for a test rather than against the fix.
+ */
+it('paints the ™ the same white as the wordmark on the rail head', () => {
+  expect(LIGHT.tm).toBe('#FFFFFF')
+  expect(DARK.tm).toBe('#FFFFFF')
+  expect(LIGHT.tm).toBe(LIGHT.word)
+  expect(DARK.tm).toBe(DARK.word)
+})
+
 // A token defined in only one mode silently falls back to the other mode's
 // value, which is invisible until someone looks at the wrong theme.
 it('defines identical token sets in both modes', () => {
