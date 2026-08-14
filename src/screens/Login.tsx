@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { BrandBlock } from '@/components/BrandBlock'
 
 export function Login() {
   const { signIn } = useAuth()
@@ -21,7 +22,15 @@ export function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
+      {/* pt-0 so the band sits flush at the top; the Card already clips to its
+          own rounded corners. The card's gap still separates the band from the
+          title, so nothing else needs adjusting.
+
+          Centred, and at the same 9.2rem as every other placement — the login
+          card is the one screen with room for a larger lockup, but a second
+          size would be a second thing to keep in step for no gain. */}
+      <Card className="w-full max-w-sm pt-0">
+        <BrandBlock align="center" className="px-6 py-5" />
         <CardHeader><CardTitle>Venue Calculator</CardTitle></CardHeader>
         <CardContent>
           <form onSubmit={submit} className="space-y-4">

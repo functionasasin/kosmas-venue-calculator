@@ -11,7 +11,7 @@ import { WarningsPanel } from '@/components/WarningsPanel'
 import { exportMaterialsPdf } from '@/pdf/exportMaterials'
 import { tierLabel } from '@/lib/tierLabel'
 import { Button } from '@/components/ui/button'
-import { KosmasLogo } from '@/components/KosmasLogo'
+import { BrandBlock } from '@/components/BrandBlock'
 import { BackToVenues } from '@/components/BackToVenues'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -144,11 +144,16 @@ export function VenueDetail() {
 
             Navy in light, surface grey in dark. Deliberate asymmetry: mid-navy
             on near-black reads as mud, so after dark the brand carries through
-            the reversed wordmark and the gold rule instead. */}
-        <div className="border-b-2 border-gold bg-railhd px-4 py-3 text-railhd-foreground">
-          <KosmasLogo className="mb-2.5 h-auto w-[9.2rem]" />
-          <h1 className="text-lg font-semibold tracking-tight">{venue.name}</h1>
-        </div>
+            the reversed wordmark and the gold rule instead.
+
+            Centred, both of them: the rail's content box is 199px and the
+            lockup 147.2px, so flush left left 51.8px of empty ground to its
+            right and read as shoved aside rather than placed. */}
+        <BrandBlock align="center">
+          <h1 className="mt-2.5 text-center text-lg font-semibold tracking-tight">
+            {venue.name}
+          </h1>
+        </BrandBlock>
         {/* No sticky offset: from lg the whole aside is sticky, so this rides
             along already. */}
         <BackToVenues />

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { BrandBlock } from '@/components/BrandBlock'
 import { toast } from 'sonner'
 
 export function Venues() {
@@ -65,6 +66,12 @@ export function Venues() {
     // No rail — this screen has no inputs, and an empty 232px column would be a
     // worse match for the venue page than no column at all.
     <div className="flex min-h-svh flex-col bg-card">
+      {/* Left gutter, not centred: this band is full-width, so the lockup lines
+          up with the screen title and the table below it. The login card and
+          the venue rail centre theirs because they are narrow. Deliberately not
+          sticky — the brand scrolls away and the bar under it does not, so a
+          long list never puts New venue out of reach. */}
+      <BrandBlock />
       <div className="sticky top-0 z-10 flex h-13 shrink-0 flex-wrap items-center
                       justify-between gap-3 border-b bg-card px-4">
         <h1 className="text-lg font-semibold tracking-tight">Venues</h1>

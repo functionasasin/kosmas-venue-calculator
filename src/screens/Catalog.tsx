@@ -10,6 +10,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { BackToVenues } from '@/components/BackToVenues'
+import { BrandBlock } from '@/components/BrandBlock'
 import { toast } from 'sonner'
 
 export function Catalog() {
@@ -59,6 +60,10 @@ export function Catalog() {
     // bar, table gutter on the cells. `← Venues` is the back link rather than a
     // button, matching the venue page's rail head.
     <div className="flex min-h-svh flex-col bg-card">
+      {/* Same band as Venues, same reasoning — see BrandBlock. It scrolls away
+          while the bar and the back row below stay pinned, so the sticky
+          offsets under it are unchanged. */}
+      <BrandBlock />
       <div className="sticky top-0 z-10 flex h-13 shrink-0 flex-wrap items-center
                       justify-between gap-3 border-b bg-card px-4">
         {/* Title alone, flush at the gutter — the same bar Venues has. The way
