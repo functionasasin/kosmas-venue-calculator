@@ -8,14 +8,18 @@
 :root {
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
 
-  /* 1.45, not 145%. A percentage line-height computes to an absolute length at
-     the element that declares it — 145% × 18px = 26.1px — and it is that
-     *computed* length which inherits, not the ratio. Every `text-[10px]` and
-     `text-[11px]` label in the app (28 of them; Tailwind's arbitrary font-size
-     utilities set font-size only) was therefore sitting in a 26.1px line box,
-     carrying ~8px of dead leading it never asked for. Unitless re-resolves
-     against each element's own font-size, which is what was always meant. */
-  font: 18px/1.45 var(--sans);
+  /* Family only. The Vite starter shipped `font: 18px/145% var(--sans)` here —
+     scaffold residue, introduced by the scaffold commit beside --social-bg and
+     --accent-border, never a design decision — and it set the app's whole scale:
+     rem was 18px, so every Tailwind size resolved 12.5% large, and the 145%
+     leading computed to 26.1px at :root and *inherited as that absolute length*,
+     padding out every text-[10px]/[11px] label. Both are gone: rem is the
+     browser's 16px and leading is `normal`.
+
+     The family declaration has to stay. This unlayered rule beats the layered
+     `html { @apply font-sans }`, so deleting the line entirely does not restore
+     a default — it switches every screen to Geist. */
+  font-family: var(--sans);
   letter-spacing: 0.18px;
   color-scheme: light dark;
   font-synthesis: none;
@@ -25,9 +29,9 @@
 
   --radius: 0.625rem;
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  /* The scaffold's `@media (max-width: 1024px) { font-size: 16px }` went with
+     the 18px root it existed to walk back. 16px everywhere now, so there is no
+     breakpoint at which rem changes meaning. */
 
   --chart-1: oklch(0.87 0 0);
 
@@ -172,7 +176,7 @@ body {
   --primary: #DB5A5F;
   --primary-foreground: #1A0B0C;
   --primary-hover: #E4767A;
-  --secondary: #1C1D20;
+  --secondary: #DE1B22;
   --secondary-foreground: #E8E9EA;
   --muted: #1C1D20;
   --muted-foreground: #9BA1AA;

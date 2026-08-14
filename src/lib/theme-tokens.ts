@@ -116,7 +116,10 @@ export const DARK: ThemeTokens = {
   primary: '#DB5A5F',
   primaryForeground: '#1A0B0C',
   primaryHover: '#E4767A',
-  secondary: '#1C1D20',
+  // Dark's secondary is the brand red darkened, not a surface grey — chosen
+  // 2026-08-14 to go darker than the base red rather than lighter, which is the
+  // direction the rest of dark mode takes its reds (--primary lightens).
+  secondary: '#DE1B22',
   secondaryForeground: '#E8E9EA',
   muted: '#1C1D20',
   mutedForeground: '#9BA1AA',
