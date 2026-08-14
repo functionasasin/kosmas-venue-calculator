@@ -73,11 +73,9 @@ export function Catalog() {
         </div>
       </div>
 
-      {/* Pinned under the h-13 bar rather than left to scroll away. The venue
-          page's copy of this row sits in an aside that is sticky as a whole, so
-          leaving Catalog's to scroll would make the same component behave two
-          different ways — and this is the screen where it matters, since the
-          table is the long one. */}
+      {/* top-13 is the h-13 bar above it: the venue page's copy rides a sticky
+          aside, so letting this one scroll away would give one component two
+          behaviours — on the screen with the longest table. */}
       <BackToVenues className="sticky top-13 z-10" />
 
       {/* overflow-x-auto lives in ui/table.tsx already; min-w forces the table

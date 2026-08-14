@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ChevronLeftIcon } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 /**
  * The way back to the venue list, shared by Catalog and the venue page so the
@@ -21,13 +22,13 @@ import { ChevronLeftIcon } from 'lucide-react'
  * screen: the venue page's rail is already sticky as a whole, so the row rides
  * along, while Catalog has to pin it under its own h-13 bar.
  */
-export function BackToVenues({ className = '' }: { className?: string }) {
+export function BackToVenues({ className }: { className?: string }) {
   return (
     <Link
       to="/"
-      className={`flex shrink-0 items-center gap-1.5 border-b bg-card px-4 py-2.5
-                  text-[11px] text-muted-foreground transition-colors
-                  hover:bg-muted hover:text-foreground ${className}`}
+      className={cn(`flex shrink-0 items-center gap-1.5 border-b bg-card px-4 py-2.5
+                     text-[11px] text-muted-foreground transition-colors
+                     hover:bg-muted hover:text-foreground`, className)}
     >
       <ChevronLeftIcon className="size-3.5" aria-hidden />
       All venues

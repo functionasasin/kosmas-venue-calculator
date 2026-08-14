@@ -140,20 +140,17 @@ export function VenueDetail() {
           three checks still leaves Courts reachable at row 26. */}
       <aside className="w-full shrink-0 border-b bg-card lg:sticky lg:top-0 lg:flex
                         lg:h-svh lg:w-58 lg:flex-col lg:border-r lg:border-b-0">
-        {/* Navy in light, surface grey in dark. Deliberate asymmetry: mid-navy
+        {/* Brand and page identity only — the way back is the row below.
+
+            Navy in light, surface grey in dark. Deliberate asymmetry: mid-navy
             on near-black reads as mud, so after dark the brand carries through
             the reversed wordmark and the gold rule instead. */}
-        {/* Brand and page identity only. `← Venues` used to sit between the two
-            at opacity-70 — the block's only control and its faintest element,
-            with no contrast headroom to fix in place (gold on --railhd is
-            3.65:1). It is now the row below, on --card, where it clears 5:1 and
-            gets a full-width target. */}
         <div className="border-b-2 border-gold bg-railhd px-4 py-3 text-railhd-foreground">
           <KosmasLogo className="mb-2.5 h-auto w-[9.2rem]" />
           <h1 className="text-lg font-semibold tracking-tight">{venue.name}</h1>
         </div>
-        {/* No sticky offset needed: from lg the whole aside is sticky, so this
-            rides along already. */}
+        {/* No sticky offset: from lg the whole aside is sticky, so this rides
+            along already. */}
         <BackToVenues />
         <div className="space-y-4 p-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
           <VenueInputsForm value={venue} onChange={onInputs} />
