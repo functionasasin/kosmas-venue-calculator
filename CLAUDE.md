@@ -2,12 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-PodPlay Venue Calculator — internal React/Vite/TypeScript + Supabase app that sizes a venue's materials list from court count and tier. **No code exists yet.** Read these two before starting; they are the real brief:
+PodPlay Venue Calculator — internal React/Vite/TypeScript + Supabase app that sizes a venue's materials list from court count and tier. **Built and deployed**: four screens (Login, Venues, VenueDetail, Catalog), the sizing engine under `src/calculator/`, PDF export, Supabase auth + RLS, and a light/dark theme. Cloudflare Pages builds from `main`; see the Deployment section of `README.md` for the required build variables.
+
+These two are still the reference for *why* things are the way they are, not a to-do list:
 
 - `docs/superpowers/specs/2026-08-05-venue-calculator-design.md` — architecture, data model, all sizing rules, security, scope
-- `docs/superpowers/plans/2026-08-05-venue-calculator.md` — 18-task TDD plan with a Global Constraints section
-
-Resume with: "start the venue calculator plan."
+- `docs/superpowers/plans/2026-08-05-venue-calculator.md` — the 18-task TDD plan it was built from, with a Global Constraints section
 
 ## Never delete `docs/superpowers/`
 
@@ -71,19 +71,52 @@ The spreadsheet marks some quantities `"TBD"` on purpose. Reproduce the TBD; don
 
 ## There is no brand input
 
+*"Brand" here means the venue **operator** — PodPlay / PingPod / Pickleball Kingdom, a sizing input. Not the Kosmas brand book two sections below, which governs the logo. Different things, same word.*
+
 Removed 2026-08-11. The source gates five rules on the venue operator's brand — PodPlay / PingPod / Pickleball Kingdom — but Kosmas builds only PodPlay-brand venues, and `podplay-ph-venue-sizing.md` § Camera color says outright that "KOSMAS / PodPlay venues" are the same thing for these purposes. The picker offered one real value plus one that blocked the calculation (PingPod) and one for venues we don't build.
 
 Removing it changed no output: the fence bracket was already TBD for every non-PBK venue, signage (`courts × 2`) and access points (TBD) never varied, and the PingPod-only rows (audio amp, sound processor, speakers, front-desk kit) were never emitted. The `BRAND_UNSUPPORTED` gate went with it — nothing can select PingPod any more. **`venues.brand` still exists in the schema** as `not null default 'podplay'`; the app neither reads nor writes it. Don't reintroduce the input to "support" a brand without checking whether Kosmas actually deploys it.
 
 Related: the source's Kisi controller formula tests an empty cell and so always returns 1 regardless of door count. Implement the *intent* (1 per 4 doors), not the bug — see `podplay-tiers-reference.md`.
 
-## Task 1 will delete this repo if run carelessly
+## The brand book is the authority on the logo
 
-`npm create vite@latest` in a non-empty directory prompts *"Remove existing files and continue"* — which takes out `docs/`, `.git/` and this file. Scaffold into a temp dir and rsync in with `--exclude 'docs' --exclude '.git'`. The plan spells it out.
+It lives in **another private repo** — `functionasasin/kosmas-web`, at `guides/Kosmas Athletic Venture Co_BrandGuidelines_2026.pdf`. Fetch it with `gh api "repos/functionasasin/kosmas-web/contents/guides/Kosmas%20Athletic%20Venture%20Co_BrandGuidelines_2026.pdf" -H "Accept: application/vnd.github.raw"`. The approved vector artwork is at `~/Desktop/KOSMAS-LOGO.svg`, and it is what `src/components/KosmasLogo.tsx` was vendored from. `guides/WEBSITE DESIGN BRIEF.pdf` beside it is scoped to the KAVC marketing site, not this tool — it only matters here because it defers to the brand book.
+
+What binds:
+
+- **Four approved versions, "no other colors or alterations permitted"** (p3-4). Colours are red `#E31F26`, blue `#005490`, gold `#D2AB67` (p7), plus `#194F81` for the ™ in the Color version — read off the artwork, not the PDF, whose rasters carry compression drift.
+- **The runner may not stand alone in-app.** p6 bans the incomplete logo, p5 bans cropping "in any way". The mark alone is sanctioned only as a social/app icon — which is exactly what `public/favicon.svg` is, and the only place it is allowed.
+- **Minimum size 38 mm ≈ 144px.** The lockup ships at `w-[9.2rem]` (147.2px) on every surface. One size everywhere is deliberate; a second is a second thing to keep in step.
+- The tagline is illegible at that size and that is **accepted, not overlooked** — kosmas.com.ph does the same thing at the same size. Don't "fix" it by cropping it off.
+
+## `--word` is white in both themes, so the lockup needs a dark ground
+
+`--mark`/`--word`/`--tag`/`--tm` in `index.css` are the logo's fills. `--word` and `--tm` are `#FFFFFF` in **light and dark alike**, because the lockup has only ever sat on `--railhd` — navy `#005490` in light, near-black `#1C1D20` in dark. Both are the "dark solid color background" the book specifies the White logo for, so the shipped tokens already paint an approved version and nothing needs switching.
+
+**The corollary is a trap.** Put the lockup on `--card` and the wordmark paints white on white in light mode — invisible, and invisible in a way that reads as a missing asset rather than a colour bug. That mistake was made twice while prototyping the 2026-08-15 placements. `src/components/BrandBlock.tsx` exists so the ground travels with the lockup, and a test pins `bg-railhd` and `border-gold` on it.
+
+If a lockup ever does need to sit on white, that is the **Color version** — blue `#005490` wordmark, gold tagline, `#194F81` ™ — and it needs new tokens, because none exist. A `surface` prop was designed for exactly this and then not built, since putting the band on every screen removed the only case that wanted it.
+
+`--tag` and `--tm` were corrected to book values in `86908a6`; two tests pin them so a future "accessibility fix" that re-tints either one fails loudly.
+
+## Where the logo goes
+
+`BrandBlock` is the band — `--railhd` ground, gold rule, lockup — used on all four screens. `align="center"` for narrow containers, left gutter for full-width ones; that is the rule, not a per-screen whim. Left-aligning in the 232px rail left 51.8px of dead space and read as shoved aside.
+
+| Screen | Placement |
+|---|---|
+| Venues, Catalog | Full-width band above the toolbar, lockup on the left gutter |
+| Login | Band as the card's header (`pt-0` on the Card), lockup centred |
+| VenueDetail | Rail head, lockup **and** venue name centred |
+
+The band scrolls away; the toolbars under it stay `sticky top-0` and Catalog's back row keeps `top-13`. Don't make the band sticky — that puts *New venue* and *Save* out of reach on a long list.
+
+Aligning the lockup against text needs an optical offset, not `align-items: center`: the SVG box spans runner, wordmark, tagline and ™, so its centre sits ~1.94px **below** the wordmark's at 147px. Centre on the box and adjacent text reads low.
 
 ## Commands
 
-Arrive with Task 1. Node 20+, run from the repo root.
+Node 20+, run from the repo root.
 
 ```bash
 npm run dev / build / preview
