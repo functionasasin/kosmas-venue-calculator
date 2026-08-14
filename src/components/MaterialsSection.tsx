@@ -37,7 +37,7 @@ export function MaterialsSection({
           role="button"
           tabIndex={0}
           aria-expanded={open}
-          className={`cursor-pointer py-1.5 pl-4 text-[11px] font-semibold uppercase tracking-[.03em] max-sm:block ${decide ? 'bg-attention/20 text-attention-foreground hover:bg-attention/26 dark:bg-attention/14 dark:hover:bg-attention/20' : 'bg-muted text-brand hover:bg-accent'}`}
+          className={`cursor-pointer py-1.5 pl-4 text-[11px] font-semibold uppercase tracking-[.03em] max-sm:block ${decide ? 'bg-decide text-attention-foreground hover:bg-decide-hover' : 'bg-muted text-brand hover:bg-accent'}`}
           onClick={() => setOpen(o => !o)}
           onKeyDown={e => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -48,9 +48,9 @@ export function MaterialsSection({
         >
           {open ? '▾' : '▸'} {section.label} · {section.lines.length}
           {decide && (
-            // This caption, not the label, is what caps the light hover tint at
-            // /26: --muted-foreground is the dimmer of the two and reads 4.55:1
-            // on the hovered band. /28 put it at 4.49:1.
+            // This caption, not the label, is what fixes how dark --decide-hover
+            // may go: --muted-foreground is the dimmer of the two texts on the
+            // band and reads 4.55:1 there, against the label's 4.70:1.
             <span className="ml-2 font-normal normal-case tracking-normal text-muted-foreground">
               resolve before ordering
             </span>

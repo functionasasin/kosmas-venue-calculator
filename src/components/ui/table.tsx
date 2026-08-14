@@ -62,10 +62,12 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
       className={cn(
         // Stock shadcn tints an expanded row `bg-muted/50`. Dropped: the only
         // aria-expanded cells here are MaterialsSection's headers, which paint
-        // their own band. Under an opaque one the tint was invisible, and under
-        // the translucent decide band it added a third layer (card → muted/50 →
-        // attention/20) that dragged the caption to 4.31:1. theme-tokens.test.ts
-        // greps this file to keep it from coming back — hence the spelling.
+        // their own band, so it was invisible under the opaque ones and a third
+        // composited layer under the translucent decide band — where it dragged
+        // the caption to 4.31:1. That band is a solid --decide token now and no
+        // longer leaks what is beneath it, so this is tidiness rather than a
+        // fix; a caller that wants the tint can add it back per-instance, the
+        // way Venues.tsx overrides the row hover.
         "border-b transition-colors data-[state=selected]:bg-muted",
         className
       )}

@@ -34,13 +34,16 @@ export interface ThemeTokens {
   ring: string
   // Roles shadcn has no slot for.
   brand: string
-  brandForeground: string
   railhd: string
   railhdForeground: string
   railhdRing: string
   gold: string
   attention: string
   attentionForeground: string
+  // The "needs a decision" band, as a solid colour rather than a tint of
+  // `attention`. See the note on LIGHT.decide.
+  decide: string
+  decideHover: string
   critical: string
   scrim: string
   // Logo fills.
@@ -82,7 +85,6 @@ export const LIGHT: ThemeTokens = {
   input: '#DCDFE4',
   ring: '#005490',
   brand: '#005490',
-  brandForeground: '#FFFFFF',
   railhd: '#005490',
   railhdForeground: '#FFFFFF',
   // The rail header is the one block where --ring is invisible: it is #005490
@@ -91,13 +93,25 @@ export const LIGHT: ThemeTokens = {
   railhdRing: '#D2AB67',
   gold: '#D2AB67',
   attention: '#F0B100',
-  // Darkened from #A65F00 (2026-08-13 review): the "needs a decision" band is
-  // bg-attention/20 composited over --card, not --attention itself, and this
-  // token was only ever checked against solid --card. #A65F00 clears --card at
-  // 5.57:1 but the actual composited band (#FCEFCC) only reaches 4.31:1 —
-  // under the 4.5:1 floor. #9A5800 is the minimal darkening that clears both:
-  // 4.88:1 on the composited band, 5.57:1 on --card.
+  // Darkened from #A65F00 (2026-08-13 review): it has to clear the decide band
+  // below, not just solid --card. #A65F00 reads 5.57:1 on --card but only
+  // 4.31:1 on the band; #9A5800 clears both.
   attentionForeground: '#9A5800',
+  /**
+   * The decide band, solid — `compositeOver(attention, card, 20)` and `…, 26`,
+   * precomputed. Same move as `primaryHover`, and for the same reason: a `/NN`
+   * tint is only the right mechanism when the surface underneath can vary. This
+   * band has exactly one backdrop (--card), so baking it costs nothing and buys
+   * two things — the audit becomes a plain contrast pair instead of a
+   * composited one, and a solid fill cannot leak whatever a future Tailwind
+   * default paints on the row beneath it, which is precisely the bug that took
+   * the caption to 4.31:1 on 2026-08-13.
+   *
+   * The destructive button deliberately keeps its tint: that one renders over
+   * --popover and --card both, and an alpha adapts where a baked hex cannot.
+   */
+  decide: '#FCEFCC',
+  decideHover: '#FBEBBD',
   critical: '#C2410C',
   scrim: 'rgba(0,0,0,.10)',
   mark: '#E31F26',
@@ -142,7 +156,6 @@ export const DARK: ThemeTokens = {
   input: '#33353A',
   ring: '#3AA4EF',
   brand: '#3AA4EF',
-  brandForeground: '#07161F',
   // Surface grey, not navy. Mid-navy on near-black is muddy at any size; after
   // dark the brand carries through the reversed wordmark and the gold rule.
   railhd: '#1C1D20',
@@ -153,19 +166,15 @@ export const DARK: ThemeTokens = {
   gold: '#D2AB67',
   attention: '#F0B100',
   attentionForeground: '#F0B100',
+  // compositeOver(attention, card, 14) and (…, 20) — see LIGHT.decide.
+  decide: '#31280F',
+  decideHover: '#3E320E',
   critical: '#FF6900',
   scrim: 'rgba(0,0,0,.55)',
   mark: '#E31F26',
   word: '#FFFFFF',
   tag: '#D2AB67',
   tm: '#B9C9DA',
-}
-
-export const TOKEN_NAMES = Object.keys(LIGHT) as (keyof ThemeTokens)[]
-
-/** railhdForeground -> --railhd-foreground */
-export function cssVarName(token: keyof ThemeTokens): string {
-  return '--' + String(token).replace(/[A-Z]/g, c => '-' + c.toLowerCase())
 }
 
 function channel(v: number): number {

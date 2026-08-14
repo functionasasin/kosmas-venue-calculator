@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compositeOver, contrast, cssVarName, DARK, LIGHT, TOKEN_NAMES, type ThemeTokens } from './theme-tokens'
+import { compositeOver, contrast, DARK, LIGHT, type ThemeTokens } from './theme-tokens'
 // `?raw` rather than node:fs — tsconfig.app.json sets types: ["vite/client"]
 // and include: ["src"], so a node:fs import fails `tsc -b` even though Vitest
 // would run it. This depends on `test.css.include` in vite.config.ts: without
@@ -7,11 +7,10 @@ import { compositeOver, contrast, cssVarName, DARK, LIGHT, TOKEN_NAMES, type The
 import indexCss from '../index.css?raw'
 // Same reason as above: ?raw, never node:fs — tsconfig has no node types.
 import appSource from '../App.tsx?raw'
-// The composited audits below model a specific stack of tints. These three are
-// read back so the numbers stay tied to the utilities that actually paint them.
-import tableSource from '../components/ui/table.tsx?raw'
+// The destructive button's fill is a Tailwind alpha modifier, so its audited
+// percentages live in a class string rather than a token. Read back so the
+// numbers below stay tied to the utility that actually paints them.
 import buttonSource from '../components/ui/button.tsx?raw'
-import sectionSource from '../components/MaterialsSection.tsx?raw'
 
 // Floors as explicit (foreground, background) pairs. 4.5:1 wherever the text is
 // small — the rail's 10px uppercase labels, the 11px checks, the 12px formula
@@ -28,6 +27,15 @@ const SMALL_TEXT: [keyof ThemeTokens, keyof ThemeTokens][] = [
   // The hover fill, not just the resting one. bg-primary/80 put the label at
   // 3.75:1 under the cursor on every commit button in the app.
   ['primaryForeground', 'primaryHover'],
+  // The "needs a decision" band, both states, and both texts that sit on it:
+  // the section label in --attention-foreground and the dimmer "resolve before
+  // ordering" caption in --muted-foreground. The caption is the binding one
+  // (4.55:1 hovered vs the label's 4.70:1), and checking attentionForeground
+  // against solid --card alone once let a band that fails AA ship unnoticed.
+  ['attentionForeground', 'decide'],
+  ['attentionForeground', 'decideHover'],
+  ['mutedForeground', 'decide'],
+  ['mutedForeground', 'decideHover'],
 ]
 
 const MARKS: [keyof ThemeTokens, keyof ThemeTokens][] = [
@@ -52,76 +60,34 @@ describe.each([['light', LIGHT], ['dark', DARK]] as const)('%s palette', (_name,
 })
 
 /**
- * The "needs a decision" band is a translucent attention tint over --card, not
- * a solid attention fill, and it carries two texts at different weights: the
- * section label in --attention-foreground and the "resolve before ordering"
- * caption in the dimmer --muted-foreground. No solid pair above describes that
- * surface, and checking attentionForeground against solid --card once let a
- * band that fails AA ship unnoticed.
+ * The destructive button is --destructive text on a tint of --destructive — the
+ * label and its own background move together, so every step of alpha costs the
+ * text contrast it cannot spare. The `destructive`-on-`card` pair above
+ * describes MaterialsRow's check text, not this button.
  *
- * Both states, because hover deepens the tint and spends contrast: the caption
- * is the tighter of the two texts and is what caps the light hover at /26.
+ * It keeps an alpha where the decide band got a solid token, and the difference
+ * is the backdrop: this button renders on --popover inside a Dialog but would
+ * sit on --card anywhere else, and only a tint adapts to both. --popover is the
+ * worse of the two — in light it is the same white as --card, in dark it is
+ * *lighter* — so passing here passes on a card.
  *
- * The backdrop is --card and only --card. It was card → muted/50 → attention/20
- * while TableRow carried `has-aria-expanded:bg-muted/50` and sections start
- * open, which put the caption at 4.31:1 — invisible to a test that models one
- * blend. The guard below is what keeps that third layer from returning.
+ * The percentages are read out of the class strings rather than restated, so
+ * each one exists exactly once, in the same literal the component paints with.
  */
-describe.each([
-  ['light', LIGHT, 20, 26],
-  ['dark', DARK, 14, 20],
-] as const)('the decide band (%s)', (_name, pal, rest, hover) => {
-  it.each([
-    ['label at rest', 'attentionForeground', rest],
-    ['label hovered', 'attentionForeground', hover],
-    ['caption at rest', 'mutedForeground', rest],
-    ['caption hovered', 'mutedForeground', hover],
-  ] as const)('carries its %s at 4.5:1', (_which, token, alphaPct) => {
-    const band = compositeOver(pal.attention, pal.card, alphaPct)
-    expect(contrast(pal[token], band)).toBeGreaterThanOrEqual(4.5)
+const DESTRUCTIVE_FILL = [
+  ['light', LIGHT, ['bg-destructive/10', 'hover:bg-destructive/16']],
+  ['dark', DARK, ['dark:bg-destructive/16', 'dark:hover:bg-destructive/24']],
+] as const
+
+describe.each(DESTRUCTIVE_FILL)('the destructive button (%s)', (_name, pal, classes) => {
+  it.each(classes)('carries its label at 4.5:1 on %s', cls => {
+    const fill = compositeOver(pal.destructive, pal.popover, Number(cls.split('/').pop()))
+    expect(contrast(pal.destructive, fill)).toBeGreaterThanOrEqual(4.5)
   })
-})
 
-it('paints the decide band at the alphas audited above', () => {
-  expect(sectionSource).toContain('bg-attention/20')
-  expect(sectionSource).toContain('hover:bg-attention/26')
-  expect(sectionSource).toContain('dark:bg-attention/14')
-  expect(sectionSource).toContain('dark:hover:bg-attention/20')
-})
-
-it('keeps a row tint from compositing under the decide band', () => {
-  expect(tableSource).not.toMatch(/has-aria-expanded:bg-/)
-})
-
-/**
- * The destructive button is --destructive text on a tint of --destructive —
- * the label and its own background move together, so every step of alpha costs
- * the text contrast it cannot spare. The `destructive`-on-`card` pair above
- * describes MaterialsRow's check text, not this button, which only ever appears
- * inside a Dialog and so sits on --popover.
- *
- * --popover is also the worse of the two surfaces: in light it is the same white
- * as --card, and in dark it is *lighter* than --card, so a tint over it lands
- * closer to the text. Passing here passes on a card.
- */
-describe.each([
-  ['light', LIGHT, 10, 16],
-  ['dark', DARK, 16, 24],
-] as const)('the destructive button (%s)', (_name, pal, rest, hover) => {
-  it.each([['at rest', rest], ['hovered', hover]] as const)(
-    'carries its label at 4.5:1 %s',
-    (_which, alphaPct) => {
-      const fill = compositeOver(pal.destructive, pal.popover, alphaPct)
-      expect(contrast(pal.destructive, fill)).toBeGreaterThanOrEqual(4.5)
-    },
-  )
-})
-
-it('fills the destructive button at the alphas audited above', () => {
-  expect(buttonSource).toContain('bg-destructive/10')
-  expect(buttonSource).toContain('hover:bg-destructive/16')
-  expect(buttonSource).toContain('dark:bg-destructive/16')
-  expect(buttonSource).toContain('dark:hover:bg-destructive/24')
+  it.each(classes)('actually paints %s', cls => {
+    expect(buttonSource).toContain(cls)
+  })
 })
 
 // The mark is 1.68:1 on the navy header and ships that way on purpose: WCAG
@@ -147,6 +113,11 @@ it('defines identical token sets in both modes', () => {
  * is `@custom-variant dark (&:is(.dark *))` on line 6, so searching for the
  * selector finds the custom-variant line and parses the wrong block entirely.
  */
+/** railhdForeground -> --railhd-foreground */
+function cssVarName(token: keyof ThemeTokens): string {
+  return '--' + String(token).replace(/[A-Z]/g, c => '-' + c.toLowerCase())
+}
+
 function tokenBlock(css: string, mode: 'light' | 'dark'): Record<string, string> {
   const open = `/* theme:${mode} */`
   const close = `/* /theme:${mode} */`
@@ -166,7 +137,7 @@ describe('index.css', () => {
     '%s block declares every token at the audited value',
     (mode, pal) => {
       const declared = tokenBlock(indexCss, mode)
-      for (const token of TOKEN_NAMES) {
+      for (const token of Object.keys(LIGHT) as (keyof ThemeTokens)[]) {
         expect(declared[cssVarName(token)]).toBe(pal[token])
       }
     },
