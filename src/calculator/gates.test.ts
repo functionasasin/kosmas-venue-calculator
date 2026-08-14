@@ -19,22 +19,27 @@ describe('evaluateGates', () => {
     expect(r.warnings).toHaveLength(0)
   })
 
-  it('blocks Basic+, because BBPOS terminals are the whole footprint and a rack BOM would be a lie', () => {
+  it('blocks Basic+, because the tier is software only and a rack BOM would be a lie', () => {
     const r = evaluateGates({ ...base, tier: 'basic_plus' })
     expect(r.blocked).toBe(true)
     expect(r.warnings[0].code).toBe('TIER_NO_HARDWARE')
   })
 
-  // Basic and Basic+ are both blocked but they are not the same tier: Basic is
-  // the booking website alone, Basic+ adds BBPOS terminals. Naming terminals in
-  // a Basic message would tell a buyer to order hardware the tier has none of.
-  it('blocks Basic without attributing Basic+ hardware to it', () => {
-    const r = evaluateGates({ ...base, tier: 'basic' })
-    expect(r.blocked).toBe(true)
-    expect(r.warnings[0].code).toBe('TIER_NO_HARDWARE')
-    expect(warningText(r, 'TIER_NO_HARDWARE')).not.toMatch(/BBPOS|terminal/i)
-    expect(warningText(evaluateGates({ ...base, tier: 'basic_plus' }), 'TIER_NO_HARDWARE'))
-      .toMatch(/BBPOS/)
+  // Corrected 2026-08-14: NEITHER tier has hardware, so neither message may
+  // name any. Basic+ was recorded as carrying BBPOS payment terminals, and this
+  // test previously asserted its message said so. That line was never sourced —
+  // the original tiers doc put terminals on both lowest tiers, and when Basic
+  // was edited down to "no hardware at all" the terminals stayed behind on
+  // Basic+, inventing a tier boundary instead of recording one. Naming hardware
+  // on a tier that has none tells a buyer to order something that doesn't exist.
+  it('attributes no hardware to either blocked tier', () => {
+    for (const tier of ['basic', 'basic_plus'] as const) {
+      const r = evaluateGates({ ...base, tier })
+      expect(r.blocked).toBe(true)
+      expect(r.warnings[0].code).toBe('TIER_NO_HARDWARE')
+      expect(warningText(r, 'TIER_NO_HARDWARE')).not.toMatch(/BBPOS|terminal/i)
+      expect(warningText(r, 'TIER_NO_HARDWARE')).toMatch(/no hardware at all/)
+    }
   })
 
   // Corrected 2026-08-13: what Basic+ adds is the venue's OWN booking app on

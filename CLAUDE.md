@@ -26,7 +26,7 @@ Don't copy them here — the sizing doc is still being edited there, and a copy 
 | Tier | Rack | Court-side | In this tool |
 |---|---|---|---|
 | Basic | none | none — booking website only | blocked — nothing to size |
-| Basic+ | none | BBPOS terminals only | blocked — nothing to size |
+| Basic+ | none | none — booking app only | blocked — nothing to size |
 | Pro | Mac mini · UDM · USW-Pro · UPS · patch panel | display · iPad · Apple TV · replay cam · PoE adapter · Flic | fully covered |
 | Autonomous | Pro + Kisi Controller Pro 2 (1 per 4 doors), **no NVR** | Pro + Reader Pro 2.1/door + push-to-exit on mag-lock doors, **no security cameras** | controller + readers sized; push-to-exit by hand |
 | Autonomous+ | Autonomous + UNVR/UNVR-Pro + 8TB HDDs | Autonomous + EmpireTech PoE cameras + PFA130-E boxes | as Autonomous; NVR + HDDs by hand |
@@ -39,7 +39,11 @@ Don't copy them here — the sizing doc is still being edited there, and a copy 
 
 **Corollary: the tier is chosen, never inferred.** Basic and Basic+ are hardware-identical — the difference is that Basic+ gives the venue its own booking app on iOS and Android, where Basic is the website alone. It is **not** an owner/admin tool; owners already have the admin dashboard at Basic. So nothing in the inputs can distinguish them. More generally the tiers describe operating models — Pro is "Premium tech-enabled club", Autonomous is "Staff-light operations" — and the tool has no input for how a venue is staffed.
 
-**Basic is live, and its 2026-08-10 retirement was undone.** Basic was briefly removed on the reasoning that bare Basic doesn't sell in SEA/Asia; that's a real market observation but it was wrong as a statement of the lineup. Basic is the booking website alone — **no hardware at all**, not even BBPOS terminals, which start at Basic+. Both tiers block here, but with different messages: naming terminals in the Basic block would tell a buyer to order hardware that tier doesn't have. A test guards that.
+**Basic is live, and its 2026-08-10 retirement was undone.** Basic was briefly removed on the reasoning that bare Basic doesn't sell in SEA/Asia; that's a real market observation but it was wrong as a statement of the lineup. Basic is the booking website alone — **no hardware at all**.
+
+**Neither Basic nor Basic+ has any hardware** (corrected 2026-08-14). Basic+ was recorded as carrying BBPOS payment terminals, and a test asserted its block message said so. That was never sourced: the original tiers doc put terminals on *both* lowest tiers, and when Basic was edited down to "no hardware at all" during the 2026-08-10 retirement the line survived on Basic+ alone — inventing a boundary rather than recording one. The Help Center also puts Payment Integration at Basic, so any card reader would start there. Don't reintroduce it; if PodPlay supplies readers it's a payment-integration question spanning every tier. A test now asserts *neither* message names hardware.
+
+Both tiers block, but with different messages: Basic+ adds the venue its own booking app on iOS and Android, which is the whole difference. **That app is not the court-side software on the iPads and Apple TVs** — same word, different product, and that one starts at Pro.
 
 **`venues.tier` is plain `text` with no check constraint**, so a row can hold a tier the app no longer offers — `'pro_plus'` is the live example. `readTier` in `src/data/venues.ts` passes the five live tiers through and falls back to `'pro'` for anything else. **That fallback is a guard, not a translation**: it doesn't claim Pro+ meant Pro. It only stops the tier `<select>` rendering an option that doesn't exist, which otherwise shows the wrong tier as current and surfaces only on the next save. If such a row has doors or cameras, Pro's gates block it — which is the point, since the tier then gets re-picked deliberately. Three tests guard this.
 

@@ -6,9 +6,16 @@ export interface GateResult {
 }
 
 // tiers-reference.md § Hardware footprint per tier — neither of the two lowest
-// tiers has a rack kit. They differ only in software: Basic is the booking
+// tiers has ANY hardware. They differ only in software: Basic is the booking
 // website alone, and Basic+ adds the venue its own booking app on iOS and
 // Android. That is why they share a gate but not a message.
+//
+// Basic+ was recorded as carrying BBPOS payment terminals until 2026-08-14.
+// That was never sourced: the original tiers doc put terminals on both lowest
+// tiers, and when Basic was edited down to "no hardware at all" the line
+// survived on Basic+ alone — inventing a boundary rather than recording one.
+// Don't reintroduce it; card readers, if PodPlay supplies them at all, are a
+// payment-integration question that starts at Basic.
 const NO_HARDWARE_TIERS: Tier[] = ['basic', 'basic_plus']
 
 // tiers-reference.md § Tier capabilities matrix — security cameras are
@@ -66,10 +73,11 @@ export function evaluateGates(inputs: VenueInputs): GateResult {
           ? 'Basic venues have no hardware at all — the booking website is ' +
             'the entire deliverable, with no app. There is nothing here for ' +
             'this tool to size.'
-          : 'Basic+ venues have no rack kit — BBPOS terminals only. ' +
-            'Everything else is software: the tier gives the venue its own ' +
-            'booking app on iOS and Android, which is what separates it from ' +
-            'Basic\'s website. There is nothing here for this tool to size.',
+          : 'Basic+ venues have no hardware at all — the tier adds the ' +
+            'venue its own booking app on iOS and Android, and nothing ' +
+            'physical. That is the customer-facing booking app, not the ' +
+            'court-side software on iPads and Apple TVs, which starts at ' +
+            'Pro. There is nothing here for this tool to size.',
       }],
     }
   }
