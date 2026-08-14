@@ -34,7 +34,11 @@ export function BrandBlock({
   return (
     <div
       className={cn(
-        'border-b-2 border-gold bg-railhd px-4 py-3 text-railhd-foreground',
+        // py-2 below sm: the lockup cannot shrink to buy space — 147px is
+        // already the brand book's 38mm minimum — so on a phone the padding is
+        // the only give. Worth 8px of the 224px of chrome that used to sit
+        // above Catalog's first row.
+        'border-b-2 border-gold bg-railhd px-4 py-2 text-railhd-foreground sm:py-3',
         className,
       )}
     >

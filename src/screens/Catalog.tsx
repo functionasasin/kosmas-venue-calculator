@@ -85,11 +85,22 @@ export function Catalog() {
 
       {/* overflow-x-auto lives in ui/table.tsx already; min-w forces the table
           past the viewport at phone widths so the cut-off Name column reads as
-          "scroll me" instead of a rendering failure. The hint sits above the
-          table so it is seen before the table itself, not after scrolling
-          past every row. */}
-      <div className="min-w-0 flex-1 space-y-1 py-4">
-        <p className="px-4 text-xs text-muted-foreground sm:hidden">← scroll for more →</p>
+          "scroll me" instead of a rendering failure.
+
+          That cue used to be a `← scroll for more →` line above the table. It
+          worked, but it cost 20px of a phone's vertical budget on the screen
+          that could least afford it — chrome above the first row was 224px of
+          800px. It is now a right-edge fade, which says the same thing in 0px
+          of height, plus an sr-only line so the information is not lost to a
+          screen reader.
+
+          The fade sits on a wrapper OUTSIDE the table, not inside it: the
+          container in ui/table.tsx is the scroller, so an absolutely-positioned
+          child of it would scroll away with the content instead of staying
+          pinned to the right edge. */}
+      <div className="min-w-0 flex-1 py-2 sm:py-4">
+        <p className="sr-only">This table scrolls horizontally.</p>
+        <div className="relative">
         <Table className="min-w-[640px]">
           <TableHeader>
             <TableRow>
@@ -133,6 +144,13 @@ export function Catalog() {
             ))}
           </TableBody>
         </Table>
+        {/* Phone only — from sm up the table fits and there is nothing to cue. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 w-12
+                     bg-gradient-to-l from-card to-transparent sm:hidden"
+        />
+        </div>
       </div>
 
       <Dialog open={editing !== null} onOpenChange={o => !o && setEditing(null)}>
