@@ -14,6 +14,13 @@ export const ROLE_KEYS = [
   'switch_24_pro', 'switch_24_std', 'switch_48_pro',
   'gateway_udm_se', 'gateway_udm_pro',
   'access_point',
+  // Autonomous tiers only, and what makes them Autonomous. The controller is
+  // rack-side on the UDM (1 per 4 doors); the reader is 1 per door. The
+  // push-to-exit / REX device deliberately has NO role key: it applies to
+  // mag-lock doors only, the tool has no input for door style, and no quantity
+  // for it exists anywhere in the source — `Cost Analysis` has no REX row at
+  // all. It stays a manual line raised by a warning.
+  'kisi_controller', 'kisi_reader',
   'mac_mini', 'mac_mini_shelf',
   'replay_ssd_1tb', 'replay_ssd_2tb', 'replay_ssd_4tb',
   'patch_panel_24', 'patch_panel_48',

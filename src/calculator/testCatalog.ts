@@ -14,7 +14,7 @@ const RACK_U: Record<string, number> = {
 
 const POE_WATTS: Record<string, number> = {
   replay_camera: 17.5, security_camera: 17.5, ipad_poe_adapter: 13,
-  access_point: 13,
+  access_point: 13, kisi_reader: 7,
 }
 
 export const testCatalog: Item[] = ROLE_KEYS.map(roleKey => ({

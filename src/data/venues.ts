@@ -32,6 +32,7 @@ const fromRow = (r: Tables<'venues'>): Venue => ({
   securityCameras: r.security_cameras,
   kisiDoors: r.kisi_doors,
   extendedRetention: r.extended_retention,
+  backupInternet: r.backup_internet,
 })
 
 export async function listVenues(): Promise<Venue[]> {
@@ -72,6 +73,7 @@ export async function saveVenue(v: Partial<Venue> & { name: string }) {
     security_cameras: v.securityCameras ?? 0,
     kisi_doors: v.kisiDoors ?? 0,
     extended_retention: v.extendedRetention ?? false,
+    backup_internet: v.backupInternet ?? false,
     updated_at: new Date().toISOString(),
   }
   const { data, error } = await supabase

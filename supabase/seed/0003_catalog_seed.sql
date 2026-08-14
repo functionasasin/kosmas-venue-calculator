@@ -44,7 +44,9 @@ insert into items (name, category, role_key, supplier, poe_watts, rack_u, notes,
   ('21U Network Rack Enclosure', 'rack', 'rack_21u', 'Drextech', null, 0, null, 'Internal depth must be >=610mm / 24".'),
   ('27U Network Rack Enclosure', 'rack', 'rack_27u', 'Drextech', null, 0, null, 'Internal depth must be >=610mm / 24".'),
   ('Flic Button (Gen 2)', 'accessory', 'flic', 'flic.io', null, 0, null, null),
-  ('Aluminum Printed Sign 6x8', 'signage', 'signage', null, null, 0, 'PH supplier not yet sourced.', null);
+  ('Aluminum Printed Sign 6x8', 'signage', 'signage', null, null, 0, 'PH supplier not yet sourced.', null),
+  ('Kisi Controller Pro 2', 'network', 'kisi_controller', null, null, null, 'Autonomous tiers only. Not stocked in PH — ships from US/HK. Sized 1 per 4 doors, which is the doc''s INTENT: Cost Analysis!F37 tests the empty cell Z16 instead of Z14, so the sheet returns 1 controller for every venue whatever the door count. rack_u is null on purpose — the source calls it rack-mounted but records no U figure, so the rack total excludes it and a warning says so.', 'Lands on a UDM RJ45 port, not the switch — non-PoE, 1 port per controller. Verify the rack bracket before ordering.'),
+  ('Kisi Reader Pro 2.1', 'court', 'kisi_reader', null, 7, 0, 'Autonomous tiers only. Not stocked in PH — ships from US/HK. 1 per door. The 2.1, not the Pro 2: it adds Apple ECP 2.0 and offline support, and the PH Kisi supplier does not stock the older generation anyway. 7W max, 802.3af.', 'Goes on the UDM-SE''s PoE ports first, overflowing to the switch only when the gateway runs out. This is a deliberate Kosmas deviation — PodPlay''s guides put every reader on the switch. Tag each UDM port carrying a reader onto the ACCESS CONTROL VLAN.');
 
 -- Alternates, inactive so they do not claim a role key. Only one active item
 -- may hold a role_key (unique index items_role_key_active), so activating one

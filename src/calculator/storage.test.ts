@@ -5,7 +5,7 @@ import type { VenueInputs } from './types'
 
 const pro = (courts: number, extendedRetention = false): VenueInputs => ({
   courts, tier: 'pro', securityCameras: 0, kisiDoors: 0,
-  extendedRetention,
+  extendedRetention, backupInternet: false,
 })
 
 describe('planSsd', () => {

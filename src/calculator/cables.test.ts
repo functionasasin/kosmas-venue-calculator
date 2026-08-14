@@ -35,14 +35,35 @@ describe('planPatchPanels', () => {
 
 describe('planCat6', () => {
   it('gives total ports plus 2 of the 0.5M patch cable', () => {
-    expect(qtyOf(planCat6(24), 'cat6_0m5')).toBe(26)
+    expect(qtyOf(planCat6(24, 0), 'cat6_0m5')).toBe(26)
+  })
+
+  // The sheet drives this line off Z25 + 2, and Z25 sums every port in the
+  // rack — PDU, Mac mini and the Kisi rows included. None of those take a 1'
+  // cable: INVENTORY MASTER scopes this one "for switch" and serves the Mac
+  // mini and PDU off the 3' line, Kisi off the 10'. An 8-court Autonomous
+  // venue is where the two diverge — Z25 = 28 there, so Z25 + 2 would order 30.
+  it('sizes the 0.5M off switch ports only, not the sheet\'s Z25', () => {
+    expect(qtyOf(planCat6(24, 4), 'cat6_0m5')).toBe(26)
   })
 
   it('gives 2 of the 1M, PH-bumped from 1 for field spare', () => {
-    expect(qtyOf(planCat6(24), 'cat6_1m')).toBe(2)
+    expect(qtyOf(planCat6(24, 0), 'cat6_1m')).toBe(2)
   })
 
-  it('gives 2 of the 3M, PH-bumped from 1 for field spare', () => {
-    expect(qtyOf(planCat6(24), 'cat6_3m')).toBe(2)
+  it('gives 2 of the 3M on a venue with no Kisi doors', () => {
+    expect(qtyOf(planCat6(24, 0), 'cat6_3m')).toBe(2)
+  })
+
+  // INVENTORY MASTER calls the 3M "10' patch cable for Kisi", but the sheet's
+  // F12 is hardcoded to 1 whatever the door count, so it under-orders every
+  // multi-door venue. One run per door, plus the PH spare.
+  it('adds one 3M per Kisi door, which the sheet\'s fixed F12 does not', () => {
+    expect(qtyOf(planCat6(24, 4), 'cat6_3m')).toBe(6)
+  })
+
+  it('names the door count in the 3M formula so the BOM shows its basis', () => {
+    const line = planCat6(24, 4).find(l => l.roleKey === 'cat6_3m')
+    expect(line?.formula).toContain('4')
   })
 })

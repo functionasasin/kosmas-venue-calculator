@@ -25,6 +25,10 @@ export function VenueInputsForm({ value, onChange }: Props) {
   // itself. Leaving them would strand a value behind a disabled control: the
   // calculation blocks on securityCameras > 0, and there is no longer any input
   // able to bring it back to zero.
+  //
+  // `backupInternet` is deliberately NOT cleared with them. It never blocks a
+  // calculation, so it cannot strand one, and it stays true of the site
+  // whatever tier the venue ends up quoted at.
   const setTier = (tier: Tier) =>
     onChange({
       ...value,
@@ -96,6 +100,26 @@ export function VenueInputsForm({ value, onChange }: Props) {
           <Label htmlFor="retention" className="text-xs font-normal">
             Extended replay retention
           </Label>
+        </div>
+        {/* Only offered on the Kisi tiers, because that is the only place it
+            changes an output: it costs one of the UDM's 8 RJ45 ports, which is
+            one fewer for a reader. A control that silently does nothing is
+            worse than one that says when it applies. */}
+        <div className="space-y-1">
+          <div className="flex items-end gap-2 pb-1">
+            <Checkbox id="backupWan" checked={value.backupInternet}
+              disabled={!doorsOn}
+              aria-describedby={doorsOn ? undefined : 'backupWanHint'}
+              onCheckedChange={c => set('backupInternet', c === true)} />
+            <Label htmlFor="backupWan" className="text-xs font-normal">
+              Backup internet (WAN)
+            </Label>
+          </div>
+          {!doorsOn && (
+            <p id="backupWanHint" className={hint}>
+              Autonomous and Autonomous+ only
+            </p>
+          )}
         </div>
       </div>
     </div>

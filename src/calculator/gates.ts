@@ -6,9 +6,9 @@ export interface GateResult {
 }
 
 // tiers-reference.md § Hardware footprint per tier — neither of the two lowest
-// tiers has a rack kit. They differ only in software (Basic is the booking
-// website; Basic+ adds a cross-platform owner app), which is why they share a
-// gate but not a message.
+// tiers has a rack kit. They differ only in software: Basic is the booking
+// website alone, and Basic+ adds the venue its own booking app on iOS and
+// Android. That is why they share a gate but not a message.
 const NO_HARDWARE_TIERS: Tier[] = ['basic', 'basic_plus']
 
 // tiers-reference.md § Tier capabilities matrix — security cameras are
@@ -64,10 +64,12 @@ export function evaluateGates(inputs: VenueInputs): GateResult {
         level: 'error',
         message: inputs.tier === 'basic'
           ? 'Basic venues have no hardware at all — the booking website is ' +
-            'the entire deliverable. There is nothing here for this tool to size.'
+            'the entire deliverable, with no app. There is nothing here for ' +
+            'this tool to size.'
           : 'Basic+ venues have no rack kit — BBPOS terminals only. ' +
-            'Everything else in the tier is software, including the owner ' +
-            'app. There is nothing here for this tool to size.',
+            'Everything else is software: the tier gives the venue its own ' +
+            'booking app on iOS and Android, which is what separates it from ' +
+            'Basic\'s website. There is nothing here for this tool to size.',
       }],
     }
   }
@@ -123,21 +125,28 @@ export function evaluateGates(inputs: VenueInputs): GateResult {
   // Autonomous+ is that plus surveillance (cameras, UNVR/UNVR-Pro, 8TB HDDs).
   // Naming an NVR on plain Autonomous would reserve rack U for hardware the
   // tier never includes.
+  // The Controller Pro 2 and Reader Pro 2.1 are sized on the materials list.
+  // The push-to-exit device is not, and cannot be: it applies to mag-lock
+  // doors only, this tool has no input for door style, and `Cost Analysis` has
+  // no REX row at all — only a `Customer P&L!B47` cost line.
+  const REX_MANUAL =
+    'Push-to-exit devices are not sized here — fit one per mag-lock door ' +
+    '(panic-bar doors with electric strikes need none). No quantity for them ' +
+    'exists anywhere in the source; size it by hand from door style.'
+
   if (inputs.tier === 'autonomous') {
     warnings.push({
       code: 'TIER_ADDITIONS_MANUAL',
       level: 'warn',
-      message:
-        'The Kisi kit is not sized here — add the Controller Pro 2 (one per ' +
-        'four doors), one Reader Pro 2.1 per door, and a push-to-exit device ' +
-        'on mag-lock doors only. This tier has no surveillance hardware.',
+      message: `${REX_MANUAL} This tier has no surveillance hardware.`,
     })
     warnings.push({
       code: 'TIER_RACK_UNDERSIZED',
       level: 'warn',
       message:
-        'Rack size is computed without the Kisi controller. Verify the ' +
-        'bracket before ordering.',
+        'The Kisi controller is on the list but the source records no rack U ' +
+        'for it, so it adds nothing to the rack total. Verify the bracket ' +
+        'before ordering.',
     })
   }
 
@@ -146,17 +155,18 @@ export function evaluateGates(inputs: VenueInputs): GateResult {
       code: 'TIER_ADDITIONS_MANUAL',
       level: 'warn',
       message:
-        'The Kisi kit, NVR and 8TB HDDs are not sized here — add them ' +
-        'manually. NVR model follows the security-camera count: UNVR up to ' +
-        '20, UNVR-Pro 21-35, two UNVRs 36-40, two UNVR-Pro 41-60. Above 60 ' +
+        `${REX_MANUAL} The NVR and 8TB HDDs are not sized here either — add ` +
+        'them manually. NVR model follows the security-camera count: UNVR up ' +
+        'to 20, UNVR-Pro 21-35, two UNVRs 36-40, two UNVR-Pro 41-60. Above 60 ' +
         'cameras the source has no row — size by hand.',
     })
     warnings.push({
       code: 'TIER_RACK_UNDERSIZED',
       level: 'warn',
       message:
-        'Rack size is computed without the Kisi controller, the NVR (an ' +
-        'NVR-Pro is 2U) and its drives. Verify the bracket before ordering.',
+        'Rack size is computed without the NVR (an NVR-Pro is 2U) and its ' +
+        'drives, and the source records no rack U for the Kisi controller. ' +
+        'Verify the bracket before ordering.',
     })
   }
 

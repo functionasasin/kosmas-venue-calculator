@@ -28,8 +28,8 @@ Don't copy them here — the sizing doc is still being edited there, and a copy 
 | Basic | none | none — booking website only | blocked — nothing to size |
 | Basic+ | none | BBPOS terminals only | blocked — nothing to size |
 | Pro | Mac mini · UDM · USW-Pro · UPS · patch panel | display · iPad · Apple TV · replay cam · PoE adapter · Flic | fully covered |
-| Autonomous | Pro + Kisi Controller Pro 2 (1 per 4 doors), **no NVR** | Pro + Reader Pro 2.1/door + push-to-exit on mag-lock doors, **no security cameras** | Kisi kit added by hand |
-| Autonomous+ | Autonomous + UNVR/UNVR-Pro + 8TB HDDs | Autonomous + EmpireTech PoE cameras + PFA130-E boxes | Kisi kit, NVR, HDDs added by hand |
+| Autonomous | Pro + Kisi Controller Pro 2 (1 per 4 doors), **no NVR** | Pro + Reader Pro 2.1/door + push-to-exit on mag-lock doors, **no security cameras** | controller + readers sized; push-to-exit by hand |
+| Autonomous+ | Autonomous + UNVR/UNVR-Pro + 8TB HDDs | Autonomous + EmpireTech PoE cameras + PFA130-E boxes | as Autonomous; NVR + HDDs by hand |
 
 **There is no Pro+.** It was recorded as a tier between Pro and Autonomous carrying "Partial / Custom" door access and optional monitoring, and was removed on 2026-08-11. Door access is now all-or-nothing: any venue wanting a Kisi door is Autonomous. Don't reintroduce a partial tier, and don't read an old "Pro+" quote as either Pro or Autonomous automatically — which it is depends on whether it had doors, and that's a per-deal call.
 
@@ -37,7 +37,7 @@ Don't copy them here — the sizing doc is still being edited there, and a copy 
 
 **The gates in `gates.ts` ARE the tier definitions — do not "simplify" them away.** It is true that no sizing module reads `inputs.tier`: `pickGateway` keys off `kisiDoors`, `planSwitches` off `securityCameras || kisiDoors || courts`, `totalPorts` off `courts + securityCameras`. **That does not make the tier a mere label** — it makes `SECURITY_CAMERA_TIERS` and `KISI_TIERS` the *only* thing keeping a tier off hardware it doesn't include. Deleting them was tried on 2026-08-10 and reverted the same day: it let a Pro venue be specced with the very door access that defines it as not-Pro.
 
-**Corollary: the tier is chosen, never inferred.** Basic and Basic+ are hardware-identical (the difference is a cross-platform owner app), so nothing in the inputs can distinguish them. More generally the tiers describe operating models — Pro is "Premium tech-enabled club", Autonomous is "Staff-light operations" — and the tool has no input for how a venue is staffed.
+**Corollary: the tier is chosen, never inferred.** Basic and Basic+ are hardware-identical — the difference is that Basic+ gives the venue its own booking app on iOS and Android, where Basic is the website alone. It is **not** an owner/admin tool; owners already have the admin dashboard at Basic. So nothing in the inputs can distinguish them. More generally the tiers describe operating models — Pro is "Premium tech-enabled club", Autonomous is "Staff-light operations" — and the tool has no input for how a venue is staffed.
 
 **Basic is live, and its 2026-08-10 retirement was undone.** Basic was briefly removed on the reasoning that bare Basic doesn't sell in SEA/Asia; that's a real market observation but it was wrong as a statement of the lineup. Basic is the booking website alone — **no hardware at all**, not even BBPOS terminals, which start at Basic+. Both tiers block here, but with different messages: naming terminals in the Basic block would tell a buyer to order hardware that tier doesn't have. A test guards that.
 
@@ -48,6 +48,18 @@ Don't copy them here — the sizing doc is still being edited there, and a copy 
 **Tier changes follow a required order** — write `podplay-tiers-reference.md` first, then the code. Both the Basic retirement (2026-08-10) and its reversal plus the Pro+ removal (2026-08-11) were done that way. Keep it.
 
 **PH reality:** nearly every PH deployment is Pro. Kisi hardware, NVRs and security cameras aren't stocked locally and ship from US/HK — the Autonomous tiers carry a lead-time cost, not just a scope caveat. Basic and Basic+ are uncommon here too, but that's demand, not policy.
+
+## The switch is sized with Kisi in it — the spreadsheet isn't
+
+`Cost Analysis!F7` bands switch quantity on replay cameras + iPads + Apple TVs + security cameras, with **no Kisi term at all**, so the sheet sizes an Autonomous venue's switch as if its doors did not exist. Two further defects hide the shortfall: `P38` reports the controller count where the reader count belongs, and `Z26` pools the gateway's 8 RJ45 ports into "ports available".
+
+`src/calculator/kisi.ts` is the honest count. Controllers go on the UDM (1 per 4 doors — the *intent*; `F37` tests the empty cell `Z16` and returns 1 for every venue). Readers take UDM-SE PoE ports first — `8 − 1 (Mac mini) − controllers − backup WAN` — and only the overflow reaches `totalPorts`. The UDM↔switch uplink is an SFP DAC and consumes no RJ45, which is why it never appears in that sum.
+
+**Readers on the gateway is a deliberate deviation, not the default.** PodPlay's guides put every reader on the switch; an installer following them verbatim will not do this. It is what keeps the 24-port build valid at 8 courts, where the court kit fills the switch exactly — hence `KISI_READER_PLACEMENT`, which exists so the choice is recorded per venue instead of happening silently. Don't delete it as noise.
+
+`backupInternet` is an input for one reason: that eighth UDM port is what decides 24-port vs 48-port at the margin. It is inert on every non-Kisi tier, which is why the form only offers it on Autonomous and Autonomous+.
+
+Readers are one BOM line but not one power source — the ones on the UDM-SE draw from the gateway's 180 W, so `checkPoeBudget` subtracts them from switch load. Charging the whole line to the switch would overstate it.
 
 ## Don't invent quantities the source defers
 

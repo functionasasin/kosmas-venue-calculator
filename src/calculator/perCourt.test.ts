@@ -4,7 +4,7 @@ import type { VenueInputs, Qty } from './types'
 
 const pro = (over: Partial<VenueInputs> = {}): VenueInputs => ({
   courts: 8, tier: 'pro', securityCameras: 0, kisiDoors: 0,
-  extendedRetention: false, ...over,
+  extendedRetention: false, backupInternet: false, ...over,
 })
 
 const qty = (inputs: VenueInputs, role: string): Qty | undefined =>

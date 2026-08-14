@@ -1,12 +1,23 @@
 import type { VenueInputs } from './types'
 import type { RoleKey } from './roleKeys'
+import { planKisi } from './kisi'
 
 /**
- * venue-sizing.md § Sizing inputs (glossary)
- * 3 ports per court (replay camera + iPad + Apple TV), plus security cameras.
+ * venue-sizing.md § Sizing inputs (glossary), § Kisi port accounting
+ * 3 ports per court (replay camera + iPad + Apple TV), plus security cameras,
+ * plus any Kisi readers that did not fit on the UDM-SE.
+ *
+ * That last term is the one `Cost Analysis!F7` is missing entirely — it bands
+ * switch quantity with no Kisi term at all, so an Autonomous venue's door
+ * hardware never reaches switch sizing. Counting it here is what lets the tool
+ * say when the 24-port build stops working instead of silently overflowing it.
  */
 export function totalPorts(inputs: VenueInputs): number {
-  return 3 * inputs.courts + inputs.securityCameras
+  return (
+    3 * inputs.courts +
+    inputs.securityCameras +
+    planKisi(inputs).readersOnSwitch
+  )
 }
 
 /**

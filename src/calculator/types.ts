@@ -2,10 +2,11 @@ import type { RoleKey } from './roleKeys'
 
 // tiers-reference.md § lineup confirmed 2026-08-11. Five tiers, in order.
 //
-// Basic and Basic+ differ only in software — Basic is the booking website,
-// Basic+ adds a cross-platform owner app — so neither has hardware for this
-// tool to size and both are blocked in gates.ts. A 2026-08-10 change retired
-// Basic outright; that was wrong about the lineup and has been undone.
+// Basic and Basic+ differ only in software — Basic is the booking website
+// alone, Basic+ adds the venue its own booking app on iOS and Android — so
+// neither has hardware for this tool to size and both are blocked in gates.ts.
+// A 2026-08-10 change retired Basic outright; that was wrong about the lineup
+// and has been undone.
 //
 // There is no Pro+. It was recorded as sitting between Pro and Autonomous with
 // "Partial / Custom" door access, and was removed on 2026-08-11. Door access
@@ -32,6 +33,13 @@ export interface VenueInputs {
   securityCameras: number
   kisiDoors: number
   extendedRetention: boolean
+  /**
+   * A second WAN uplink on the UDM. Costs one of the gateway's 8 RJ45 ports,
+   * which matters only on the Kisi tiers: it is one fewer port for a reader,
+   * and at the margin that is what pushes a venue from a 24-port switch to a
+   * 48-port. Inert everywhere else. venue-sizing.md § Kisi port accounting.
+   */
+  backupInternet: boolean
 }
 
 export interface Item {

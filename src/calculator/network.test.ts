@@ -4,10 +4,19 @@ import type { VenueInputs } from './types'
 
 const pro = (courts: number, over: Partial<VenueInputs> = {}): VenueInputs => ({
   courts, tier: 'pro', securityCameras: 0, kisiDoors: 0,
-  extendedRetention: false, ...over,
+  extendedRetention: false, backupInternet: false, ...over,
 })
 
 describe('totalPorts', () => {
+  // Readers that fit on the UDM-SE are not switch ports, so they must not
+  // inflate this count; the ones that overflow are, and `Cost Analysis!F7`
+  // counts neither. 8 courts + 6 doors leaves exactly one reader on the switch.
+  it('adds only the readers the UDM-SE could not take', () => {
+    const autonomous = { tier: 'autonomous' as const }
+    expect(totalPorts(pro(8, { ...autonomous, kisiDoors: 4 }))).toBe(24)
+    expect(totalPorts(pro(8, { ...autonomous, kisiDoors: 6 }))).toBe(25)
+  })
+
   it('counts 3 ports per court — camera, iPad, Apple TV', () => {
     expect(totalPorts(pro(8))).toBe(24)
   })

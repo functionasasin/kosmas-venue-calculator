@@ -1,6 +1,7 @@
 import type { CalculatedLine, Item, Warning, WarningLevel } from './types'
 import { isCountable } from './types'
 import type { SwitchPlan } from './network'
+import type { KisiPlan } from './kisi'
 import type { RoleKey } from './roleKeys'
 
 // venue-sizing.md § Sheet inconsistency to be aware of — per-switch PoE
@@ -25,19 +26,30 @@ export function checkPoeBudget(
   lines: CalculatedLine[],
   catalog: Item[],
   plan: SwitchPlan,
+  kisi: KisiPlan,
 ): Warning[] {
   const switchBudget = plan.count24 * BUDGET_24 + plan.count48 * BUDGET_48
-  const budget = switchBudget === 0 ? GATEWAY_POE : switchBudget
+  const switched = switchBudget > 0
+  const budget = switched ? switchBudget : GATEWAY_POE
 
   const byRole = new Map(
     catalog.filter(i => i.roleKey).map(i => [i.roleKey as RoleKey, i]),
   )
 
-  const load = lines.reduce((total, line) => {
-    if (!isCountable(line.qty)) return total
+  const total = lines.reduce((sum, line) => {
+    if (!isCountable(line.qty)) return sum
     const watts = byRole.get(line.roleKey)?.poeWatts ?? 0
-    return total + watts * line.qty
+    return sum + watts * line.qty
   }, 0)
+
+  // Readers that landed on the UDM-SE draw from the gateway's own 180W, not
+  // from the switch. The BOM carries them as one line because they are one
+  // SKU, so without this split their whole load would be charged to the switch
+  // budget and overstate it. In an unswitched venue there is nothing to split:
+  // the gateway budget is already the one being measured.
+  const readerWatts = byRole.get('kisi_reader')?.poeWatts ?? 0
+  const udmReaderLoad = switched ? kisi.readersOnUdm * readerWatts : 0
+  const load = total - udmReaderLoad
 
   const ratio = load / budget
   const level: WarningLevel =
@@ -50,10 +62,16 @@ export function checkPoeBudget(
         'individually over.'
       : ''
 
+  const onGateway =
+    udmReaderLoad > 0
+      ? ` A further ${Math.round(udmReaderLoad)}W of Kisi readers sits on the ` +
+        `UDM-SE's own ${GATEWAY_POE}W supply and is not counted here.`
+      : ''
+
   return [{
     code: 'POE_BUDGET',
     level,
     message:
-      `PoE load ${Math.round(load)}W of ${budget}W (${pct}%).${pooled}`,
+      `PoE load ${Math.round(load)}W of ${budget}W (${pct}%).${pooled}${onGateway}`,
   }]
 }

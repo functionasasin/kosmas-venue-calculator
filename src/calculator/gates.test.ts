@@ -6,7 +6,7 @@ import type { VenueInputs, Tier } from './types'
 
 const base: VenueInputs = {
   courts: 8, tier: 'pro', securityCameras: 0,
-  kisiDoors: 0, extendedRetention: false,
+  kisiDoors: 0, extendedRetention: false, backupInternet: false,
 }
 
 const warningText = (r: GateResult, code: string) =>
@@ -35,6 +35,19 @@ describe('evaluateGates', () => {
     expect(warningText(r, 'TIER_NO_HARDWARE')).not.toMatch(/BBPOS|terminal/i)
     expect(warningText(evaluateGates({ ...base, tier: 'basic_plus' }), 'TIER_NO_HARDWARE'))
       .toMatch(/BBPOS/)
+  })
+
+  // Corrected 2026-08-13: what Basic+ adds is the venue's OWN booking app on
+  // iOS and Android — a Tela Park deal gets a Tela Park app. It is not an
+  // owner/admin tool, which is how this message read until now; owners already
+  // have the admin dashboard at Basic. Since the app is the entire difference
+  // between the two blocked tiers, describing it wrongly misstates the only
+  // thing the message exists to convey.
+  it('makes the mobile app the stated difference between Basic and Basic+', () => {
+    expect(warningText(evaluateGates({ ...base, tier: 'basic_plus' }), 'TIER_NO_HARDWARE'))
+      .toMatch(/iOS and Android/)
+    expect(warningText(evaluateGates({ ...base, tier: 'basic' }), 'TIER_NO_HARDWARE'))
+      .toMatch(/no app/i)
   })
 
   // Pro is Door Access "No" and Remote Monitoring "No" in the capabilities

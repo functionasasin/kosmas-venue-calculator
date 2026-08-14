@@ -5,7 +5,7 @@ import type { VenueInputs } from '@/calculator/types'
 
 const inputs: VenueInputs = {
   courts: 8, tier: 'pro', securityCameras: 0,
-  kisiDoors: 0, extendedRetention: false,
+  kisiDoors: 0, extendedRetention: false, backupInternet: false,
 }
 
 const tierSelect = () => screen.getByLabelText('Tier') as HTMLSelectElement
@@ -52,6 +52,10 @@ describe('VenueInputsForm tier picker', () => {
 
 const cameras = () => screen.getByLabelText('Security cameras') as HTMLInputElement
 const doors = () => screen.getByLabelText('Kisi doors') as HTMLInputElement
+// By role, not by label: Radix renders a hidden native input beside the
+// checkbox button, so getByLabelText matches two elements.
+const backupWan = () =>
+  screen.getByRole('checkbox', { name: 'Backup internet (WAN)' }) as HTMLButtonElement
 
 // Before this, both counts were editable on every tier and you only learned the
 // tier was wrong when the calculation blocked. Disabling them moves the rule to
@@ -80,6 +84,23 @@ describe('VenueInputsForm tier-gated inputs', () => {
     render(<VenueInputsForm value={{ ...inputs, tier: 'pro' }} onChange={vi.fn()} />)
     expect(cameras()).toHaveAccessibleDescription(/Autonomous\+/)
     expect(doors()).toHaveAccessibleDescription(/Autonomous/)
+  })
+
+  // The backup WAN costs one of the UDM's 8 RJ45 ports, which is one fewer for
+  // a Kisi reader — so it changes an output on the Kisi tiers and nowhere
+  // else. Offering it on Pro would be a control that silently does nothing.
+  it('offers the backup WAN on the Kisi tiers only', () => {
+    const auto = render(
+      <VenueInputsForm value={{ ...inputs, tier: 'autonomous' }} onChange={vi.fn()} />,
+    )
+    // Base UI marks the checkbox disabled with `data-disabled`, not the native
+    // attribute — the same way the extended-retention checkbox beside it does.
+    expect(backupWan()).not.toHaveAttribute('data-disabled')
+    auto.unmount()
+
+    render(<VenueInputsForm value={{ ...inputs, tier: 'pro' }} onChange={vi.fn()} />)
+    expect(backupWan()).toHaveAttribute('data-disabled')
+    expect(backupWan()).toHaveAccessibleDescription(/Autonomous/)
   })
 
   // A disabled field still showing "4" would leave the venue blocked on a value

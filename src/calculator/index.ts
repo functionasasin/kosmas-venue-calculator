@@ -7,12 +7,14 @@ import { planSsd } from './storage'
 import { planPower } from './power'
 import { planPerCourt } from './perCourt'
 import { checkPoeBudget } from './poe'
+import { planKisi } from './kisi'
 import type { RoleKey } from './roleKeys'
 
 // Roles that draw PoE. Used only to decide whether a missing wattage is worth
 // complaining about — a rack or a cable having no wattage is normal.
 const POE_BEARING = new Set<RoleKey>([
   'replay_camera', 'security_camera', 'ipad_poe_adapter', 'access_point',
+  'kisi_reader',
 ])
 
 export function calculateBOM(inputs: VenueInputs, catalog: Item[]): BomResult {
@@ -20,6 +22,7 @@ export function calculateBOM(inputs: VenueInputs, catalog: Item[]): BomResult {
   if (gate.blocked) return { lines: [], warnings: gate.warnings }
 
   const warnings: Warning[] = [...gate.warnings]
+  const kisi = planKisi(inputs)
   const ports = totalPorts(inputs)
   const switches = planSwitches(inputs, ports)
 
@@ -60,9 +63,26 @@ export function calculateBOM(inputs: VenueInputs, catalog: Item[]): BomResult {
   }
 
   lines.push(...planPatchPanels(switches))
-  lines.push(...planCat6(ports))
+  lines.push(...planCat6(ports, inputs.kisiDoors))
   lines.push(...planPower())
   lines.push(...planPerCourt(inputs))
+
+  // tiers-reference.md § Autonomous Kisi kit — the hardware that makes a venue
+  // Autonomous, so it belongs on the list rather than in a "add it yourself"
+  // note. Controller quantity implements the doc's intent (1 per 4 doors), not
+  // `F37`, which tests the empty cell Z16 and returns 1 for every venue.
+  if (kisi.readers > 0) {
+    lines.push({
+      roleKey: 'kisi_controller',
+      qty: kisi.controllers,
+      formula: `1 per 4 doors (${kisi.readers} doors)`,
+    })
+    lines.push({
+      roleKey: 'kisi_reader',
+      qty: kisi.readers,
+      formula: `1 per door (${kisi.readers})`,
+    })
+  }
 
   const ssd = planSsd(inputs)
   lines.push(ssd.line)
@@ -88,7 +108,41 @@ export function calculateBOM(inputs: VenueInputs, catalog: Item[]): BomResult {
     })
   }
 
-  warnings.push(...checkPoeBudget(lines, catalog, switches))
+  warnings.push(...checkPoeBudget(lines, catalog, switches, kisi))
+
+  // venue-sizing.md § Kisi port accounting — putting readers on the gateway is
+  // what keeps the 24-port build valid at 8 courts, but it deviates from
+  // PodPlay's own port-labeling convention rather than following it. It has to
+  // be written down per venue, or the installer will not reproduce it.
+  if (kisi.readers > 0) {
+    warnings.push({
+      code: 'KISI_READER_PLACEMENT',
+      level: 'warn',
+      message:
+        `${kisi.readersOnUdm} of ${kisi.readers} Kisi reader(s) go on the ` +
+        'UDM-SE\'s PoE ports' +
+        (kisi.readersOnSwitch > 0
+          ? `, and ${kisi.readersOnSwitch} overflow onto the switch. `
+          : '. ') +
+        'PodPlay\'s guides put every reader on the switch — this is a ' +
+        'deliberate Kosmas deviation that an installer following the guide ' +
+        'will not make, so record it for this venue. Tag each UDM port ' +
+        'carrying a reader onto the ACCESS CONTROL VLAN.',
+    })
+
+    const switchCount = switches.count24 + switches.count48
+    const spare = switches.count24 * 24 + switches.count48 * 48 - ports
+    if (switchCount > 0 && spare <= 0) {
+      warnings.push({
+        code: 'KISI_SWITCH_HEADROOM',
+        level: 'warn',
+        message:
+          'The switch has no free ports left. Take the 48-port instead if the ' +
+          'venue needs spare capacity, if the door count may grow, or if you ' +
+          'want every reader on the switch per PodPlay\'s convention.',
+      })
+    }
+  }
 
   warnings.push({
     code: 'ACCESS_POINTS_MANUAL',

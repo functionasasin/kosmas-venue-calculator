@@ -15,9 +15,10 @@ describe('tierLabel', () => {
   })
 
   // Basic and Basic+ differ only in software — Basic is the booking website,
-  // Basic+ adds the owner app — so neither the calculator nor the printed sheet
-  // can tell them apart from hardware. The label is the only thing carrying the
-  // distinction, which is why collapsing the two would lose real information.
+  // Basic+ adds the venue's own iOS and Android booking app — so neither the
+  // calculator nor the printed sheet can tell them apart from hardware. The
+  // label is the only thing carrying the distinction, which is why collapsing
+  // the two would lose real information.
   it('keeps Basic and Basic+ distinct, since nothing else in the app separates them', () => {
     expect(tierLabel('basic')).toBe('Basic')
     expect(tierLabel('basic_plus')).toBe('Basic+')

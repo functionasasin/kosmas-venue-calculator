@@ -118,6 +118,7 @@ export type Database = {
       }
       venues: {
         Row: {
+          backup_internet: boolean
           brand: string
           courts: number
           created_at: string
@@ -130,6 +131,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          backup_internet?: boolean
           brand?: string
           courts: number
           created_at?: string
@@ -142,6 +144,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          backup_internet?: boolean
           brand?: string
           courts?: number
           created_at?: string
