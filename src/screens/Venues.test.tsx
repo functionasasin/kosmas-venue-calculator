@@ -107,4 +107,14 @@ describe('Venues theme', () => {
     await renderVenues()
     expect(screen.getByRole('button', { name: /switch to .* theme/i })).toBeInTheDocument()
   })
+
+  // Presence alone let the toggle sit third in this bar — after New venue,
+  // beside Sign out — while Catalog and VenueDetail led with it. The rule is
+  // that it leads the action cluster on every screen, so assert the position,
+  // not just that it rendered.
+  it('puts the theme toggle first in the action cluster', async () => {
+    await renderVenues()
+    const toggle = screen.getByRole('button', { name: /switch to .* theme/i })
+    expect(toggle.parentElement?.firstElementChild).toBe(toggle)
+  })
 })

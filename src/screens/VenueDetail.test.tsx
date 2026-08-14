@@ -76,3 +76,12 @@ it('offers the theme toggle from the toolbar', async () => {
   await renderDetail()
   expect(await screen.findByRole('button', { name: /switch to .* theme/i })).toBeInTheDocument()
 })
+
+// Same rule as Venues and Catalog: the toggle leads the action cluster. Here
+// three buttons trail it, so it sits further from the window edge than on
+// Catalog — that is the trailing count, not a different placement.
+it('puts the theme toggle first in the toolbar', async () => {
+  await renderDetail()
+  const toggle = await screen.findByRole('button', { name: /switch to .* theme/i })
+  expect(toggle.parentElement?.firstElementChild).toBe(toggle)
+})

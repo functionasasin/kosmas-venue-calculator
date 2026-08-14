@@ -69,6 +69,10 @@ export function Venues() {
                       justify-between gap-3 border-b bg-card px-4">
         <h1 className="text-lg font-semibold tracking-tight">Venues</h1>
         <div className="flex gap-1.5">
+          {/* Leads the action cluster on every screen — same slot in Catalog and
+              VenueDetail. It looks further from the window edge where more
+              buttons trail it; that is the trailing count, not a different rule. */}
+          <ThemeToggle />
           {role === 'admin' && (
             // A link wearing button styling, not a Button rendering a link.
             // Base UI's Button insists on button semantics either way: left
@@ -86,7 +90,6 @@ export function Venues() {
             onClick={() => setCreating(true)}>
             New venue
           </Button>
-          <ThemeToggle />
           <Button variant="ghost" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
             onClick={signOut}>
             Sign out
