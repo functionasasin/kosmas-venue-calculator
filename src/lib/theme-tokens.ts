@@ -127,12 +127,17 @@ export const DARK: ThemeTokens = {
   cardForeground: '#E8E9EA',
   popover: '#1C1D20',
   popoverForeground: '#E8E9EA',
-  // Darker than the brand red, not lighter — chosen 2026-08-14. Dark mode
-  // conventionally lightens a saturated brand colour (this was #DB5A5F, with a
-  // lighter #E4767A hover); here the commit button keeps the red's weight
-  // instead. The label has to be white as a result: #DE1B22 is 3.91:1 against
-  // the near-black #1A0B0C this used to carry, and 4.90:1 against white.
-  primary: '#DE1B22',
+  // The runner mark's red, identical to light — matched to `mark` on request
+  // 2026-08-14 so New venue / Save / Add item are the same colour in both
+  // modes. Supersedes two earlier attempts: dark mode conventionally lightens
+  // a saturated brand colour (this was #DB5A5F with a lighter #E4767A hover),
+  // then it was darkened to #DE1B22 to keep the red's weight. Both are gone;
+  // the logo is now the single source for this red.
+  //
+  // Keep this in step with `mark` below, which the Kosmas runner paints with.
+  // The white label costs a little contrast for the match — 4.68:1 against
+  // #E31F26 versus 4.90:1 against #DE1B22 — still clear of the 4.5:1 floor.
+  primary: '#E31F26',
   primaryForeground: '#FFFFFF',
   // Hover darkens, same direction as light's #E31F26 -> #C81A20, and the same
   // value: white reads 5.79:1 on it. Lightening on hover would undo the point.
