@@ -173,10 +173,10 @@ body {
   --card-foreground: #E8E9EA;
   --popover: #1C1D20;
   --popover-foreground: #E8E9EA;
-  --primary: #DB5A5F;
-  --primary-foreground: #1A0B0C;
-  --primary-hover: #E4767A;
-  --secondary: #DE1B22;
+  --primary: #DE1B22;
+  --primary-foreground: #FFFFFF;
+  --primary-hover: #C81A20;
+  --secondary: #1C1D20;
   --secondary-foreground: #E8E9EA;
   --muted: #1C1D20;
   --muted-foreground: #9BA1AA;
