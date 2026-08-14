@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { listItems, upsertItem, setItemActive } from '@/data/items'
 import type { Item } from '@/calculator/types'
 import { ItemForm } from '@/components/ItemForm'
@@ -10,6 +9,7 @@ import {
 } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { BackToVenues } from '@/components/BackToVenues'
 import { toast } from 'sonner'
 
 export function Catalog() {
@@ -61,13 +61,9 @@ export function Catalog() {
     <div className="flex min-h-svh flex-col bg-card">
       <div className="sticky top-0 z-10 flex h-13 shrink-0 flex-wrap items-center
                       justify-between gap-3 border-b bg-card px-4">
-        <div className="flex items-baseline gap-2.5">
-          <Link to="/"
-            className="text-[11px] text-muted-foreground transition-colors hover:text-foreground">
-            ← Venues
-          </Link>
-          <h1 className="text-lg font-semibold tracking-tight">Catalog</h1>
-        </div>
+        {/* Title alone, flush at the gutter — the same bar Venues has. The way
+            back is the row below, not a link crammed in beside this. */}
+        <h1 className="text-lg font-semibold tracking-tight">Catalog</h1>
         <div className="flex gap-1.5">
           <ThemeToggle />
           <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
@@ -76,6 +72,13 @@ export function Catalog() {
           </Button>
         </div>
       </div>
+
+      {/* Pinned under the h-13 bar rather than left to scroll away. The venue
+          page's copy of this row sits in an aside that is sticky as a whole, so
+          leaving Catalog's to scroll would make the same component behave two
+          different ways — and this is the screen where it matters, since the
+          table is the long one. */}
+      <BackToVenues className="sticky top-13 z-10" />
 
       {/* overflow-x-auto lives in ui/table.tsx already; min-w forces the table
           past the viewport at phone widths so the cut-off Name column reads as
