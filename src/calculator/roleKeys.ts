@@ -9,7 +9,9 @@ export const ROLE_KEYS = [
   // mapped" row, so the key has to go with the item, not just the item.
   'replay_camera',
   'security_camera',
-  'ipad', 'ipad_poe_adapter', 'ipad_wall_mount', 'ipad_fence_bracket',
+  // ipad_wall_mount covers the fence/pole case too — the kit includes that
+  // hardware, so `ipad_fence_bracket` was removed on 2026-08-17.
+  'ipad', 'ipad_poe_adapter', 'ipad_wall_mount',
   'apple_tv', 'display',
   'switch_24_pro', 'switch_24_std', 'switch_48_pro',
   'gateway_udm_se', 'gateway_udm_pro',

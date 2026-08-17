@@ -67,7 +67,9 @@ Readers are one BOM line but not one power source — the ones on the UDM-SE dra
 
 ## Don't invent quantities the source defers
 
-The spreadsheet marks some quantities `"TBD"` on purpose. Reproduce the TBD; don't derive a plausible number. Currently: **security camera junction box** (`IF(Z13=0,0,"TBD")` — not `= security_cameras`; the *replay* junction box genuinely is `= courts`, and both being a `PFA130-E` is what invites the mistake), the **iPad fence bracket** (auto-sized only for Pickleball Kingdom venues, which Kosmas does not build — so always deferred here; don't copy `= courts` off the wall-mount row beside it), and **access points** for every venue. A fabricated quantity reads as authoritative on a printed BOM.
+The spreadsheet marks some quantities `"TBD"` on purpose. Reproduce the TBD; don't derive a plausible number. Currently: **security camera junction box** (`IF(Z13=0,0,"TBD")` — not `= security_cameras`; the *replay* junction box genuinely is `= courts`, and both being a `PFA130-E` is what invites the mistake), and **access points** for every venue. A fabricated quantity reads as authoritative on a printed BOM. Access points are now the *only* TBD line a formula emits, so "Needs a decision" holds exactly one row on a stock Pro venue.
+
+**The iPad fence bracket used to be the third, and is now gone entirely** (2026-08-17). It was folded into the **iPad Locking Wall Mount**, whose kit ships with the fence/pole hardware — a separate line double-buys. `ipad_fence_bracket` is out of `roleKeys.ts`, `perCourt.ts` and the seed, and `FENCE_BRACKET_MANUAL` went with it. **This is a claim about the mount SKU Kosmas buys, not a correction to the source**, which still carries row 46 and sizes it 1/court for Pickleball Kingdom — so reconciling code against the sheet will keep suggesting it be restored. Don't, unless the mount SKU changed; `perCourt.test.ts` fails if it comes back, and the original formula is preserved in `podplay-ph-venue-sizing.md`. The old trap still applies to the row that remains: don't copy `= courts` onto anything from the wall-mount row beside it.
 
 ## There is no brand input
 

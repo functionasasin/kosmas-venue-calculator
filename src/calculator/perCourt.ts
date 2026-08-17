@@ -57,17 +57,13 @@ export function planPerCourt(inputs: VenueInputs): CalculatedLine[] {
     formula: 'coverage survey — not derivable',
   })
 
-  // venue-sizing.md § Per-court AV + kiosk quantities — the source auto-sizes
-  // the fence bracket for Pickleball Kingdom venues only and defers every other
-  // brand. Kosmas builds none of those, so it is always deferred here; the
-  // locking wall mount above is the default kiosk mount.
-  lines.push(
-    {
-      roleKey: 'ipad_fence_bracket',
-      qty: 'TBD',
-      formula: 'specify mount manually',
-    },
-  )
+  // The iPad fence bracket (source row 46) was emitted here as a TBD line until
+  // 2026-08-17. It is now folded into `ipad_wall_mount` above — the locking wall
+  // mount kit ships with the fence/pole hardware, so a separate line double-buys.
+  // That is a fact about the SKU Kosmas buys, not about the source, which sizes
+  // the bracket 1/court for Pickleball Kingdom; if the mount SKU changes, re-check
+  // whether the hardware is still included. See venue-sizing.md § Per-court AV +
+  // kiosk quantities, which preserves the original formula.
 
   return lines
 }

@@ -51,12 +51,18 @@ describe('planPerCourt', () => {
     expect(qty(pro(), 'access_point')).toBe('TBD')
   })
 
-  // The source auto-sizes this only for Pickleball Kingdom and defers it for
-  // everyone else. Kosmas builds no PBK venues, so it is always deferred —
-  // deriving `= courts` from the wall-mount row beside it would put a
-  // fabricated quantity on a printed BOM.
-  it('always defers the fence bracket, since the source auto-sizes it for a brand we do not build', () => {
-    expect(qty(pro(), 'ipad_fence_bracket')).toBe('TBD')
-    expect(qty(pro({ courts: 14 }), 'ipad_fence_bracket')).toBe('TBD')
+  // Folded into ipad_wall_mount on 2026-08-17: the locking wall mount kit ships
+  // with the fence/pole hardware, so a separate line double-buys. The source
+  // still carries row 46 and sizes it 1/court for Pickleball Kingdom, so a
+  // future reader reconciling code against the sheet has a standing reason to
+  // put it back — either as that TBD line or, worse, as `= courts` copied off
+  // the wall-mount row beside it. This fails if they do.
+  it('emits no separate fence bracket — the locking wall mount covers it', () => {
+    for (const courts of [1, 8, 14]) {
+      const roles = planPerCourt(pro({ courts })).map(l => l.roleKey)
+      expect(roles).not.toContain('ipad_fence_bracket')
+      // and the mount it was folded into is still one per court
+      expect(qty(pro({ courts }), 'ipad_wall_mount')).toBe(courts)
+    }
   })
 })

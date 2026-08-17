@@ -76,8 +76,13 @@ describe('gates short-circuit the whole calculation', () => {
     expect(r.codes).toContain('TIER_NO_HARDWARE')
   })
 
-  it('always warns that the fence bracket needs specifying, since it is never auto-sized', () => {
-    expect(run(pro(8)).codes).toContain('FENCE_BRACKET_MANUAL')
+  // FENCE_BRACKET_MANUAL existed only to explain the fence bracket's TBD line.
+  // Both went on 2026-08-17 when the bracket was folded into the locking wall
+  // mount; a warning pointing at a line that is no longer emitted would send the
+  // reader looking for a row that cannot appear. perCourt.test.ts guards the
+  // line itself, which is what a reintroduction would have to go through.
+  it('does not warn about a fence bracket it no longer sizes', () => {
+    expect(run(pro(8)).codes).not.toContain('FENCE_BRACKET_MANUAL')
   })
 })
 

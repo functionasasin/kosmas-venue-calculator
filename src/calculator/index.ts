@@ -152,15 +152,9 @@ export function calculateBOM(inputs: VenueInputs, catalog: Item[]): BomResult {
       'The materials list carries a TBD line; replace it before ordering.',
   })
 
-  // venue-sizing.md § Per-court AV + kiosk quantities — the source defers this
-  // quantity for every brand Kosmas deploys, so it is always a TBD line.
-  warnings.push({
-    code: 'FENCE_BRACKET_MANUAL',
-    level: 'warn',
-    message:
-      'The iPad fence bracket is not auto-sized — the source defers it. The ' +
-      'materials list carries a TBD line; specify the mount before ordering.',
-  })
+  // FENCE_BRACKET_MANUAL was here until 2026-08-17. It existed only to explain
+  // the fence bracket's TBD line; that line is gone (the locking wall mount kit
+  // includes the hardware), so the warning had nothing left to point at.
 
   // A countable line whose item has no recorded wattage contributes 0 to the
   // PoE total, which would make an over-budget venue look safe. Silence there

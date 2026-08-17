@@ -14,7 +14,7 @@ const CATEGORY: Partial<Record<RoleKey, string>> = {
   rack_12u: 'rack',
   replay_camera: 'camera',
   ipad: 'court', ipad_poe_adapter: 'court', ipad_wall_mount: 'court',
-  ipad_fence_bracket: 'court', apple_tv: 'court',
+  apple_tv: 'court',
   display: 'court',
   flic: 'accessory', signage: 'signage',
   cat6_0m5: 'cable', cat6_1m: 'cable', cat6_3m: 'cable',
@@ -48,7 +48,7 @@ const proPodPlay8: StoredLine[] = [
   line('display', 8),
   line('flic', 18), line('signage', 16),
   line('mac_mini', 1), line('mac_mini_shelf', 1),
-  line('access_point', 'TBD'), line('ipad_fence_bracket', 'TBD'),
+  line('access_point', 'TBD'),
   line('replay_ssd_2tb', 1), line('rack_12u', 1),
 ]
 
@@ -62,17 +62,19 @@ describe('section assignment', () => {
   // Court-side silently absorbs a cable line would still be wrong.
   // Removed 2026-08-11 as out of scope: the junction box, Apple TV mount and
   // tilt mount, plus the HDMI cable on 2026-08-13 (court-side, 12 -> 8) and the
-  // C14 adapter (rack, 9 -> 8).
-  it('splits an 8-court Pro venue 8 / 8 / 3 / 2', () => {
+  // C14 adapter (rack, 9 -> 8). Then the iPad fence bracket on 2026-08-17,
+  // folded into the locking wall mount (decide, 2 -> 1) — which leaves the
+  // access point as the only line that can land in decide from a formula.
+  it('splits an 8-court Pro venue 8 / 8 / 3 / 1', () => {
     expect(counts(proPodPlay8)).toEqual({
-      rack: 8, court: 8, cabling: 3, decide: 2,
+      rack: 8, court: 8, cabling: 3, decide: 1,
     })
   })
 
-  it('accounts for all 21 lines', () => {
+  it('accounts for all 20 lines', () => {
     const total = groupIntoSections(proPodPlay8, catalog)
       .reduce((n, s) => n + s.lines.length, 0)
-    expect(total).toBe(21)
+    expect(total).toBe(20)
   })
 
   it('orders sections rack, court, cabling, decide', () => {
@@ -101,7 +103,7 @@ describe('the three overrides', () => {
     const decide = groupIntoSections(proPodPlay8, catalog)
       .find(s => s.id === 'decide')!
     expect(decide.lines.map(l => l.roleKey).sort())
-      .toEqual(['access_point', 'ipad_fence_bracket'])
+      .toEqual(['access_point'])
   })
 
   // category is free text on the item form and defaults to 'uncategorised'.
