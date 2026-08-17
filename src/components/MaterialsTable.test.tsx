@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import type { Item } from '@/calculator/types'
 import type { StoredLine } from '@/data/venueLines'
 import type { RoleKey } from '@/calculator/roleKeys'
@@ -26,6 +26,40 @@ export const line = (
   source: 'formula', suppressed: false, note: null, ...over,
 })
 
+// The swap picker is a Base UI Select, not a native <select>: the trigger is a
+// button and the options exist only inside a portal while the popup is open, so
+// a swap is driven the way a user performs one — open, then click the item —
+// rather than by firing `change` at the element.
+//
+// Two things here are load-bearing and were both found by probing the real
+// component, because both fail silently rather than erroring:
+//
+// 1. Opening is a plain click. Sending pointerdown first puts Base UI into a
+//    press state that swallows the click, and the popup never opens.
+// 2. An item commits only once it is highlighted, so a click must be preceded
+//    by a mousemove onto it — which is what a pointer user actually does. A
+//    bare click on an unhighlighted item is ignored and onValueChange never
+//    fires, leaving a green-looking test that asserts nothing.
+const openSwapPicker = (index = 0) => {
+  fireEvent.click(screen.getAllByRole('combobox')[index])
+  const popup = document.querySelector('[data-slot="select-content"]')
+  if (!popup) throw new Error('swap picker did not open')
+  return within(popup as HTMLElement)
+}
+
+// Scoped to the popup on purpose. A document-wide getAllByRole('option') also
+// matches the Add-line native <select>'s <option>s, which made an earlier
+// version of the cable-leak test below pass while asserting on the wrong
+// control entirely.
+const swapOptionNames = (index = 0) =>
+  openSwapPicker(index).getAllByRole('option').map(o => o.textContent?.trim() ?? '')
+
+const swapTo = (name: string | RegExp, index = 0) => {
+  const option = openSwapPicker(index).getByRole('option', { name })
+  fireEvent.mouseMove(option)
+  fireEvent.click(option)
+}
+
 const catalog: Item[] = [
   item('display', 'court', 'Samsung 65in'),
   item('ipad', 'court', 'iPad A16'),
@@ -47,9 +81,7 @@ describe('swapping an item', () => {
       />,
     )
 
-    fireEvent.change(screen.getAllByRole('combobox')[0], {
-      target: { value: 'ipad' },
-    })
+    swapTo('iPad A16')
 
     const [updated] = onChange.mock.calls[0][0] as StoredLine[]
     expect(updated.roleKey).toBe('ipad')
@@ -73,9 +105,7 @@ describe('swapping an item', () => {
       />,
     )
 
-    fireEvent.change(screen.getAllByRole('combobox')[0], {
-      target: { value: 'display' },
-    })
+    swapTo('Samsung 65in')
 
     const [updated] = onChange.mock.calls[0][0] as StoredLine[]
     expect(updated.originRoleKey).toBe('display')
@@ -351,12 +381,15 @@ describe('cabling is admin-only', () => {
 
     expect(screen.getByText(/No active item mapped for display/)).toBeInTheDocument()
 
-    const options = Array.from(
-      (screen.getAllByRole('combobox')[0] as HTMLSelectElement).options,
-    ).map(o => o.value)
-    expect(options).not.toContain('cat6_0m5')
-    expect(options).not.toContain('cat6_1m')
-    expect(options).toContain('ups')
+    // Derived from the catalog rather than hardcoded: the guard is "no cable
+    // item, whichever they are", so adding one to the fixture must extend the
+    // assertion automatically instead of silently going untested.
+    const cableNames = sectioned.filter(i => i.category === 'cable').map(i => i.name)
+    expect(cableNames.length).toBeGreaterThan(0)
+
+    const offered = swapOptionNames()
+    for (const name of cableNames) expect(offered).not.toContain(name)
+    expect(offered).toContain('KSTAR UPS')
   })
 })
 

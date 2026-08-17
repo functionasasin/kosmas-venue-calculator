@@ -8,6 +8,9 @@ import { TableCell, TableRow } from '@/components/ui/table'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 
 interface Props {
   line: StoredLine
@@ -83,20 +86,44 @@ export function MaterialsRow({
   const inactiveFallback = item && !item.isActive ? item : undefined
   const options = inactiveFallback ? [...swapOptions, inactiveFallback] : swapOptions
   const swapLabel = `Swap item for ${item?.name ?? line.roleKey ?? 'unmapped line'}`
+  const labelFor = (i: Item) => `${i.name}${i === inactiveFallback ? ' (inactive)' : ''}`
 
+  // A native <select> was replaced here on 2026-08-17. It had two symptoms that
+  // looked separate and were one element: no height class left it ~19px, under
+  // the 24px tap-target floor, and `lg:w-auto` made it as wide as its *longest*
+  // option — a native select's intrinsic width ignores which option is actually
+  // selected — so a short item name left ~160px of dead space before the
+  // chevron. No class fixes the second: the width is the control's own doing.
+  // A button trigger sizes to the selected value and takes an explicit height,
+  // so both go at once. The dialog picker below stays native on purpose — it is
+  // the phone affordance, and there the OS picker wheel beats an in-page popup.
   const picker = (
-    <select
-      className="w-full min-w-0 truncate bg-transparent text-sm lg:w-auto lg:max-w-full"
-      aria-label={swapLabel}
-      value={line.roleKey ?? ''}
-      onChange={e => onSwap(e.target.value)}
-    >
-      {options.map(i => (
-        <option key={i.roleKey!} value={i.roleKey!}>
-          {i.name}{i === inactiveFallback ? ' (inactive)' : ''}
-        </option>
-      ))}
-    </select>
+    <Select value={line.roleKey ?? ''} onValueChange={v => onSwap(v as string)}>
+      <SelectTrigger
+        size="sm"
+        aria-label={swapLabel}
+        className="max-w-full border-0 bg-transparent px-0 shadow-none hover:bg-muted/50"
+      >
+        <SelectValue>
+          {(v: string) => {
+            const sel = options.find(o => o.roleKey === v)
+            return sel ? labelFor(sel) : v
+          }}
+        </SelectValue>
+      </SelectTrigger>
+      {/* The wrapper defaults the popup to w-(--anchor-width), which copies the
+          trigger. That is right for a full-width trigger and wrong for one that
+          hugs a short value: long item names get clipped and you cannot read
+          what you are picking. Size to content, anchor width only as a floor,
+          capped so it cannot run off a phone. */}
+      <SelectContent className="w-auto min-w-(--anchor-width) max-w-[min(24rem,calc(100vw-2rem))]">
+        {options.map(i => (
+          <SelectItem key={i.roleKey!} value={i.roleKey!}>
+            {labelFor(i)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 
   const qty = editing ? (
@@ -188,7 +215,7 @@ export function MaterialsRow({
               >
                 {options.map(i => (
                   <option key={i.roleKey!} value={i.roleKey!}>
-                    {i.name}{i === inactiveFallback ? ' (inactive)' : ''}
+                    {labelFor(i)}
                   </option>
                 ))}
               </select>
