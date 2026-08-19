@@ -1,15 +1,11 @@
 /**
- * The rail's foot: who saved this venue and when, or that you have edits that
- * nobody has saved yet.
+ * Who saved this venue and when, and whether there are edits nobody has saved.
  *
- * It used to be a line inside BrandBlock, under the venue name, and it was
- * unreadable there — --muted-foreground is a grey mixed for white surfaces, so
- * on the band's navy --railhd it came out at 1.46:1, below even the 3:1 floor
- * for large text. The fix is the ground, not the grey: on --card the same token
- * is 5.40:1, which is what BackToVenues already banks on one row above.
+ * Two exports because the answer differs by width, not because there are two
+ * features: `SaveStatus` is the line in the toolbar from `sm` up, and
+ * `UnsavedStrip` is what a phone gets instead.
  *
- * Moving it also let it pick up the state that had no indicator at all. The
- * venue page tracks two different kinds of out-of-date and they are not
+ * The venue page tracks two different kinds of out-of-date and they are not
  * interchangeable:
  *
  *   - `stale` — the table disagrees with the inputs. Fixed by Recalculate,
@@ -19,9 +15,13 @@
  *     anyone heard of it.
  *
  * Recalculating clears the amber dot and leaves `dirty` true, so that state was
- * both the most common and the least visible. Deliberately NOT a second dot:
- * --attention (#F0B100) and --gold (#D2AB67) are close enough that two of them
- * on one screen read as the same signal.
+ * both the most common and the least visible.
+ *
+ * Why the toolbar and not the rail: the bar is `sticky top-0`, so it is on
+ * screen while the user works. This line first shipped at the foot of the rail
+ * (2026-08-19) where it scrolled out of view on a long inputs panel — which is
+ * exactly when the edits it warns about are being made. Sitting beside Save
+ * also puts the warning next to the control that clears it.
  */
 export function SaveStatus({
   dirty,
@@ -37,39 +37,69 @@ export function SaveStatus({
   if (!dirty && !updatedByEmail) return null
 
   return (
-    // mt-auto pins this to the foot of the rail from lg, where the aside is a
-    // flex column and the inputs area is the only thing that scrolls. Below lg
-    // the aside is a plain block and mt-auto is inert, so it simply follows the
-    // checks — which is the right place there too, since there is no viewport
-    // bottom to pin to when the whole page scrolls.
-    <div className="mt-auto border-t px-4 py-2 text-[11px] text-muted-foreground">
+    // max-sm:hidden, not a second component: the bar carries a theme toggle and
+    // three buttons and is near full at 390px, so left in the flow this wraps it
+    // to a second row — and the bar is sticky, so that row would then follow the
+    // user down every scroll of a long table. UnsavedStrip covers mobile.
+    //
+    // First child of a justify-end bar, so it sits leftmost in the right-hand
+    // cluster, immediately before the toggle and a few pixels from Save.
+    <span className="max-sm:hidden min-w-0 truncate text-[11px] text-muted-foreground">
       {dirty ? (
-        // Replaces rather than joins the saved-by line: one line at 232px, and
-        // while you are mid-edit the last-saved fact describes a version that
-        // is no longer on screen.
+        // Replaces rather than joins the saved-by line: while you are mid-edit
+        // the last-saved fact describes a version no longer on screen.
         <span className="font-medium text-foreground">Unsaved changes</span>
       ) : (
-        <span
-          className="block truncate"
-          title={`Last saved by ${updatedByEmail} on ${longStamp(updatedAt)}`}
-        >
+        <span title={`Last saved by ${updatedByEmail} on ${longStamp(updatedAt)}`}>
           Saved by <span className="font-medium">{localPart(updatedByEmail!)}</span>
           {' · '}
           {shortDate(updatedAt)}
         </span>
       )}
+    </span>
+  )
+}
+
+/**
+ * The phone's version: nothing at all until there is something to lose.
+ *
+ * A permanent line here is paid for on every scroll, and the two facts are not
+ * worth the same — "who saved this in August" cannot cost anyone work, and
+ * unsaved edits can. So mobile spends the 30px only on the second, and drops
+ * the provenance entirely rather than half-showing both.
+ *
+ * top-13 is the h-13 bar above it, the same pairing Catalog uses for its back
+ * row. It has to stay pinned: a warning that scrolls away is missing precisely
+ * while the user is moving through the table they are editing.
+ *
+ * bg-decide, NOT the bg-attention/10 the checks panel uses. That wash is 90%
+ * transparent, which is fine in normal flow and wrong here — this is sticky, so
+ * the table scrolls *under* it and the rows show straight through the warning.
+ * Same rule the h-13 bar above already records. --decide is the opaque amber
+ * band, and --attention-foreground is the text already paired with it: 4.87:1
+ * light, 7.63:1 dark.
+ */
+export function UnsavedStrip({ dirty }: { dirty: boolean }) {
+  if (!dirty) return null
+
+  return (
+    <div className="sticky top-13 z-10 flex items-center gap-1.5 border-b
+                    bg-decide px-4 py-1.5 text-[11px] font-medium
+                    text-attention-foreground sm:hidden">
+      <span aria-hidden className="size-1.5 rounded-full bg-attention" />
+      Unsaved changes
     </div>
   )
 }
 
 // Every address here is @kosmas.com.ph, so the domain is the half that carries
-// no information in a 232px rail. The title keeps the whole thing, which is
-// what tells two similar local parts apart.
+// no information in a bar shared with three buttons. The title keeps the whole
+// thing, which is what tells two similar local parts apart.
 const localPart = (email: string) => email.split('@')[0]
 
 /**
- * en-PH with an explicit month, matching exportMaterials.ts, so the rail and
- * the exported PDF cannot disagree about the same venue.
+ * en-PH with an explicit month, matching exportMaterials.ts, so the bar and the
+ * exported PDF cannot disagree about the same venue.
  *
  * The bare toLocaleDateString() this replaces read the browser's locale: the
  * same row rendered 8/19/2026 on a US-configured machine and 19/8/2026 on a PH
@@ -77,9 +107,9 @@ const localPart = (email: string) => email.split('@')[0]
  * name has no second reading.
  *
  * en-PH is month-first, so this comes out "Aug 19, 2026" rather than the
- * day-first form a narrow rail would prefer. Matching the PDF is worth more
- * than the shorter line: the two printing the same venue differently is the
- * problem being solved, not a detail of it.
+ * day-first form a narrow bar would prefer. Matching the PDF is worth more than
+ * the shorter line: the two printing one venue differently is the problem being
+ * solved, not a detail of it.
  *
  * Both helpers take a COPY. venue.updatedAt is the optimistic-lock baseline and
  * must never be round-tripped through a Date — parsing and reformatting it

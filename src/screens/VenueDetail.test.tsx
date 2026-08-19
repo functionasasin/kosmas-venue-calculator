@@ -107,10 +107,17 @@ it('offers the theme toggle from the toolbar', async () => {
 // Same rule as Venues and Catalog: the toggle leads the action cluster. Here
 // three buttons trail it, so it sits further from the window edge than on
 // Catalog — that is the trailing count, not a different placement.
-it('puts the theme toggle first in the toolbar', async () => {
+//
+// Asserted against the CONTROLS, not the first child. The save status is a
+// static label sharing the bar and it sits ahead of the toggle in the DOM, so
+// that a justify-end row leaves it leftmost — beside Save, which is the button
+// that clears it. It takes no part in the ordering rule because it is not a
+// control; the rule is about which control comes first.
+it('puts the theme toggle first among the toolbar controls', async () => {
   await renderDetail()
   const toggle = await screen.findByRole('button', { name: /switch to .* theme/i })
-  expect(toggle.parentElement?.firstElementChild).toBe(toggle)
+  const controls = [...toggle.parentElement!.querySelectorAll('button')]
+  expect(controls[0]).toBe(toggle)
 })
 
 // A conflict must not be reported as a generic failure: the two ways out both

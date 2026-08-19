@@ -16,7 +16,7 @@ import { tierLabel } from '@/lib/tierLabel'
 import { Button } from '@/components/ui/button'
 import { BrandBlock } from '@/components/BrandBlock'
 import { BackToVenues } from '@/components/BackToVenues'
-import { SaveStatus } from '@/components/SaveStatus'
+import { SaveStatus, UnsavedStrip } from '@/components/SaveStatus'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useRole } from '@/auth/useRole'
@@ -272,12 +272,6 @@ export function VenueDetail() {
             </div>
           )}
         </div>
-        {/* Last child, so mt-auto puts it against the bottom of the rail. The
-            inputs div above is the flex-1 that gives it something to push
-            against; below lg the aside is a plain block and it just follows the
-            checks. */}
-        <SaveStatus dirty={dirty} updatedByEmail={venue.updatedByEmail}
-          updatedAt={venue.updatedAt} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -285,6 +279,10 @@ export function VenueDetail() {
             through it as they scroll under. */}
         <div className="sticky top-0 z-10 flex h-13 shrink-0 flex-wrap items-center
                         justify-end gap-1.5 border-b bg-card px-4">
+          {/* First, so a justify-end bar leaves it leftmost in the cluster —
+              a few pixels from Save, which is the control that clears it. */}
+          <SaveStatus dirty={dirty} updatedByEmail={venue.updatedByEmail}
+            updatedAt={venue.updatedAt} />
           <ThemeToggle />
           <Button variant="outline" size="sm" className="h-auto bg-card px-[.55rem] py-[.25rem] text-[11px]"
             onClick={recalculate}>
@@ -305,6 +303,9 @@ export function VenueDetail() {
             {saving ? 'Saving…' : 'Save'}
           </Button>
         </div>
+        {/* Mobile only, and only while dirty — see SaveStatus. Sits directly
+            under the h-13 bar and sticks with it. */}
+        <UnsavedStrip dirty={dirty} />
 
         <div className="min-w-0 flex-1 py-4">
           <MaterialsTable lines={lines} catalog={catalogAll}
