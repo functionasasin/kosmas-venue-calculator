@@ -36,7 +36,14 @@ export function BackToVenues(
   return (
     <Link
       to="/"
-      onClick={e => { if (onIntercept?.(e)) e.preventDefault() }}
+      onClick={e => {
+        // react-router deliberately lets modified clicks fall through to the
+        // browser so ⌘-click and middle-click still open a new tab. Intercepting
+        // them would swallow the new tab AND pop a dialog on the page the user
+        // was not leaving.
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+        if (onIntercept?.(e)) e.preventDefault()
+      }}
       className={cn(`flex shrink-0 items-center gap-1.5 border-b bg-card px-4 py-2.5
                      text-[11px] text-muted-foreground transition-colors
                      hover:bg-muted hover:text-foreground`, className)}

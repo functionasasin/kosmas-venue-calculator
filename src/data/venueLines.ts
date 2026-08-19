@@ -208,8 +208,20 @@ export async function saveVenueAndLines(
     if (error.code === 'PT409') {
       // The RPC rolled back before returning anything, so who-and-when comes
       // from a fresh read. Only on the conflict path.
-      const current = await getVenue(venue.id)
-      throw new VenueConflictError(current.updatedByEmail, current.updatedAt)
+      //
+      // That read can itself fail — the other account may have DELETED the
+      // venue, which is a conflict too. Letting its error propagate would
+      // replace the typed conflict with a raw PostgREST string, so the screen
+      // would show a toast instead of the dialog and offer no way forward.
+      // Losing the attribution is acceptable; losing the dialog is not.
+      let savedByEmail: string | null = null
+      let savedAt = ''
+      try {
+        const current = await getVenue(venue.id)
+        savedByEmail = current.updatedByEmail
+        savedAt = current.updatedAt
+      } catch { /* attribution unavailable — the conflict still stands */ }
+      throw new VenueConflictError(savedByEmail, savedAt)
     }
     throw error
   }

@@ -241,3 +241,45 @@ it('shows who last saved the venue in the rail', async () => {
   await renderDetail()
   expect(await screen.findByText(/last saved by a@b\.c/i)).toBeInTheDocument()
 })
+
+// "Save and leave" must not leave when the save did not happen. `save` catches
+// every failure and returns undefined, so navigating unconditionally unmounts
+// the screen before the conflict dialog can render — losing exactly the edits
+// this whole guard exists to protect, on the one path the user chose in order
+// to keep them.
+it('stays put when Save and leave fails', async () => {
+  const { saveVenueAndLines, VenueConflictError } = await import('@/data/venueLines')
+  vi.mocked(saveVenueAndLines).mockRejectedValueOnce(
+    new VenueConflictError('other@kosmas.com', '2026-08-19T09:00:00.000001+00:00'),
+  )
+  await renderDetail()
+  fireEvent.change(await screen.findByLabelText(/courts/i), { target: { value: '12' } })
+  fireEvent.click(screen.getByRole('link', { name: /all venues/i }))
+  fireEvent.click(await screen.findByRole('button', { name: /save and leave/i }))
+
+  // The conflict must be visible, and we must still be on the venue.
+  expect(await screen.findByText(/other@kosmas\.com/)).toBeInTheDocument()
+  expect(screen.queryByText('venue list')).not.toBeInTheDocument()
+})
+
+// calculateBOM returns { lines: [] } for a blocked tier (index.ts:22) and for
+// PORT_CEILING (:30), while `result` is non-null. The snapshot effect required
+// `lines.length > 0 || result === null`, so on those venues it never fired and
+// `dirty` was permanently false — no dialog, no beforeunload.
+//
+// Opening a Basic venue to upgrade it is the realistic case, and it is the one
+// where the guard silently did nothing.
+it('guards a venue whose tier produces no lines at all', async () => {
+  const { getVenue } = await import('@/data/venues')
+  const { listLines } = await import('@/data/venueLines')
+  vi.mocked(getVenue).mockResolvedValueOnce({ ...venue, tier: 'basic' })
+  // A blocked tier sizes nothing, so such a venue has no saved lines either —
+  // the file's default listLines mock returns one, which masks the bug.
+  vi.mocked(listLines).mockResolvedValueOnce([])
+  await renderDetail()
+  // Blocked tiers size nothing, so wait on the block message rather than a line.
+  await screen.findByText(/booking website/i)
+  fireEvent.change(await screen.findByLabelText(/courts/i), { target: { value: '12' } })
+  fireEvent.click(screen.getByRole('link', { name: /all venues/i }))
+  expect(await screen.findByText(/unsaved changes/i)).toBeInTheDocument()
+})

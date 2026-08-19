@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { calculateBOM } from '@/calculator'
 import type { Item, VenueInputs } from '@/calculator/types'
@@ -141,7 +141,14 @@ export function VenueDetail() {
   // created from Venues arrives with no lines, the effect fills them, and a
   // load-time snapshot would report a venue nobody touched as dirty.
   useEffect(() => {
-    if (venue && saved === null && (lines.length > 0 || result === null)) {
+    // `result.lines.length === 0` is the third case and it is load-bearing:
+    // calculateBOM returns no lines for a blocked tier (basic/basic_plus) and
+    // for PORT_CEILING, while `result` is NOT null. Without it the snapshot
+    // never armed on those venues, `dirty` stayed false forever, and editing a
+    // Basic venue to upgrade it — the whole reason to open one — lost the edits
+    // with no dialog and no beforeunload.
+    if (venue && saved === null &&
+        (result === null || lines.length > 0 || result.lines.length === 0)) {
       setSaved(projection(venue, lines))
     }
   }, [venue, lines, result, saved])
@@ -150,10 +157,21 @@ export function VenueDetail() {
 
   const [leaving, setLeaving] = useState(false)
 
+  // Set immediately before a navigation the user has ALREADY confirmed, so the
+  // browser does not stack its own "Leave site?" prompt on top — which phrases
+  // itself as a warning against the very thing they just chose.
+  const discarding = useRef(false)
+
   // Tab close and reload. The in-app exit is the BackToVenues intercept below.
   useEffect(() => {
     if (!dirty) return
-    const onBeforeUnload = (e: BeforeUnloadEvent) => e.preventDefault()
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (discarding.current) return
+      e.preventDefault()
+      // Chrome and Firefox honour preventDefault alone; Safari has historically
+      // needed returnValue, and without it the guard simply does not appear.
+      e.returnValue = ''
+    }
     window.addEventListener('beforeunload', onBeforeUnload)
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [dirty])
@@ -162,7 +180,26 @@ export function VenueDetail() {
    * One transactional call. Previously this was saveVenue followed by saveLines —
    * two independent writes, the second itself a DELETE plus a separate INSERT.
    */
+  // A ref, not the `saving` state: two clicks in the same tick both read the
+  // pre-update state and both fire. Without this they issue two RPCs carrying
+  // the SAME baseline, the second loses the race, and the conflict dialog tells
+  // the user someone else saved the venue — naming themselves.
+  const inFlight = useRef(false)
+  const [saving, setSaving] = useState(false)
+
   const save = async (toSave: StoredLine[] = lines, rebased?: Venue) => {
+    if (inFlight.current) return
+    inFlight.current = true
+    setSaving(true)
+    try {
+      return await runSave(toSave, rebased)
+    } finally {
+      inFlight.current = false
+      setSaving(false)
+    }
+  }
+
+  const runSave = async (toSave: StoredLine[] = lines, rebased?: Venue) => {
     // `rebased` exists for "Overwrite theirs": that path has to save against a
     // baseline this render does not hold yet. setVenue is asynchronous, so a
     // save fired straight after it would still send the STALE baseline and
@@ -263,8 +300,9 @@ export function VenueDetail() {
             onClick={() => (stale ? setStaleExport(true) : doExport())}>
             Export PDF
           </Button>
-          <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]" onClick={() => save()}>
-            Save
+          <Button size="sm" disabled={saving}
+            className="h-auto px-[.55rem] py-[.25rem] text-[11px]" onClick={() => save()}>
+            {saving ? 'Saving…' : 'Save'}
           </Button>
         </div>
 
@@ -327,7 +365,11 @@ export function VenueDetail() {
             it. Both ways out lose someone's work, so pick deliberately.
           </p>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => window.location.reload()}>
+            <Button variant="outline" onClick={() => {
+              // Already a confirmed discard — suppress the native prompt.
+              discarding.current = true
+              window.location.reload()
+            }}>
               Reload theirs (discards mine)
             </Button>
             <Button
@@ -384,10 +426,21 @@ export function VenueDetail() {
             the edits, including any hand-set quantities.
           </p>
           <div className="flex gap-2">
-            <Button onClick={async () => { await save(); setLeaving(false); navigate('/') }}>
+            {/* `save` swallows every failure and returns undefined, so
+                navigating unconditionally unmounted this screen before the
+                conflict dialog could render — losing the edits on the one exit
+                the user picked in order to KEEP them. Close this dialog either
+                way so the failure is visible; leave only if it truly saved. */}
+            <Button disabled={saving} onClick={async () => {
+              const written = await save()
+              setLeaving(false)
+              if (written) { discarding.current = true; navigate('/') }
+            }}>
               Save and leave
             </Button>
-            <Button variant="destructive" onClick={() => { setLeaving(false); navigate('/') }}>
+            <Button variant="destructive" onClick={() => {
+              discarding.current = true; setLeaving(false); navigate('/')
+            }}>
               Discard and leave
             </Button>
             <Button variant="outline" onClick={() => setLeaving(false)}>Cancel</Button>
