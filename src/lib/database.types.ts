@@ -163,7 +163,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      save_venue: {
+        Args: { p_expected_updated_at?: string; p_lines: Json; p_venue: Json }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
