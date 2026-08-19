@@ -47,7 +47,7 @@ export function VenueDetail() {
   const role = useRole()
   const [venue, setVenue] = useState<Venue | null>(null)
   // Two views of the catalog on purpose. `catalog` is active-only and drives
-  // the formulas and the itemId resolution in saveLines — sizing must target
+  // the formulas and the itemId resolution in saveVenueAndLines — sizing must target
   // what can actually be bought, and the engine resolves a role with a plain
   // find(), so an inactive twin sharing a role key could shadow the real one.
   // `catalogAll` includes deactivated items so a saved line still renders its
@@ -216,6 +216,16 @@ export function VenueDetail() {
           <h1 className="mt-2.5 text-center text-lg font-semibold tracking-tight">
             {venue.name}
           </h1>
+          {venue.updatedByEmail && (
+            // Null on venues created before 0006, which render nothing rather than
+            // "unknown" — an invented author is worse than no author.
+            // toLocaleDateString reads a COPY; venue.updatedAt itself is the opaque
+            // lock baseline and must never be reformatted.
+            <p className="mt-1 text-center text-[11px] text-muted-foreground">
+              Last saved by {venue.updatedByEmail} on{' '}
+              {new Date(venue.updatedAt).toLocaleDateString()}
+            </p>
+          )}
         </BrandBlock>
         {/* No sticky offset: from lg the whole aside is sticky, so this rides
             along already. */}

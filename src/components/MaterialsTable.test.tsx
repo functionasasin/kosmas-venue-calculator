@@ -67,7 +67,7 @@ const catalog: Item[] = [
 ]
 
 describe('swapping an item', () => {
-  // itemId is what exportMaterials resolves first and what saveLines writes.
+  // itemId is what exportMaterials resolves first and what saveVenueAndLines writes.
   // Leaving it stale makes the PDF print the item the user swapped away from.
   it('rewrites itemId along with roleKey', () => {
     const onChange = vi.fn()
@@ -347,10 +347,10 @@ describe('cabling is admin-only', () => {
     expect(options).not.toContain('cat6_0m5')
   })
 
-  // THE data-loss guard. saveLines deletes every row for the venue and
-  // re-inserts only what it is given, so a filtered array reaching onChange
-  // permanently deletes the hidden cable rows — silently, and only on venues
-  // a non-admin happened to edit.
+  // THE data-loss guard. save_venue deletes every row for the venue and
+  // re-inserts only what it is given, in one transaction, so a filtered array
+  // reaching onChange permanently deletes the hidden cable rows — silently,
+  // and only on venues a non-admin happened to edit.
   it('returns hidden cable lines in onChange when a user edits another line', () => {
     const onChange = vi.fn()
     render(

@@ -34,9 +34,10 @@ export function MaterialsTable({ lines, catalog, formulas, onChange, isAdmin }: 
   const removed = lines.filter(l => l.suppressed && !hidden(l))
 
   // Sections are built from visible lines only, but every handler below maps
-  // over the FULL `lines` array it was given. saveLines deletes every row for
-  // the venue and re-inserts what it receives, so a filtered array reaching
-  // onChange would delete the omitted rows from the database.
+  // over the FULL `lines` array it was given. save_venue deletes every row for
+  // the venue and re-inserts what it receives, in one transaction, so a
+  // filtered array reaching onChange would delete the omitted rows from the
+  // database.
   const sections = groupIntoSections(
     lines.filter(l => !l.suppressed && !hidden(l)), catalog,
   )

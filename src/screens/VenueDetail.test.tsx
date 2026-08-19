@@ -233,3 +233,11 @@ it('leaves without saving on Discard', async () => {
   expect(await screen.findByText('venue list')).toBeInTheDocument()
   expect(saveVenueAndLines).not.toHaveBeenCalled()
 })
+
+// With two accounts "who" is nearly a coin flip, but "when was this last
+// touched" is not — and it is the only thing on screen that distinguishes a
+// venue someone else has been editing from one nobody has opened in a month.
+it('shows who last saved the venue in the rail', async () => {
+  await renderDetail()
+  expect(await screen.findByText(/last saved by a@b\.c/i)).toBeInTheDocument()
+})
