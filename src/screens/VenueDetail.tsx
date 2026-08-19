@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { calculateBOM } from '@/calculator'
 import type { Item, VenueInputs } from '@/calculator/types'
 import { getVenue, type Venue } from '@/data/venues'
@@ -43,6 +43,7 @@ function diffLines(before: StoredLine[], after: StoredLine[]): string[] {
 
 export function VenueDetail() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const role = useRole()
   const [venue, setVenue] = useState<Venue | null>(null)
   // Two views of the catalog on purpose. `catalog` is active-only and drives
@@ -121,6 +122,43 @@ export function VenueDetail() {
   const [unresolved, setUnresolved] = useState<StoredLine[] | null>(null)
 
   /**
+   * Compared structurally against the current state rather than tracked with a
+   * flag: a flag has states that can go wrong, a comparison does not. Same
+   * reasoning as `result` and `warnings` being derived.
+   *
+   * `id` and `venueId` are excluded because mergeRecalculation mints
+   * `new:${roleKey}` ids with an empty venueId that can never equal what the RPC
+   * returns — comparing them would report dirty on every recalculation.
+   */
+  const projection = (v: Venue | null, ls: StoredLine[]) => JSON.stringify({
+    venue: v && { ...v, updatedAt: '', updatedByEmail: '', createdByEmail: '' },
+    lines: ls.map(({ id: _id, venueId: _v, ...rest }) => rest),
+  })
+
+  const [saved, setSaved] = useState<string | null>(null)
+
+  // Captured AFTER the auto-populate effect settles, not at load: a venue
+  // created from Venues arrives with no lines, the effect fills them, and a
+  // load-time snapshot would report a venue nobody touched as dirty.
+  useEffect(() => {
+    if (venue && saved === null && (lines.length > 0 || result === null)) {
+      setSaved(projection(venue, lines))
+    }
+  }, [venue, lines, result, saved])
+
+  const dirty = saved !== null && saved !== projection(venue, lines)
+
+  const [leaving, setLeaving] = useState(false)
+
+  // Tab close and reload. The in-app exit is the BackToVenues intercept below.
+  useEffect(() => {
+    if (!dirty) return
+    const onBeforeUnload = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [dirty])
+
+  /**
    * One transactional call. Previously this was saveVenue followed by saveLines —
    * two independent writes, the second itself a DELETE plus a separate INSERT.
    */
@@ -137,6 +175,10 @@ export function VenueDetail() {
       const written = await saveVenueAndLines(target, toSave, catalog)
       setVenue(written.venue)
       setLines(written.lines)
+      // Without this the snapshot stays at pre-save state and the venue reads
+      // as permanently dirty — the guard would then fire on every exit, and a
+      // guard that always fires is one people learn to click through.
+      setSaved(projection(written.venue, written.lines))
       toast.success('Saved')
       return written
     } catch (e) {
@@ -177,7 +219,10 @@ export function VenueDetail() {
         </BrandBlock>
         {/* No sticky offset: from lg the whole aside is sticky, so this rides
             along already. */}
-        <BackToVenues />
+        <BackToVenues onIntercept={() => {
+          if (dirty) { setLeaving(true); return true }
+          return false
+        }} />
         <div className="space-y-4 p-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
           <VenueInputsForm value={venue} onChange={onInputs} />
           {warnings.length > 0 && (
@@ -317,6 +362,25 @@ export function VenueDetail() {
               Remove these lines and save
             </Button>
             <Button variant="outline" onClick={() => setUnresolved(null)}>Cancel</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={leaving} onOpenChange={setLeaving}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>You have unsaved changes</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Nothing on this page is saved until you press Save. Leaving now discards
+            the edits, including any hand-set quantities.
+          </p>
+          <div className="flex gap-2">
+            <Button onClick={async () => { await save(); setLeaving(false); navigate('/') }}>
+              Save and leave
+            </Button>
+            <Button variant="destructive" onClick={() => { setLeaving(false); navigate('/') }}>
+              Discard and leave
+            </Button>
+            <Button variant="outline" onClick={() => setLeaving(false)}>Cancel</Button>
           </div>
         </DialogContent>
       </Dialog>

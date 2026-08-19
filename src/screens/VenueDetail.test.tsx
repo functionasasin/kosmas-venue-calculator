@@ -51,6 +51,11 @@ const renderDetail = async () => {
     <MemoryRouter initialEntries={['/venues/v1']}>
       <Routes>
         <Route path="/venues/:id" element={<VenueDetail />} />
+        {/* A DISTINCT sentinel, not VenueDetail again. Leaving has to be
+            observable: these tests assert the guard by whether navigation
+            actually happened, and "no dialog rendered" would pass just as well
+            if the guard were broken and the screen had remounted. */}
+        <Route path="/" element={<div>venue list</div>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -141,4 +146,90 @@ it('re-issues the save against the new baseline when overwriting a conflict', as
   await waitFor(() => expect(saveVenueAndLines).toHaveBeenCalledTimes(2))
   expect(vi.mocked(saveVenueAndLines).mock.calls[1][0].updatedAt)
     .toBe('2026-08-19T09:00:00.000001+00:00')
+})
+
+// The single most likely daily loss: everything on this screen lives in React
+// state and Save is the only write path, so leaving discards edits with no
+// prompt and no marker.
+it('warns before leaving with unsaved edits, and does NOT navigate', async () => {
+  await renderDetail()
+  const courts = await screen.findByLabelText(/courts/i)
+  fireEvent.change(courts, { target: { value: '12' } })
+  fireEvent.click(screen.getByRole('link', { name: /all venues/i }))
+  expect(await screen.findByText(/unsaved changes/i)).toBeInTheDocument()
+  // The half that matters: the click was actually blocked, not merely
+  // accompanied by a dialog on a screen that is already leaving.
+  expect(screen.queryByText('venue list')).not.toBeInTheDocument()
+})
+
+// The auto-populate effect fills lines whenever a venue has none, and Venues
+// creates a venue with no lines then navigates straight to it. Snapshotting at
+// load would capture lines: [], the effect would immediately fill them, and
+// the guard would fire on a venue nobody has touched.
+it('does not warn on a freshly created venue nobody has edited', async () => {
+  await renderDetail()
+  // Wait for the calculation, so the auto-populate effect has definitely run —
+  // otherwise this passes for the wrong reason (nothing loaded yet).
+  await screen.findByText(/Access point count is not derivable/i)
+  fireEvent.click(screen.getByRole('link', { name: /all venues/i }))
+  expect(await screen.findByText('venue list')).toBeInTheDocument()
+})
+
+// A guard that never clears is a guard people learn to click through: if the
+// snapshot is not replaced on save, every subsequent exit warns about edits
+// that are already persisted.
+it('stops warning once saved', async () => {
+  const { saveVenueAndLines } = await import('@/data/venueLines')
+  await renderDetail()
+  const courts = await screen.findByLabelText(/courts/i)
+  fireEvent.change(courts, { target: { value: '12' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  // NOT `findByText('Saved')` — the Toaster is mounted in App.tsx, outside
+  // VenueDetail's tree, so the toast never renders in this test.
+  await waitFor(() => expect(saveVenueAndLines).toHaveBeenCalled())
+
+  fireEvent.click(screen.getByRole('link', { name: /all venues/i }))
+  expect(await screen.findByText('venue list')).toBeInTheDocument()
+})
+
+// The other half, as its own test: after a save the snapshot must track the
+// NEW state, so a fresh edit is dirty again. Split from the above because each
+// ends in a navigation, and a test that continues past one is asserting
+// against a torn-down tree.
+it('warns again on an edit made after a save', async () => {
+  const { saveVenueAndLines } = await import('@/data/venueLines')
+  await renderDetail()
+  const courts = await screen.findByLabelText(/courts/i)
+  fireEvent.change(courts, { target: { value: '12' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(saveVenueAndLines).toHaveBeenCalled())
+
+  fireEvent.change(await screen.findByLabelText(/courts/i), { target: { value: '14' } })
+  fireEvent.click(screen.getByRole('link', { name: /all venues/i }))
+  expect(await screen.findByText(/unsaved changes/i)).toBeInTheDocument()
+})
+
+// The destructive branch has to be the one the user picks on purpose. Cancel
+// must return them to their edits intact — a "safe" button that quietly drops
+// work is worse than no dialog at all.
+it('keeps the edit on Cancel', async () => {
+  await renderDetail()
+  const courts = await screen.findByLabelText(/courts/i)
+  fireEvent.change(courts, { target: { value: '12' } })
+
+  fireEvent.click(screen.getByRole('link', { name: /all venues/i }))
+  fireEvent.click(await screen.findByRole('button', { name: /^cancel$/i }))
+  expect(await screen.findByLabelText(/courts/i)).toHaveValue(12)
+  expect(screen.queryByText('venue list')).not.toBeInTheDocument()
+})
+
+it('leaves without saving on Discard', async () => {
+  const { saveVenueAndLines } = await import('@/data/venueLines')
+  await renderDetail()
+  fireEvent.change(await screen.findByLabelText(/courts/i), { target: { value: '12' } })
+
+  fireEvent.click(screen.getByRole('link', { name: /all venues/i }))
+  fireEvent.click(await screen.findByRole('button', { name: /discard and leave/i }))
+  expect(await screen.findByText('venue list')).toBeInTheDocument()
+  expect(saveVenueAndLines).not.toHaveBeenCalled()
 })

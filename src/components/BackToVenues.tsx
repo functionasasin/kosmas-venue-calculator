@@ -22,10 +22,21 @@ import { cn } from '@/lib/utils'
  * screen: the venue page's rail is already sticky as a whole, so the row rides
  * along, while Catalog has to pin it under its own h-13 bar.
  */
-export function BackToVenues({ className }: { className?: string }) {
+export function BackToVenues(
+  { className, onIntercept }: {
+    className?: string
+    /**
+     * Return true to mean "handled" — the component then calls
+     * preventDefault(). Without that the Link navigates anyway and any dialog
+     * opens on a screen that is already unmounting.
+     */
+    onIntercept?: (e: React.MouseEvent) => boolean
+  },
+) {
   return (
     <Link
       to="/"
+      onClick={e => { if (onIntercept?.(e)) e.preventDefault() }}
       className={cn(`flex shrink-0 items-center gap-1.5 border-b bg-card px-4 py-2.5
                      text-[11px] text-muted-foreground transition-colors
                      hover:bg-muted hover:text-foreground`, className)}
