@@ -5,6 +5,16 @@ import type { Tables } from '@/lib/database.types'
 export interface Venue extends VenueInputs {
   id: string
   name: string
+  /**
+   * OPAQUE. Sent back verbatim as save_venue's optimistic-lock baseline.
+   * timestamptz is microsecond-precision; a round trip through a JS Date
+   * truncates to milliseconds, after which the baseline never matches and
+   * EVERY save conflicts — a failure that reads as a broken lock rather than
+   * a formatting bug. Never parse or reformat this. Format a copy for display.
+   */
+  updatedAt: string
+  createdByEmail: string | null
+  updatedByEmail: string | null
 }
 
 // `venues.tier` is plain `text` with no check constraint, so it can hold a tier
@@ -33,6 +43,9 @@ const fromRow = (r: Tables<'venues'>): Venue => ({
   kisiDoors: r.kisi_doors,
   extendedRetention: r.extended_retention,
   backupInternet: r.backup_internet,
+  updatedAt: r.updated_at,
+  createdByEmail: r.created_by_email,
+  updatedByEmail: r.updated_by_email,
 })
 
 export async function listVenues(): Promise<Venue[]> {
@@ -64,9 +77,22 @@ export async function deleteVenue(id: string) {
   if (error) throw error
 }
 
-export async function saveVenue(v: Partial<Venue> & { name: string }) {
+/**
+ * CREATE only. Updates go through saveVenueAndLines, which is transactional and
+ * carries the optimistic-lock baseline.
+ *
+ * This was an upsert. That left a second write path into `venues`: an id in the
+ * payload took the ON CONFLICT DO UPDATE branch with no baseline check and no
+ * row lock, so a concurrent save could still be lost — the same trap that
+ * justifies deleting saveLines. It inserts, and now cannot be anything else.
+ *
+ * `updated_at` is no longer sent: 0006's trigger owns it, and it is what the
+ * lock compares against.
+ */
+export async function saveVenue(
+  v: Partial<VenueInputs> & { name: string },
+): Promise<Venue> {
   const row = {
-    ...(v.id ? { id: v.id } : {}),
     name: v.name,
     courts: v.courts ?? 1,
     tier: v.tier ?? 'pro',
@@ -74,10 +100,9 @@ export async function saveVenue(v: Partial<Venue> & { name: string }) {
     kisi_doors: v.kisiDoors ?? 0,
     extended_retention: v.extendedRetention ?? false,
     backup_internet: v.backupInternet ?? false,
-    updated_at: new Date().toISOString(),
   }
   const { data, error } = await supabase
-    .from('venues').upsert(row).select().single()
+    .from('venues').insert(row).select().single()
   if (error) throw error
   return fromRow(data)
 }

@@ -116,6 +116,7 @@ export type Database = {
           brand: string
           courts: number
           created_at: string
+          created_by_email: string | null
           extended_retention: boolean
           id: string
           kisi_doors: number
@@ -123,12 +124,14 @@ export type Database = {
           security_cameras: number
           tier: string
           updated_at: string
+          updated_by_email: string | null
         }
         Insert: {
           backup_internet?: boolean
           brand?: string
           courts: number
           created_at?: string
+          created_by_email?: string | null
           extended_retention?: boolean
           id?: string
           kisi_doors?: number
@@ -136,12 +139,14 @@ export type Database = {
           security_cameras?: number
           tier: string
           updated_at?: string
+          updated_by_email?: string | null
         }
         Update: {
           backup_internet?: boolean
           brand?: string
           courts?: number
           created_at?: string
+          created_by_email?: string | null
           extended_retention?: boolean
           id?: string
           kisi_doors?: number
@@ -149,6 +154,7 @@ export type Database = {
           security_cameras?: number
           tier?: string
           updated_at?: string
+          updated_by_email?: string | null
         }
         Relationships: []
       }
