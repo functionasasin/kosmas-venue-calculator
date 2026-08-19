@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { calculateBOM } from '@/calculator'
 import type { Item, VenueInputs } from '@/calculator/types'
-import { getVenue, saveVenue, type Venue } from '@/data/venues'
+import { getVenue, type Venue } from '@/data/venues'
 import { listItems } from '@/data/items'
-import { listLines, saveLines, mergeRecalculation, type StoredLine } from '@/data/venueLines'
+import {
+  listLines, saveVenueAndLines, mergeRecalculation,
+  VenueConflictError, UnresolvedLinesError, type StoredLine,
+} from '@/data/venueLines'
 import { VenueInputsForm } from '@/components/VenueInputsForm'
 import { MaterialsTable } from '@/components/MaterialsTable'
 import { WarningsPanel } from '@/components/WarningsPanel'
@@ -114,13 +117,31 @@ export function VenueDetail() {
   const onInputs = (inputs: VenueInputs) =>
     setVenue(v => (v ? { ...v, ...inputs } : v))
 
-  const save = async () => {
-    if (!venue || !id) return
+  const [conflict, setConflict] = useState<VenueConflictError | null>(null)
+  const [unresolved, setUnresolved] = useState<StoredLine[] | null>(null)
+
+  /**
+   * One transactional call. Previously this was saveVenue followed by saveLines —
+   * two independent writes, the second itself a DELETE plus a separate INSERT.
+   */
+  const save = async (toSave: StoredLine[] = lines, rebased?: Venue) => {
+    // `rebased` exists for "Overwrite theirs": that path has to save against a
+    // baseline this render does not hold yet. setVenue is asynchronous, so a
+    // save fired straight after it would still send the STALE baseline and
+    // conflict a second time — the button would appear to do nothing, twice.
+    const target = rebased ?? venue
+    if (!target || !id) return
     try {
-      await saveVenue(venue)
-      await saveLines(id, lines, catalog)
+      // Named `written`, not `saved`: Task 6 adds a `saved` snapshot state to
+      // this component and the shadowing would be silent.
+      const written = await saveVenueAndLines(target, toSave, catalog)
+      setVenue(written.venue)
+      setLines(written.lines)
       toast.success('Saved')
+      return written
     } catch (e) {
+      if (e instanceof VenueConflictError) { setConflict(e); return }
+      if (e instanceof UnresolvedLinesError) { setUnresolved(e.lines); return }
       toast.error((e as Error).message)
     }
   }
@@ -187,7 +208,7 @@ export function VenueDetail() {
             onClick={() => (stale ? setStaleExport(true) : doExport())}>
             Export PDF
           </Button>
-          <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]" onClick={save}>
+          <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]" onClick={() => save()}>
             Save
           </Button>
         </div>
@@ -239,6 +260,63 @@ export function VenueDetail() {
             <Button variant="outline" onClick={() => setPending(null)}>
               Cancel
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={conflict !== null} onOpenChange={o => !o && setConflict(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Someone else saved this venue</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {conflict?.savedByEmail ?? 'Another account'} saved it after you opened
+            it. Both ways out lose someone's work, so pick deliberately.
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Reload theirs (discards mine)
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!venue || !conflict) return
+                // Rebase onto the baseline the loser just read, then ACTUALLY
+                // re-issue. Setting the baseline alone left this button doing
+                // nothing at all — it closed the dialog and saved neither
+                // version, with nothing on screen saying so.
+                const rebased = { ...venue, updatedAt: conflict.savedAt }
+                setConflict(null)
+                setVenue(rebased)
+                await save(lines, rebased)
+              }}
+            >
+              Overwrite theirs
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={unresolved !== null} onOpenChange={o => !o && setUnresolved(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Some lines point at no catalog item</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Nothing was saved. This usually means the item for a role was
+            deactivated in the catalog. Removing them here is the only way to
+            save this venue without admin access.
+          </p>
+          <pre className="max-h-56 overflow-auto rounded-md bg-muted p-3 text-xs">
+            {unresolved?.map(l => `${l.roleKey ?? 'unknown role'}: ${l.qty}`).join('\n')}
+          </pre>
+          <div className="flex gap-2">
+            <Button onClick={async () => {
+              const drop = new Set(unresolved ?? [])
+              const kept = lines.filter(l => !drop.has(l))
+              setUnresolved(null)
+              setLines(kept)
+              await save(kept)
+            }}>
+              Remove these lines and save
+            </Button>
+            <Button variant="outline" onClick={() => setUnresolved(null)}>Cancel</Button>
           </div>
         </DialogContent>
       </Dialog>
