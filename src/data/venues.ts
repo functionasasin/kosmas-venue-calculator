@@ -1,6 +1,5 @@
 import { supabase } from '@/lib/supabase'
 import type { VenueInputs, Tier } from '@/calculator/types'
-import type { Tables } from '@/lib/database.types'
 
 export interface Venue extends VenueInputs {
   id: string
@@ -34,32 +33,34 @@ const LIVE: readonly Tier[] = [
 export const readTier = (v: unknown): Tier =>
   LIVE.includes(v as Tier) ? (v as Tier) : 'pro'
 
-const fromRow = (r: Tables<'venues'>): Venue => ({
-  id: r.id,
-  name: r.name,
-  courts: r.courts,
+// One mapper, so a venue returned by the RPC and one returned by a SELECT can
+// never disagree about how a row becomes a Venue.
+export const venueFromRow = (r: Record<string, unknown>): Venue => ({
+  id: r.id as string,
+  name: r.name as string,
+  courts: r.courts as number,
   tier: readTier(r.tier),
-  securityCameras: r.security_cameras,
-  kisiDoors: r.kisi_doors,
-  extendedRetention: r.extended_retention,
-  backupInternet: r.backup_internet,
-  updatedAt: r.updated_at,
-  createdByEmail: r.created_by_email,
-  updatedByEmail: r.updated_by_email,
+  securityCameras: r.security_cameras as number,
+  kisiDoors: r.kisi_doors as number,
+  extendedRetention: r.extended_retention as boolean,
+  backupInternet: r.backup_internet as boolean,
+  updatedAt: r.updated_at as string,
+  createdByEmail: (r.created_by_email as string | null) ?? null,
+  updatedByEmail: (r.updated_by_email as string | null) ?? null,
 })
 
 export async function listVenues(): Promise<Venue[]> {
   const { data, error } = await supabase
     .from('venues').select('*').order('created_at', { ascending: false })
   if (error) throw error
-  return (data ?? []).map(fromRow)
+  return (data ?? []).map(venueFromRow)
 }
 
 export async function getVenue(id: string): Promise<Venue> {
   const { data, error } = await supabase
     .from('venues').select('*').eq('id', id).single()
   if (error) throw error
-  return fromRow(data)
+  return venueFromRow(data)
 }
 
 /**
@@ -104,5 +105,5 @@ export async function saveVenue(
   const { data, error } = await supabase
     .from('venues').insert(row).select().single()
   if (error) throw error
-  return fromRow(data)
+  return venueFromRow(data)
 }
