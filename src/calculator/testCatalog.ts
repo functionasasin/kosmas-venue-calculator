@@ -25,8 +25,6 @@ export const testCatalog: Item[] = ROLE_KEYS.map(roleKey => ({
   supplier: null,
   poeWatts: POE_WATTS[roleKey] ?? null,
   rackU: RACK_U[roleKey] ?? 0,
-  unitPrice: null,
-  currency: null,
   isActive: true,
   notes: null,
   printNote: null,

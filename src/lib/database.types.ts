@@ -17,7 +17,6 @@ export type Database = {
       items: {
         Row: {
           category: string
-          currency: string | null
           id: string
           is_active: boolean
           name: string
@@ -27,12 +26,10 @@ export type Database = {
           rack_u: number | null
           role_key: string | null
           supplier: string | null
-          unit_price: number | null
           updated_at: string
         }
         Insert: {
           category?: string
-          currency?: string | null
           id?: string
           is_active?: boolean
           name: string
@@ -42,12 +39,10 @@ export type Database = {
           rack_u?: number | null
           role_key?: string | null
           supplier?: string | null
-          unit_price?: number | null
           updated_at?: string
         }
         Update: {
           category?: string
-          currency?: string | null
           id?: string
           is_active?: boolean
           name?: string
@@ -57,7 +52,6 @@ export type Database = {
           rack_u?: number | null
           role_key?: string | null
           supplier?: string | null
-          unit_price?: number | null
           updated_at?: string
         }
         Relationships: []

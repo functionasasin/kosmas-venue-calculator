@@ -22,8 +22,8 @@ const CATEGORY: Partial<Record<RoleKey, string>> = {
 
 const item = (roleKey: RoleKey, category: string): Item => ({
   id: `id-${roleKey}`, name: roleKey, category, roleKey,
-  supplier: null, poeWatts: null, rackU: null, unitPrice: null,
-  currency: null, isActive: true, notes: null, printNote: null,
+  supplier: null, poeWatts: null, rackU: null,
+  isActive: true, notes: null, printNote: null,
 })
 
 const catalog: Item[] = Object.entries(CATEGORY).map(

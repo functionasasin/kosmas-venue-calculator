@@ -13,8 +13,8 @@ export const item = (
   roleKey: RoleKey, category: string, name: string = roleKey,
 ): Item => ({
   id: `id-${roleKey}`, name, category, roleKey,
-  supplier: null, poeWatts: null, rackU: null, unitPrice: null,
-  currency: null, isActive: true, notes: null, printNote: null,
+  supplier: null, poeWatts: null, rackU: null,
+  isActive: true, notes: null, printNote: null,
 })
 
 export const line = (

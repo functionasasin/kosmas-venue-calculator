@@ -51,8 +51,6 @@ export interface Item {
   /** Maximum PoE draw in watts, not typical. venue-sizing.md § Replay camera */
   poeWatts: number | null
   rackU: number | null
-  unitPrice: number | null
-  currency: string | null
   isActive: boolean
   /** Internal working notes. Never printed. */
   notes: string | null

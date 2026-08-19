@@ -19,7 +19,6 @@ export function ItemForm({ item, onSave, onCancel }: Props) {
     supplier: item?.supplier ?? '',
     poeWatts: item?.poeWatts?.toString() ?? '',
     rackU: item?.rackU?.toString() ?? '',
-    unitPrice: item?.unitPrice?.toString() ?? '',
     notes: item?.notes ?? '',
     printNote: item?.printNote ?? '',
   })
@@ -39,7 +38,6 @@ export function ItemForm({ item, onSave, onCancel }: Props) {
       supplier: form.supplier || null,
       poeWatts: form.poeWatts ? Number(form.poeWatts) : null,
       rackU: form.rackU ? Number(form.rackU) : null,
-      unitPrice: form.unitPrice ? Number(form.unitPrice) : null,
       notes: form.notes || null,
       printNote: form.printNote || null,
       isActive: item?.isActive ?? true,
@@ -90,14 +88,6 @@ export function ItemForm({ item, onSave, onCancel }: Props) {
           <Input id="rackU" type="number" step="0.5"
             value={form.rackU} onChange={set('rackU')} />
         </div>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="unitPrice">Unit price (optional)</Label>
-        <Input id="unitPrice" type="number" step="0.01"
-          value={form.unitPrice} onChange={set('unitPrice')} />
-        <p className="text-xs text-muted-foreground">
-          Stored only. Never shown on venues or in the exported PDF.
-        </p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="notes">Internal notes</Label>

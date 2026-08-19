@@ -11,7 +11,7 @@ const noKisi: KisiPlan = {
 
 const item = (roleKey: string, poeWatts: number | null): Item => ({
   id: roleKey, name: roleKey, category: 'test', roleKey: roleKey as never,
-  supplier: null, poeWatts, rackU: null, unitPrice: null, currency: null,
+  supplier: null, poeWatts, rackU: null,
   isActive: true, notes: null, printNote: null,
 })
 

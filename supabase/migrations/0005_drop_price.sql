@@ -1,0 +1,13 @@
+-- supabase/migrations/0005_drop_price.sql
+--
+-- Neither column was ever populated: 33 items, 0 non-null in each, and the
+-- seed sets neither. They are dropped rather than secured because the schema
+-- comment claimed "admin catalog form only" while the items SELECT policy is
+-- `to authenticated using (true)` — a UI-only boundary of exactly the kind
+-- 0002_rls.sql warns about. Hiding a column properly needs column-level GRANTs
+-- or a per-role view, i.e. two query shapes in listItems, to protect cost data
+-- from our own staff. Pricing lives in the spreadsheets.
+--
+-- `currency` goes with `unit_price`: it is only ever a qualifier on that
+-- amount and was never user-settable — ItemForm has no currency field.
+alter table items drop column unit_price, drop column currency;
