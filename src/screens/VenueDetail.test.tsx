@@ -77,6 +77,21 @@ describe('a venue that already has saved lines', () => {
     await renderDetail()
     expect(await screen.findByText(/PoE load/i)).toBeInTheDocument()
   })
+
+  /**
+   * The saved-by line spent its first life inside the brand band, where
+   * --muted-foreground sat on navy --railhd at 1.46:1 and was effectively
+   * invisible. It reads as a natural home — it is venue identity, and the venue
+   * name is right there — so the pull to put it back is real.
+   *
+   * This asserts the ground, not the wording: the text must exist somewhere on
+   * the screen, and must NOT be inside the element carrying bg-railhd.
+   */
+  it('keeps the saved-by line off the band whose grey it cannot use', async () => {
+    await renderDetail()
+    const saved = await screen.findByText(/Saved by/)
+    expect(saved.closest('.bg-railhd')).toBeNull()
+  })
 })
 
 it('carries the Kosmas lockup in the rail header', async () => {
@@ -156,7 +171,7 @@ it('warns before leaving with unsaved edits, and does NOT navigate', async () =>
   const courts = await screen.findByLabelText(/courts/i)
   fireEvent.change(courts, { target: { value: '12' } })
   fireEvent.click(screen.getByRole('link', { name: /all venues/i }))
-  expect(await screen.findByText(/unsaved changes/i)).toBeInTheDocument()
+  expect(await screen.findByText(/you have unsaved changes/i)).toBeInTheDocument()
   // The half that matters: the click was actually blocked, not merely
   // accompanied by a dialog on a screen that is already leaving.
   expect(screen.queryByText('venue list')).not.toBeInTheDocument()
@@ -206,7 +221,7 @@ it('warns again on an edit made after a save', async () => {
 
   fireEvent.change(await screen.findByLabelText(/courts/i), { target: { value: '14' } })
   fireEvent.click(screen.getByRole('link', { name: /all venues/i }))
-  expect(await screen.findByText(/unsaved changes/i)).toBeInTheDocument()
+  expect(await screen.findByText(/you have unsaved changes/i)).toBeInTheDocument()
 })
 
 // The destructive branch has to be the one the user picks on purpose. Cancel
@@ -237,9 +252,14 @@ it('leaves without saving on Discard', async () => {
 // With two accounts "who" is nearly a coin flip, but "when was this last
 // touched" is not — and it is the only thing on screen that distinguishes a
 // venue someone else has been editing from one nobody has opened in a month.
-it('shows who last saved the venue in the rail', async () => {
+//
+// The address is asserted through the title because the visible line shows the
+// local part alone; dropping the domain is only safe while the whole address
+// stays recoverable, so the two assertions belong together.
+it('shows who last saved the venue and when, in the rail', async () => {
   await renderDetail()
-  expect(await screen.findByText(/last saved by a@b\.c/i)).toBeInTheDocument()
+  expect(await screen.findByTitle(/last saved by a@b\.c/i)).toBeInTheDocument()
+  expect(screen.getByText(/Aug 19, 2026/)).toBeInTheDocument()
 })
 
 // "Save and leave" must not leave when the save did not happen. `save` catches
@@ -281,5 +301,5 @@ it('guards a venue whose tier produces no lines at all', async () => {
   await screen.findByText(/booking website/i)
   fireEvent.change(await screen.findByLabelText(/courts/i), { target: { value: '12' } })
   fireEvent.click(screen.getByRole('link', { name: /all venues/i }))
-  expect(await screen.findByText(/unsaved changes/i)).toBeInTheDocument()
+  expect(await screen.findByText(/you have unsaved changes/i)).toBeInTheDocument()
 })

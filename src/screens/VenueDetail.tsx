@@ -16,6 +16,7 @@ import { tierLabel } from '@/lib/tierLabel'
 import { Button } from '@/components/ui/button'
 import { BrandBlock } from '@/components/BrandBlock'
 import { BackToVenues } from '@/components/BackToVenues'
+import { SaveStatus } from '@/components/SaveStatus'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useRole } from '@/auth/useRole'
@@ -253,16 +254,9 @@ export function VenueDetail() {
           <h1 className="mt-2.5 text-center text-lg font-semibold tracking-tight">
             {venue.name}
           </h1>
-          {venue.updatedByEmail && (
-            // Null on venues created before 0006, which render nothing rather than
-            // "unknown" — an invented author is worse than no author.
-            // toLocaleDateString reads a COPY; venue.updatedAt itself is the opaque
-            // lock baseline and must never be reformatted.
-            <p className="mt-1 text-center text-[11px] text-muted-foreground">
-              Last saved by {venue.updatedByEmail} on{' '}
-              {new Date(venue.updatedAt).toLocaleDateString()}
-            </p>
-          )}
+          {/* Who saved this and when used to sit here, under the name. It moved
+              to SaveStatus at the foot of the rail: --muted-foreground is mixed
+              for white surfaces and came out at 1.46:1 on this band's navy. */}
         </BrandBlock>
         {/* No sticky offset: from lg the whole aside is sticky, so this rides
             along already. */}
@@ -278,6 +272,12 @@ export function VenueDetail() {
             </div>
           )}
         </div>
+        {/* Last child, so mt-auto puts it against the bottom of the rail. The
+            inputs div above is the flex-1 that gives it something to push
+            against; below lg the aside is a plain block and it just follows the
+            checks. */}
+        <SaveStatus dirty={dirty} updatedByEmail={venue.updatedByEmail}
+          updatedAt={venue.updatedAt} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
