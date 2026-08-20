@@ -19,6 +19,7 @@ export type Database = {
           category: string
           id: string
           is_active: boolean
+          mains_watts: number | null
           name: string
           notes: string | null
           poe_watts: number | null
@@ -32,6 +33,7 @@ export type Database = {
           category?: string
           id?: string
           is_active?: boolean
+          mains_watts?: number | null
           name: string
           notes?: string | null
           poe_watts?: number | null
@@ -45,6 +47,7 @@ export type Database = {
           category?: string
           id?: string
           is_active?: boolean
+          mains_watts?: number | null
           name?: string
           notes?: string | null
           poe_watts?: number | null

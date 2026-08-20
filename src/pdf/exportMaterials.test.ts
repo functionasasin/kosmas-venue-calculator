@@ -45,7 +45,7 @@ vi.mock('jspdf-autotable', () => ({
 
 const item = (roleKey: RoleKey, category: string, name: string): Item => ({
   id: `id-${roleKey}`, name, category, roleKey,
-  supplier: null, poeWatts: null, rackU: null,
+  supplier: null, poeWatts: null, mainsWatts: null, rackU: null,
   isActive: true, notes: null, printNote: null,
 })
 

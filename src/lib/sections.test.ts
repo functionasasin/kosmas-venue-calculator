@@ -22,7 +22,7 @@ const CATEGORY: Partial<Record<RoleKey, string>> = {
 
 const item = (roleKey: RoleKey, category: string): Item => ({
   id: `id-${roleKey}`, name: roleKey, category, roleKey,
-  supplier: null, poeWatts: null, rackU: null,
+  supplier: null, poeWatts: null, mainsWatts: null, rackU: null,
   isActive: true, notes: null, printNote: null,
 })
 

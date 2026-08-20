@@ -50,6 +50,16 @@ export interface Item {
   supplier: string | null
   /** Maximum PoE draw in watts, not typical. venue-sizing.md § Replay camera */
   poeWatts: number | null
+  /**
+   * Maximum mains draw in watts, excluding any PoE the device itself outputs.
+   * The two fields are disjoint on purpose and must never be merged: a switch
+   * has BOTH (60W of its own, 600W it hands out), and only the first is charged
+   * to the UPS while only the second is charged to the switch's PoE budget.
+   *
+   * Null means "does not draw mains", which is the normal case — everything
+   * court-side reaches power as PoE. venue-sizing.md § Per-line wattages.
+   */
+  mainsWatts: number | null
   rackU: number | null
   isActive: boolean
   /** Internal working notes. Never printed. */
