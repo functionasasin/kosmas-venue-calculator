@@ -6,7 +6,8 @@ import { ROLE_KEYS } from './roleKeys'
  * PoE watts the sizing doc specifies. Not used in production.
  */
 const RACK_U: Record<string, number> = {
-  mac_mini_shelf: 2, mac_mini: 0, ups: 2,
+  mac_mini_shelf: 2, mac_mini: 0,
+  ups_750va: 2, ups_1000va: 2, ups_1500va: 2, ups_2000va: 2, ups_3000va: 2,
   patch_panel_24: 1, patch_panel_48: 1,
   switch_24_pro: 1, switch_24_std: 1, switch_48_pro: 1,
   gateway_udm_se: 1, gateway_udm_pro: 1,

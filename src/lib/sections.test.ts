@@ -10,7 +10,7 @@ const CATEGORY: Partial<Record<RoleKey, string>> = {
   patch_panel_24: 'network', access_point: 'network',
   mac_mini: 'compute', mac_mini_shelf: 'compute',
   replay_ssd_2tb: 'storage',
-  ups: 'power',
+  ups_1500va: 'power',
   rack_12u: 'rack',
   replay_camera: 'camera',
   ipad: 'court', ipad_poe_adapter: 'court', ipad_wall_mount: 'court',
@@ -41,7 +41,7 @@ const line = (roleKey: RoleKey | null, qty: StoredLine['qty']): StoredLine => ({
 const proPodPlay8: StoredLine[] = [
   line('gateway_udm_pro', 1), line('switch_24_pro', 1), line('patch_panel_24', 1),
   line('cat6_0m5', 26), line('cat6_1m', 2), line('cat6_3m', 2),
-  line('ups', 1),
+  line('ups_1500va', 1),
   line('replay_camera', 8),
   line('ipad', 8), line('ipad_poe_adapter', 8), line('ipad_wall_mount', 8),
   line('apple_tv', 8),
@@ -89,7 +89,7 @@ describe('section assignment', () => {
       .find(s => s.id === 'rack')!
     expect(rack.lines.map(l => l.roleKey)).toEqual([
       'gateway_udm_pro', 'switch_24_pro', 'patch_panel_24',
-      'ups', 'mac_mini', 'mac_mini_shelf',
+      'ups_1500va', 'mac_mini', 'mac_mini_shelf',
       'replay_ssd_2tb', 'rack_12u',
     ])
   })
@@ -124,7 +124,7 @@ describe('the three overrides', () => {
 
 describe('empty sections', () => {
   it('omits a section with no lines rather than rendering it empty', () => {
-    const grouped = groupIntoSections([line('ups', 1)], catalog)
+    const grouped = groupIntoSections([line('ups_1500va', 1)], catalog)
     expect(grouped.map(s => s.id)).toEqual(['rack'])
   })
 
@@ -141,7 +141,7 @@ describe('swap options', () => {
     const options = swapOptionsFor(line('display', 8), catalog)
     expect(options.every(i => sectionForItem(i) === 'court')).toBe(true)
     expect(options.map(i => i.roleKey)).toContain('ipad')
-    expect(options.map(i => i.roleKey)).not.toContain('ups')
+    expect(options.map(i => i.roleKey)).not.toContain('ups_1500va')
     expect(options.map(i => i.roleKey)).not.toContain('cat6_0m5')
   })
 

@@ -25,7 +25,10 @@ describe('worked example: 5-court Pro venue', () => {
   it('needs 17 of the 0.5M cable (15 ports + 2)', () => expect(r.qty('cat6_0m5')).toBe(17))
   it('needs 2 of the 1M', () => expect(r.qty('cat6_1m')).toBe(2))
   it('needs 2 of the 3M', () => expect(r.qty('cat6_3m')).toBe(2))
-  it('uses one UPS', () => expect(r.qty('ups')).toBe(1))
+  // 5 courts draws 327.5 W, which lands on the 1000 VA rung. Pinning the rung
+  // rather than just the quantity is the point — a UPS line that appears with
+  // the wrong rating is worse than one that is missing.
+  it('uses one 1000 VA UPS', () => expect(r.qty('ups_1000va')).toBe(1))
   it('uses a 12U rack, being well under 10U of gear', () => expect(r.qty('rack_12u')).toBe(1))
   it('uses the 2TB SSD', () => expect(r.qty('replay_ssd_2tb')).toBe(1))
   it('uses 5 iPad PoE adapters', () => expect(r.qty('ipad_poe_adapter')).toBe(5))
@@ -106,7 +109,7 @@ describe('edge cases', () => {
   })
 
   it('warns about the unmapped role when the catalog lacks an item', () => {
-    const thin = testCatalog.filter(i => i.roleKey !== 'ups')
+    const thin = testCatalog.filter(i => i.roleKey !== 'ups_1000va')
     const r = calculateBOM(pro(8), thin)
     expect(r.warnings.map(w => w.code)).toContain('UNMAPPED_ROLE')
   })
@@ -189,5 +192,67 @@ describe('Kisi doors and switch sizing', () => {
     expect(r.qty('kisi_controller')).toBeUndefined()
     expect(r.qty('kisi_reader')).toBeUndefined()
     expect(r.codes).not.toContain('KISI_READER_PLACEMENT')
+  })
+})
+
+describe('UPS rating', () => {
+  // The rung is the whole point of the line — a UPS that appears with the wrong
+  // rating is worse than one that is missing, because it looks settled.
+  it.each([
+    [4, 'ups_750va'], [8, 'ups_1000va'], [12, 'ups_1500va'], [16, 'ups_2000va'],
+  ])('a %i-court Pro venue carries %s', (courts, role) => {
+    expect(run(pro(courts)).qty(role)).toBe(1)
+  })
+
+  it('sizes the UPS before the rack, so its 2U is in the rack total', () => {
+    const lines = calculateBOM(pro(8), testCatalog).lines
+    const ups = lines.findIndex(l => l.roleKey.startsWith('ups_'))
+    const rack = lines.findIndex(l => l.roleKey.startsWith('rack_'))
+    expect(ups).toBeGreaterThan(-1)
+    expect(ups).toBeLessThan(rack)
+  })
+
+  it('warns when past the top of the PH ladder', () => {
+    const huge = pro(60, {
+      tier: 'autonomous_plus', kisiDoors: 4, securityCameras: 40,
+    })
+    expect(run(huge).codes).toContain('UPS_OVER_LADDER')
+    expect(run(pro(16)).codes).not.toContain('UPS_OVER_LADDER')
+  })
+
+  it('warns when the camera count outruns the NVR band table', () => {
+    const past = pro(20, {
+      tier: 'autonomous_plus', kisiDoors: 4, securityCameras: 61,
+    })
+    expect(run(past).codes).toContain('UPS_NVR_UNBANDED')
+  })
+})
+
+describe('UPS_CAMERA_ASSUMPTION', () => {
+  // The replay camera is not standardised across venues — the units on hand
+  // span 2.8W to 24W, which is three rungs at 14 courts — but the catalog holds
+  // exactly one. So a venue can be sized against a camera it will not receive,
+  // and nothing else in the tool would say so.
+  const withCamera = (poeWatts: number) =>
+    testCatalog.map(i => (i.roleKey === 'replay_camera' ? { ...i, poeWatts } : i))
+
+  it('stays quiet when the catalog matches PodPlay\'s 17.5W standard', () => {
+    expect(run(pro(14)).codes).not.toContain('UPS_CAMERA_ASSUMPTION')
+  })
+
+  it('fires when a lower-draw camera changes the rung', () => {
+    // The Uniview Owlview at 2.8W: 14 courts falls 1500 VA -> 1000 VA.
+    const r = calculateBOM(pro(14), withCamera(2.8))
+    const w = r.warnings.find(x => x.code === 'UPS_CAMERA_ASSUMPTION')
+    expect(w).toBeDefined()
+    expect(w!.message).toContain('1000 VA')
+    expect(w!.message).toContain('1500 VA')
+  })
+
+  // Quiet on a difference that does not change the answer, or the warning
+  // becomes noise on every venue and stops being read.
+  it('stays quiet when a different camera lands on the same rung', () => {
+    const r = calculateBOM(pro(14), withCamera(16))
+    expect(r.warnings.map(w => w.code)).not.toContain('UPS_CAMERA_ASSUMPTION')
   })
 })

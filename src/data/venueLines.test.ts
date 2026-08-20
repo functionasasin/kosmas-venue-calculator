@@ -30,7 +30,7 @@ const {
 } = await import('./venueLines')
 
 const catalog = [
-  { id: 'i-ups', roleKey: 'ups', name: 'UPS' },
+  { id: 'i-ups', roleKey: 'ups_1500va', name: 'UPS' },
   { id: 'i-ap', roleKey: 'access_point', name: 'AP' },
 ] as unknown as Item[]
 
@@ -43,7 +43,7 @@ const venue = {
 }
 
 const line = (over: Partial<StoredLine> = {}): StoredLine => ({
-  id: 'l1', venueId: 'v1', itemId: 'i-ups', roleKey: 'ups', qty: 1,
+  id: 'l1', venueId: 'v1', itemId: 'i-ups', roleKey: 'ups_1500va', qty: 1,
   originRoleKey: null, sortOrder: 0, source: 'formula',
   suppressed: false, note: null, ...over,
 })
@@ -107,10 +107,10 @@ describe('saveVenueAndLines', () => {
     rpc.mockResolvedValueOnce(ok([{
       id: 'l9', venue_id: 'v1', item_id: 'i-ups', qty: 1, qty_tbd: false,
       origin_role_key: null, sort_order: 0, source: 'formula',
-      suppressed: false, note: null, role_key: 'ups',
+      suppressed: false, note: null, role_key: 'ups_1500va',
     }]))
     const result = await saveVenueAndLines(venue, [line()], catalog)
-    expect(result.lines[0].roleKey).toBe('ups')
+    expect(result.lines[0].roleKey).toBe('ups_1500va')
   })
 
   // The old saveLines filtered these away with no error and no toast: the user

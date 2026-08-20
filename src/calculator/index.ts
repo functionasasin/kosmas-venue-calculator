@@ -4,7 +4,7 @@ import { totalPorts, pickGateway, planSwitches } from './network'
 import { planPatchPanels, planCat6 } from './cables'
 import { sumRackU, pickRack } from './rack'
 import { planSsd } from './storage'
-import { planPower } from './power'
+import { planUps } from './power'
 import { planPerCourt } from './perCourt'
 import { checkPoeBudget } from './poe'
 import { planKisi } from './kisi'
@@ -12,6 +12,13 @@ import type { RoleKey } from './roleKeys'
 
 // Roles that draw PoE. Used only to decide whether a missing wattage is worth
 // complaining about — a rack or a cable having no wattage is normal.
+/**
+ * The replay camera the sizing doc's UPS tables are written against. Not a
+ * claim about what Kosmas stocks — it is the reference point the warning below
+ * compares the live catalog to.
+ */
+const DOC_REPLAY_WATTS = 17.5
+
 const POE_BEARING = new Set<RoleKey>([
   'replay_camera', 'security_camera', 'ipad_poe_adapter', 'access_point',
   'kisi_reader',
@@ -64,7 +71,6 @@ export function calculateBOM(inputs: VenueInputs, catalog: Item[]): BomResult {
 
   lines.push(...planPatchPanels(switches))
   lines.push(...planCat6(ports, inputs.kisiDoors))
-  lines.push(...planPower())
   lines.push(...planPerCourt(inputs))
 
   // tiers-reference.md § Autonomous Kisi kit — the hardware that makes a venue
@@ -95,6 +101,62 @@ export function calculateBOM(inputs: VenueInputs, catalog: Item[]): BomResult {
         'different SKU (XS2000, Crucial X9/X10 Pro, or T7 Shield). The doc ' +
         'treats this size as a manual override.',
     })
+  }
+
+  // The UPS is sized from every line above it, so it goes after them — but
+  // before the rack, because it is 2U of the rack's own total. Its rating is a
+  // property of the whole venue rather than of any one device, which is why it
+  // cannot be emitted alongside the gear the way every other line is.
+  const ups = planUps(inputs, lines, catalog)
+  lines.push(ups.line)
+
+  if (ups.overLadder) {
+    warnings.push({
+      code: 'UPS_OVER_LADDER',
+      level: 'warn',
+      message:
+        `This venue needs ${Math.round(ups.requiredVa)} VA, past the 3000 VA ` +
+        'top of the PH ladder. The line carries 3000 VA, which is NOT enough ' +
+        '— it needs a larger unit or a second UPS, and that is a design ' +
+        'decision rather than a formula output.',
+    })
+  }
+
+  if (ups.nvrUnbanded) {
+    warnings.push({
+      code: 'UPS_NVR_UNBANDED',
+      level: 'warn',
+      message:
+        `${inputs.securityCameras} security cameras is past the 60 the NVR ` +
+        'band table covers, so the UPS load counts only 320 W of NVR and is ' +
+        'understated. Size the recording hardware by hand and re-check.',
+    })
+  }
+
+  // The rung is decided by the replay camera more than by anything else — the
+  // cameras on hand span 2.8 W to 24 W, which is three rungs at 14 courts. The
+  // catalog holds one camera while venues do not share one, so when the two
+  // disagree on the answer that has to be said out loud rather than left for
+  // whoever compares the sheet to the venue.
+  const replay = catalog.find(i => i.roleKey === 'replay_camera' && i.isActive)
+  if (replay && replay.poeWatts !== null && replay.poeWatts !== DOC_REPLAY_WATTS) {
+    const atDocWatts = planUps(
+      inputs,
+      lines,
+      catalog.map(i =>
+        i.roleKey === 'replay_camera' ? { ...i, poeWatts: DOC_REPLAY_WATTS } : i),
+    )
+    if (atDocWatts.rung !== ups.rung) {
+      warnings.push({
+        code: 'UPS_CAMERA_ASSUMPTION',
+        level: 'warn',
+        message:
+          `The ${ups.rung} VA rating assumes ${replay.poeWatts} W replay ` +
+          `cameras (${replay.name}). With PodPlay's ${DOC_REPLAY_WATTS} W ` +
+          `standard camera this venue would need ${atDocWatts.rung} VA. ` +
+          'Confirm which camera this venue gets before ordering the UPS.',
+      })
+    }
   }
 
   // Rack is sized from everything above, so it is appended last.

@@ -16,7 +16,7 @@ const venue = {
 // A venue that has already been saved: lines exist, so the old
 // `lines.length === 0` guard would skip the calculation entirely.
 const savedLines: StoredLine[] = [{
-  id: 'l1', venueId: 'v1', itemId: 'ups', roleKey: 'ups', qty: 1,
+  id: 'l1', venueId: 'v1', itemId: 'ups_1500va', roleKey: 'ups_1500va', qty: 1,
   originRoleKey: null, sortOrder: 0, source: 'formula',
   suppressed: false, note: null,
 }]

@@ -63,7 +63,7 @@ const swapTo = (name: string | RegExp, index = 0) => {
 const catalog: Item[] = [
   item('display', 'court', 'Samsung 65in'),
   item('ipad', 'court', 'iPad A16'),
-  item('ups', 'power', 'KSTAR UPS'),
+  item('ups_1500va', 'power', 'UPS 1500 VA'),
 ]
 
 describe('swapping an item', () => {
@@ -116,13 +116,13 @@ describe('sections', () => {
   const sectioned: Item[] = [
     item('display', 'court', 'Samsung 65in'),
     item('ipad', 'court', 'iPad A16'),
-    item('ups', 'power', 'KSTAR UPS'),
+    item('ups_1500va', 'power', 'UPS 1500 VA'),
     item('cat6_0m5', 'cable', 'Vention Cat6 0.5M'),
     item('access_point', 'network', 'UniFi U7-LR'),
   ]
 
   const mixed: StoredLine[] = [
-    line('ups', 1), line('display', 8), line('cat6_0m5', 26),
+    line('ups_1500va', 1), line('display', 8), line('cat6_0m5', 26),
     line('access_point', 'TBD'),
   ]
 
@@ -171,7 +171,7 @@ describe('sections', () => {
 describe('resolving a TBD line', () => {
   const sectioned: Item[] = [
     item('access_point', 'network', 'UniFi U7-LR'),
-    item('ups', 'power', 'KSTAR UPS'),
+    item('ups_1500va', 'power', 'UPS 1500 VA'),
   ]
 
   // Without an affordance the amber section can never be emptied, which makes
@@ -223,7 +223,7 @@ describe('resolving a TBD line', () => {
 describe('quantity commits on blur, not on every keystroke', () => {
   const sectioned: Item[] = [
     item('access_point', 'network', 'UniFi U7-LR'),
-    item('ups', 'power', 'KSTAR UPS'),
+    item('ups_1500va', 'power', 'UPS 1500 VA'),
   ]
 
   // Pins the blur-commit design itself: if this reverts to committing on
@@ -233,7 +233,7 @@ describe('quantity commits on blur, not on every keystroke', () => {
   it('does not commit while typing, before any blur', () => {
     const onChange = vi.fn()
     render(
-      <MaterialsTable lines={[line('ups', 1)]} catalog={sectioned} isAdmin
+      <MaterialsTable lines={[line('ups_1500va', 1)]} catalog={sectioned} isAdmin
         formulas={new Map()} onChange={onChange} />,
     )
 
@@ -250,7 +250,7 @@ describe('quantity commits on blur, not on every keystroke', () => {
   it('does not commit a blur with no typing', () => {
     const onChange = vi.fn()
     render(
-      <MaterialsTable lines={[line('ups', 1)]} catalog={sectioned} isAdmin
+      <MaterialsTable lines={[line('ups_1500va', 1)]} catalog={sectioned} isAdmin
         formulas={new Map()} onChange={onChange} />,
     )
 
@@ -283,7 +283,7 @@ describe('quantity commits on blur, not on every keystroke', () => {
   it('commits a real edit on blur and marks the line manual', () => {
     const onChange = vi.fn()
     render(
-      <MaterialsTable lines={[line('ups', 1)]} catalog={sectioned} isAdmin
+      <MaterialsTable lines={[line('ups_1500va', 1)]} catalog={sectioned} isAdmin
         formulas={new Map()} onChange={onChange} />,
     )
 
@@ -298,13 +298,13 @@ describe('quantity commits on blur, not on every keystroke', () => {
 
 describe('cabling is admin-only', () => {
   const sectioned: Item[] = [
-    item('ups', 'power', 'KSTAR UPS'),
+    item('ups_1500va', 'power', 'UPS 1500 VA'),
     item('cat6_0m5', 'cable', 'Vention Cat6 0.5M'),
     item('cat6_1m', 'cable', 'Vention Cat6 1M'),
   ]
 
   const withCable: StoredLine[] = [
-    line('ups', 1), line('cat6_0m5', 26), line('cat6_1m', 2),
+    line('ups_1500va', 1), line('cat6_0m5', 26), line('cat6_1m', 2),
   ]
 
   it('shows the Cabling section to an admin', () => {
@@ -326,7 +326,7 @@ describe('cabling is admin-only', () => {
 
   // Otherwise a user sees "Vention Cat6 0.5M — Restore" in the removed list.
   it('keeps a suppressed cable line out of the removed-lines list for a user', () => {
-    const suppressed = [line('ups', 1), line('cat6_0m5', 26, { suppressed: true })]
+    const suppressed = [line('ups_1500va', 1), line('cat6_0m5', 26, { suppressed: true })]
     render(
       <MaterialsTable lines={suppressed} catalog={sectioned} isAdmin={false}
         formulas={new Map()} onChange={vi.fn()} />,
@@ -337,13 +337,13 @@ describe('cabling is admin-only', () => {
   // Otherwise a user can add a cable line that then vanishes with no feedback.
   it('keeps cable items out of the Add-line picker for a user', () => {
     render(
-      <MaterialsTable lines={[line('ups', 1)]} catalog={sectioned} isAdmin={false}
+      <MaterialsTable lines={[line('ups_1500va', 1)]} catalog={sectioned} isAdmin={false}
         formulas={new Map()} onChange={vi.fn()} />,
     )
     const options = Array.from(
       (screen.getByLabelText('Add line') as HTMLSelectElement).options,
     ).map(o => o.value)
-    expect(options).toContain('ups')
+    expect(options).toContain('ups_1500va')
     expect(options).not.toContain('cat6_0m5')
   })
 
@@ -364,7 +364,7 @@ describe('cabling is admin-only', () => {
     const payload = onChange.mock.calls[0][0] as StoredLine[]
     expect(payload).toHaveLength(3)
     expect(payload.map(l => l.roleKey).sort())
-      .toEqual(['cat6_0m5', 'cat6_1m', 'ups'])
+      .toEqual(['cat6_0m5', 'cat6_1m', 'ups_1500va'])
   })
 
   // swapOptionsFor deliberately falls back to the whole active catalog when a
@@ -389,7 +389,7 @@ describe('cabling is admin-only', () => {
 
     const offered = swapOptionNames()
     for (const name of cableNames) expect(offered).not.toContain(name)
-    expect(offered).toContain('KSTAR UPS')
+    expect(offered).toContain('UPS 1500 VA')
   })
 })
 

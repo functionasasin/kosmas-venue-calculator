@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { planSsd } from './storage'
-import { planPower } from './power'
+import { calculateBOM } from './index'
+import { testCatalog } from './testCatalog'
 import type { VenueInputs } from './types'
 
 const pro = (courts: number, extendedRetention = false): VenueInputs => ({
@@ -36,16 +37,17 @@ describe('planSsd', () => {
   })
 })
 
-describe('planPower', () => {
-  it('gives one UPS — PH ships the KSTAR regardless of venue size', () => {
-    const ups = planPower().find(l => l.roleKey === 'ups')
-    expect(ups?.qty).toBe(1)
-  })
-
-  // The C14-to-Universal adapters went out of scope on 2026-08-11, leaving the
-  // UPS as the only power line. Asserting the absence keeps a reinstated pair
-  // from arriving silently on a printed BOM.
-  it('emits the UPS alone, with no C14 adapter line', () => {
-    expect(planPower().map(l => l.roleKey)).toEqual(['ups'])
+// planPower() was replaced by planUps() on 2026-08-20 — the UPS is specified by
+// VA rating now, not as a fixed KSTAR line, so quantity and rung are covered in
+// power.test.ts where the load arithmetic lives. What does NOT belong there is
+// the absence check below: the C14-to-Universal adapters went out of scope on
+// 2026-08-11, and asserting that power is a single line keeps a reinstated pair
+// from arriving silently on a printed BOM.
+describe('the power section is the UPS alone', () => {
+  it('emits no line beside the UPS', () => {
+    const power = calculateBOM(pro(8), testCatalog).lines
+      .filter(l => l.roleKey.startsWith('ups_'))
+    expect(power).toHaveLength(1)
+    expect(power[0].qty).toBe(1)
   })
 })

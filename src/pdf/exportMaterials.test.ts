@@ -56,14 +56,14 @@ const line = (roleKey: RoleKey, qty: StoredLine['qty']): StoredLine => ({
 })
 
 const catalog: Item[] = [
-  item('ups', 'power', 'KSTAR UPS'),
+  item('ups_1500va', 'power', 'UPS 1500 VA'),
   item('display', 'court', 'Samsung 65in'),
   item('cat6_0m5', 'cable', 'Vention Cat6 0.5M'),
   item('access_point', 'network', 'UniFi U7-LR'),
 ]
 
 const lines: StoredLine[] = [
-  line('ups', 1), line('display', 8),
+  line('ups_1500va', 1), line('display', 8),
   line('cat6_0m5', 26), line('access_point', 'TBD'),
 ]
 
@@ -124,7 +124,7 @@ describe('the exported body', () => {
   // than roleKey would.
   it('drops what the screen files under Needs a decision', () => {
     const divergent: StoredLine = {
-      ...line('ups', 1), roleKey: 'flic', itemId: 'id-ups',
+      ...line('ups_1500va', 1), roleKey: 'flic', itemId: 'id-ups_1500va',
     }
     expect(groupIntoSections([divergent], catalog)[0].label).toBe('Needs a decision')
     expect(buildPdfBody([divergent], catalog).rows).toEqual([])
@@ -138,11 +138,11 @@ describe('the exported body', () => {
   // too; those lines are now dropped outright, so this is the reachable case.
   it('takes the name from itemId and the section from roleKey', () => {
     const divergent: StoredLine = {
-      ...line('ups', 1), roleKey: 'display', itemId: 'id-ups',
+      ...line('ups_1500va', 1), roleKey: 'display', itemId: 'id-ups_1500va',
     }
     const { rows, headerRowIndices } = buildPdfBody([divergent], catalog)
     expect(rows[[...headerRowIndices][0]][0]).toBe('Court-side')
-    expect(names(rows)).toContain('KSTAR UPS')
+    expect(names(rows)).toContain('UPS 1500 VA')
   })
 
   // items.role_key is nullable (0001_schema.sql) and listLines maps a null
@@ -195,9 +195,9 @@ describe('the exported body', () => {
   // real quantity — never the unmapped placeholder, never a dash.
   it('prints a deactivated item\'s line with its name and its quantity', () => {
     const deactivated = catalog.map(i =>
-      i.roleKey === 'ups' ? { ...i, isActive: false } : i)
-    const { rows } = buildPdfBody([line('ups', 2)], deactivated)
-    const row = rows.find(r => r[0] === 'KSTAR UPS')
+      i.roleKey === 'ups_1500va' ? { ...i, isActive: false } : i)
+    const { rows } = buildPdfBody([line('ups_1500va', 2)], deactivated)
+    const row = rows.find(r => r[0] === 'UPS 1500 VA')
     expect(row).toBeDefined()
     expect(row?.[1]).toBe('2')
     expect(names(rows).some(n => n.includes('NO ITEM MAPPED'))).toBe(false)
@@ -210,8 +210,8 @@ describe('the exported body', () => {
   // printed it; this uses a distinctive value so the assertion is real.
   it('never lets an item\'s internal notes reach a printed row', () => {
     const noted = catalog.map(i =>
-      i.roleKey === 'ups' ? { ...i, notes: 'ACME distributor cost markup 40%' } : i)
-    const { rows } = buildPdfBody([line('ups', 1)], noted)
+      i.roleKey === 'ups_1500va' ? { ...i, notes: 'ACME distributor cost markup 40%' } : i)
+    const { rows } = buildPdfBody([line('ups_1500va', 1)], noted)
     expect(rows.flat().some(cell => cell.includes('ACME distributor cost markup 40%')))
       .toBe(false)
   })
@@ -220,10 +220,10 @@ describe('the exported body', () => {
   // does. The note must stay under its own line, inside its own group.
   it('keeps a print note directly below its line', () => {
     const noted = catalog.map(i =>
-      i.roleKey === 'ups' ? { ...i, printNote: 'Rack-mount kit required' } : i)
-    const { rows } = buildPdfBody([line('ups', 1)], noted)
+      i.roleKey === 'ups_1500va' ? { ...i, printNote: 'Rack-mount kit required' } : i)
+    const { rows } = buildPdfBody([line('ups_1500va', 1)], noted)
     expect(rows[0][0]).toBe('Rack')
-    expect(rows[1][0]).toBe('KSTAR UPS')
+    expect(rows[1][0]).toBe('UPS 1500 VA')
     expect(rows[2][0]).toContain('Rack-mount kit required')
   })
 })
