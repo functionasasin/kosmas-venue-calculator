@@ -34,6 +34,7 @@ export function pickGateway(inputs: VenueInputs): RoleKey {
 export interface SwitchPlan {
   count24: number
   count48: number
+  /** Which 24-port SKU. Drives the PoE budget — the two are far apart. */
   roleKey24: 'switch_24_pro' | 'switch_24_std'
   overCapacity: boolean
 }
@@ -52,6 +53,10 @@ const BANDS: ReadonlyArray<readonly [number, number, number]> = [
  * switch quantity is zero and the gateway powers the court directly.
  */
 export function planSwitches(inputs: VenueInputs, ports: number): SwitchPlan {
+  // `Cost Analysis!D7`. In practice this only ever picks the non-Pro switch for
+  // a 2-3 court Pro venue: the gates block Basic and Basic+ outright and reject
+  // an Autonomous tier with fewer than one door, so every other tier trips one
+  // of the first two terms on its own, and a 1-court venue gets no switch.
   const wantPro =
     inputs.securityCameras > 0 || inputs.kisiDoors > 0 || inputs.courts >= 4
   const roleKey24 = wantPro ? 'switch_24_pro' : 'switch_24_std'

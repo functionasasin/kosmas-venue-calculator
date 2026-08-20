@@ -7,8 +7,14 @@ import type { RoleKey } from './roleKeys'
 // venue-sizing.md § Sheet inconsistency to be aware of — per-switch PoE
 // budgets. The gateway's 180W is deliberately excluded: in a switched venue
 // nothing PoE connects to the gateway, so counting it overstates the budget.
-const BUDGET_24 = 400
+const BUDGET_24_PRO = 400
 const BUDGET_48 = 600
+
+// The non-Pro USW-24-POE is NOT a smaller-budget version of the same switch —
+// it delivers 95W against the Pro's 400W, a 4x gap. Applying the Pro figure to
+// both reported a 3-court venue at 23% when it was really at 96%, i.e. the one
+// venue with the least headroom looked like the one with the most.
+const BUDGET_24_STD = 95
 
 // ...except in a 1-court venue, which is spec'd with NO switch at all. There
 // the court gear runs off the UDM-SE's own PoE and 180W is the entire budget.
@@ -28,7 +34,9 @@ export function checkPoeBudget(
   plan: SwitchPlan,
   kisi: KisiPlan,
 ): Warning[] {
-  const switchBudget = plan.count24 * BUDGET_24 + plan.count48 * BUDGET_48
+  const budget24 =
+    plan.roleKey24 === 'switch_24_pro' ? BUDGET_24_PRO : BUDGET_24_STD
+  const switchBudget = plan.count24 * budget24 + plan.count48 * BUDGET_48
   const switched = switchBudget > 0
   const budget = switched ? switchBudget : GATEWAY_POE
 

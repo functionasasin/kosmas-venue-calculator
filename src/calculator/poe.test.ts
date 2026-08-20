@@ -140,3 +140,31 @@ describe('checkPoeBudget', () => {
     expect(w[0].message).toContain('14W of 180W')
   })
 })
+
+describe('the non-Pro 24-port switch has a quarter of the Pro\'s budget', () => {
+  // USW-24-POE delivers 95W; USW-Pro-24-POE delivers 400W. Both are "a 24-port
+  // switch" and the sizing doc's quantity table treats them interchangeably,
+  // which is exactly why applying one budget to both went unnoticed: it is
+  // wrong only on the 2-3 court venues nobody looks at.
+  const plan = (roleKey24: SwitchPlan['roleKey24']): SwitchPlan =>
+    ({ count24: 1, count48: 0, roleKey24, overCapacity: false })
+
+  const court = [item('replay_camera', 17.5), item('ipad_poe_adapter', 13)]
+  const threeCourts: CalculatedLine[] = [
+    { roleKey: 'replay_camera', qty: 3, formula: '' },
+    { roleKey: 'ipad_poe_adapter', qty: 3, formula: '' },
+  ]
+
+  it('reports a 3-court venue on the non-Pro switch as critical, not comfortable', () => {
+    const w = checkPoeBudget(threeCourts, court, plan('switch_24_std'), noKisi)[0]
+    // 3 x 30.5 = 91.5W of the 95W this switch can actually deliver.
+    expect(w.message).toContain('92W of 95W (96%)')
+    expect(w.level).toBe('critical')
+  })
+
+  it('still reports the Pro switch against 400W', () => {
+    const w = checkPoeBudget(threeCourts, court, plan('switch_24_pro'), noKisi)[0]
+    expect(w.message).toContain('92W of 400W (23%)')
+    expect(w.level).toBe('info')
+  })
+})
