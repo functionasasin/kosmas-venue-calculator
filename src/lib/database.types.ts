@@ -62,6 +62,39 @@ export type Database = {
         }
         Relationships: []
       }
+      venue_item_choices: {
+        Row: {
+          item_id: string
+          role_key: string
+          venue_id: string
+        }
+        Insert: {
+          item_id: string
+          role_key: string
+          venue_id: string
+        }
+        Update: {
+          item_id?: string
+          role_key?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_item_choices_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_item_choices_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venue_lines: {
         Row: {
           id: string
@@ -115,12 +148,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      venue_item_choices: {
-        Row: { venue_id: string; role_key: string; item_id: string }
-        Insert: { venue_id: string; role_key: string; item_id: string }
-        Update: { venue_id?: string; role_key?: string; item_id?: string }
-        Relationships: []
       }
       venues: {
         Row: {
@@ -177,17 +204,14 @@ export type Database = {
     Functions: {
       save_venue: {
         Args: {
-          p_venue: Json
-          p_lines: Json
           p_choices: Json
           p_expected_updated_at?: string
+          p_lines: Json
+          p_venue: Json
         }
         Returns: Json
       }
-      set_item_default: {
-        Args: { p_item_id: string }
-        Returns: undefined
-      }
+      set_item_default: { Args: { p_item_id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
