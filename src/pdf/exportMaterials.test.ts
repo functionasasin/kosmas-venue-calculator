@@ -34,11 +34,18 @@ vi.mock('jspdf', () => {
 // Stubbed like jsPDF, but it reports back where the table ended: that number
 // decides whether the closing note still fits above the contact strip, and it
 // is the only input to that branch.
-const { tableEnd } = vi.hoisted(() => ({
+const { tableEnd, lastOptions } = vi.hoisted(() => ({
   tableEnd: { finalY: undefined as number | undefined },
+  // The autoTable config, captured so didParseCell can be exercised: it is
+  // where a note row gets its own type, and nothing else can see that.
+  lastOptions: { current: undefined as undefined | Record<string, unknown> },
 }))
 vi.mock('jspdf-autotable', () => ({
-  default: vi.fn((doc: { lastAutoTable?: { finalY: number } }) => {
+  default: vi.fn((
+    doc: { lastAutoTable?: { finalY: number } },
+    options: Record<string, unknown>,
+  ) => {
+    lastOptions.current = options
     if (tableEnd.finalY !== undefined) doc.lastAutoTable = { finalY: tableEnd.finalY }
   }),
 }))
@@ -246,6 +253,57 @@ describe('the exported body', () => {
     expect(rows[0][0]).toBe('Rack')
     expect(rows[1][0]).toBe('UPS 1500 VA')
     expect(rows[2][0]).toContain('Rack-mount kit required')
+  })
+
+  /**
+   * A print note is a constraint hanging off the line above it, not an item of
+   * its own, and it is the longest text on the sheet — the UPS note ran to
+   * seven lines at the same size and weight as the hardware, so the eye lost
+   * the list inside the prose. Reported by index for the same reason the
+   * section headers are: autoTable styles cells through didParseCell, which
+   * only knows a row number.
+   */
+  it('reports which rows are notes rather than items', () => {
+    const noted = catalog.map(i =>
+      i.roleKey === 'ups_1500va' ? { ...i, printNote: 'Rack-mount kit required' } : i)
+    const { rows, noteRowIndices } = buildPdfBody([line('ups_1500va', 1)], noted)
+    expect([...noteRowIndices]).toEqual([2])
+    expect(rows[2][0]).toContain('Rack-mount kit required')
+  })
+})
+
+type HookData = {
+  section: string
+  row: { index: number }
+  cell: { styles: Record<string, unknown> }
+}
+
+describe('how a note row is drawn', () => {
+  const noted = catalog.map(i =>
+    i.roleKey === 'ups_1500va' ? { ...i, printNote: 'Rack-mount kit required' } : i)
+
+  const styleOf = (index: number) => {
+    exportMaterialsPdf('Tela Park', 'Pro', [line('ups_1500va', 1)], noted)
+    const didParseCell = lastOptions.current?.didParseCell as (d: HookData) => void
+    const cell = { styles: {} as Record<string, unknown> }
+    didParseCell({ section: 'body', row: { index }, cell })
+    return cell.styles
+  }
+
+  it('sets a note smaller and italic, so the list reads as the list', () => {
+    const styles = styleOf(2)
+    expect(styles.fontStyle).toBe('italic')
+    expect(styles.fontSize).toBe(8)
+  })
+
+  // Grey, but not so grey it stops surviving a photocopy — this is a
+  // constraint the buyer has to act on, only a subordinate one.
+  it('greys a note without dropping it out of the page', () => {
+    expect(styleOf(2).textColor).toEqual([90, 90, 90])
+  })
+
+  it('leaves the item row it hangs off alone', () => {
+    expect(styleOf(1)).toEqual({})
   })
 })
 

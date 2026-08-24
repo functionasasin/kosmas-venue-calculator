@@ -34,15 +34,35 @@ const PRINT_SECTIONS = new Set<SectionId>(PRINT_ORDER)
 
 export function buildPdfBody(
   lines: StoredLine[], catalog: Item[],
-): { rows: string[][]; headerRowIndices: Set<number> } {
+): {
+  rows: string[][]
+  headerRowIndices: Set<number>
+  /**
+   * Print-note rows. A note is a constraint hanging off the line above it, not
+   * an item of its own, and it is the longest text on the sheet — so it is
+   * drawn smaller, italic and grey. autoTable styles cells through
+   * didParseCell, which knows only a row number, which is why this leaves here
+   * as indices rather than as a flag on the row.
+   */
+  noteRowIndices: Set<number>
+} {
   const byId = new Map(catalog.map(i => [i.id, i]))
   const byRole = itemsByRole(catalog)
 
   const buckets = new Map<SectionId, string[][]>()
-  const push = (id: SectionId, row: string[]) => {
+  // Per bucket, which of its rows are notes — resolved to absolute row indices
+  // only once the buckets are concatenated below, since a section's offset is
+  // not known until then.
+  const noteRows = new Map<SectionId, Set<number>>()
+  const push = (id: SectionId, row: string[], isNote = false) => {
     const bucket = buckets.get(id)
     if (bucket) bucket.push(row)
     else buckets.set(id, [row])
+    if (isNote) {
+      const notes = noteRows.get(id) ?? new Set<number>()
+      notes.add((buckets.get(id)?.length ?? 1) - 1)
+      noteRows.set(id, notes)
+    }
   }
 
   for (const line of lines) {
@@ -104,21 +124,28 @@ export function buildPdfBody(
 
     // print_note only — `notes` are internal working notes and must not reach
     // a document that gets handed to someone. It stays under its own line.
-    if (item.printNote) push(section, [`    ${item.printNote}`, ''])
+    if (item.printNote) push(section, [`    ${item.printNote}`, ''], true)
   }
 
   const rows: string[][] = []
   const headerRowIndices = new Set<number>()
+  const noteRowIndices = new Set<number>()
   for (const id of PRINT_ORDER) {
     const bucket = buckets.get(id)
     if (!bucket || bucket.length === 0) continue
     headerRowIndices.add(rows.length)
     rows.push([SECTION_LABELS[id], ''])
+    // The bucket's own offsets, shifted past the header row just pushed.
+    for (const i of noteRows.get(id) ?? []) noteRowIndices.add(rows.length + i)
     rows.push(...bucket)
   }
 
-  return { rows, headerRowIndices }
+  return { rows, headerRowIndices, noteRowIndices }
 }
+
+/** Print notes are set down from the 9pt body, in grey rather than near-black. */
+const NOTE_FONT_SIZE = 8
+const NOTE_GREY: [number, number, number] = [90, 90, 90]
 
 /** First line the letterhead leaves free, and where the title block starts. */
 const CONTENT_TOP = HEADER_BAND.h + 6
@@ -184,7 +211,7 @@ export function exportMaterialsPdf(
     year: 'numeric', month: 'long', day: 'numeric',
   })}`, 14, TITLE_Y + 21)
 
-  const { rows, headerRowIndices } = buildPdfBody(lines, catalog)
+  const { rows, headerRowIndices, noteRowIndices } = buildPdfBody(lines, catalog)
 
   autoTable(doc, {
     startY: TITLE_Y + 28,
@@ -198,10 +225,19 @@ export function exportMaterialsPdf(
     headStyles: { fillColor: KOSMAS_NAVY },
     columnStyles: { 1: { halign: 'right', cellWidth: 20 } },
     didParseCell: data => {
-      if (data.section === 'body' && headerRowIndices.has(data.row.index)) {
+      if (data.section !== 'body') return
+      if (headerRowIndices.has(data.row.index)) {
         data.cell.styles.fontStyle = 'bold'
         data.cell.styles.fillColor = KOSMAS_NAVY_TINT
         data.cell.styles.textColor = KOSMAS_NAVY
+      }
+      // Subordinate to the line it hangs off: smaller, italic, grey. Grey 90
+      // and not lighter — it is still a constraint the buyer must act on, and
+      // it has to survive a photocopy.
+      if (noteRowIndices.has(data.row.index)) {
+        data.cell.styles.fontStyle = 'italic'
+        data.cell.styles.fontSize = NOTE_FONT_SIZE
+        data.cell.styles.textColor = NOTE_GREY
       }
     },
   })
