@@ -36,6 +36,17 @@ describe('diffLines', () => {
     expect(rows).toEqual(['~ Replay camera: Uniview Owlview → Dahua 5459T'])
   })
 
+  // C5: when a line's quantity AND its item both changed, only the quantity
+  // row prints — the item change is suppressed on purpose, because two rows
+  // for one line reads as two changes. Written so it would fail if someone
+  // later made the `else if` an `if`, which would emit both rows.
+  it('reports only the quantity row when a line changed both quantity and item', () => {
+    const rows = diffLines(
+      [line({})], [line({ qty: 14, itemId: 'dah' })], catalog,
+    )
+    expect(rows).toEqual(['~ Replay camera: 8 → 14'])
+  })
+
   it('reports additions and removals', () => {
     expect(diffLines([], [line({})], catalog)).toEqual(['+ Replay camera: 8'])
     expect(diffLines([line({})], [], catalog)).toEqual(['− Replay camera: removed'])
