@@ -3,18 +3,27 @@ import { ROLE_LABELS, type RoleKey } from '@/calculator/roleKeys'
 import type { VenueItemChoice } from '@/data/venueItemChoices'
 
 /**
- * The catalog can now hold several ACTIVE items on one role key. Eight
+ * The catalog can now hold several ACTIVE items on one role key. Six
  * non-test sites assume it cannot — planUps, checkPoeBudget, sumRackU,
- * calculateBOM's POE_DATA_INCOMPLETE check, itemsByRole, itemIdFor and the
- * Catalog toggle — and they do not even fail the same way: `new Map` keeps the
- * LAST duplicate while `find` keeps the FIRST, so the UPS rung and the PoE
- * check would disagree about which item holds a role with nothing raised
- * anywhere.
+ * calculateBOM's POE_DATA_INCOMPLETE check, itemsByRole and itemIdFor — and
+ * they do not even fail the same way: `new Map` keeps the LAST duplicate
+ * while `find` keeps the FIRST, so the UPS rung and the PoE check would
+ * disagree about which item holds a role with nothing raised anywhere.
+ *
+ * Two other sites used to be on this list and are not any more. The Catalog
+ * toggle's guard was removed when 0011 dropped items_role_key_active: several
+ * active items per role is the supported state now, so there is nothing left
+ * for that guard to pre-empt. UPS_CAMERA_ASSUMPTION was deleted from
+ * calculateBOM on 2026-08-20: it warned when the catalog's one replay camera
+ * disagreed with PodPlay's 17.5 W standard, existing solely because the
+ * catalog held a single camera while venues did not share one. Now that
+ * venue_item_choices resolves which camera a venue actually gets, the
+ * question the warning hedged is answered elsewhere and the warning is gone.
  *
  * The invariant is not removed, it MOVES: the database relaxes, and this
  * function re-establishes one active item per role before any of those run.
  * If a later change makes the engine itself choice-aware, that guarantee is
- * gone and all eight sites become unsafe again.
+ * gone and all six sites become unsafe again.
  *
  * Item selection is not in podplay-ph-venue-sizing.md, which is why this lives
  * in src/lib and not in src/calculator.
