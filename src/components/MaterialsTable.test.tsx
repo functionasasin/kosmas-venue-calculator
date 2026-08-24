@@ -439,6 +439,27 @@ describe('a line that resolves to no item', () => {
     expect(swapOptionNames()).toContain('iPad A16')
   })
 
+  /**
+   * The Removed-lines list resolved items with its own copy of the
+   * itemId-then-role chain and never got the empty-itemId guard its two
+   * siblings have, so a removed line that maps to nothing named an arbitrary
+   * deactivated candidate here while the row above it said "No active item
+   * mapped". All three now go through resolveLineItem.
+   */
+  it('names no item in the Removed-lines list either', () => {
+    render(
+      <MaterialsTable
+        lines={[{ ...unresolved, suppressed: true }]}
+        catalog={[...cameras, ...catalog]}
+        formulas={new Map()} onChange={vi.fn()} isAdmin />,
+    )
+    expect(screen.getByText(/Removed lines/)).toBeInTheDocument()
+    expect(screen.queryByText('Dahua 5459T')).not.toBeInTheDocument()
+    expect(screen.queryByText('Uniview Owlview')).not.toBeInTheDocument()
+    // Falls back to the role key, the same as the row does.
+    expect(screen.getByText('replay_camera')).toBeInTheDocument()
+  })
+
   // A line whose itemId points at a row that IS in the catalog keeps naming
   // it, deactivated or not: that is a real pointer to a real item, and the
   // "(inactive)" badge is how a saved line survives its item being retired.

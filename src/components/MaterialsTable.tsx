@@ -1,6 +1,8 @@
 import type { Item } from '@/calculator/types'
 import type { StoredLine } from '@/data/venueLines'
-import { groupIntoSections, itemsByRole, sectionForItem } from '@/lib/sections'
+import {
+  groupIntoSections, itemsById, itemsByRole, resolveLineItem, sectionForItem,
+} from '@/lib/sections'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableHead, TableHeader, TableRow,
@@ -23,7 +25,7 @@ export function MaterialsTable({
   // resolves to. The catalog itself is NOT collapsed — the swap control must
   // still be able to offer the alternate.
   const byRole = itemsByRole(catalog, chosen)
-  const byId = new Map(catalog.map(i => [i.id, i]))
+  const byId = itemsById(catalog)
 
   // UI visibility only. The anon key ships in the bundle and the venue_lines
   // RLS policy grants read to any authenticated user, so this is the same kind
@@ -141,6 +143,7 @@ export function MaterialsTable({
               key={section.id}
               section={section}
               byRole={byRole}
+              byId={byId}
               catalog={catalog}
               formulas={formulas}
               isAdmin={isAdmin}
@@ -174,7 +177,7 @@ export function MaterialsTable({
         <div className="space-y-1 px-4 text-sm text-muted-foreground">
           <p>Removed lines (will not return on recalculation):</p>
           {removed.map(l => {
-            const item = byId.get(l.itemId) ?? (l.roleKey ? byRole.get(l.roleKey) : undefined)
+            const item = resolveLineItem(l, byId, byRole)
             return (
               <div key={l.id} className="flex items-center gap-2">
                 <span>{item?.name ?? l.roleKey}</span>

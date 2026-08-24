@@ -20,6 +20,27 @@ export interface StoredLine {
 }
 
 /**
+ * role -> the id of the ACTIVE item holding it, for a catalog that has already
+ * been through resolveCatalog — so exactly one item holds each role and this
+ * Map cannot be last-wins over two candidates.
+ *
+ * NOT itemsByRole from src/lib/sections: that one deliberately does not filter
+ * on isActive, because it feeds the screen, where a saved line whose item was
+ * deactivated must still render its name. Here a deactivated item must never
+ * be minted onto a fresh line, so the filter is the point.
+ *
+ * One helper because mergeRecalculation and saveVenueAndLines both need it and
+ * both used to build it inline — the isActive term was added to one of the two
+ * long after the other, which is exactly the drift this prevents.
+ */
+const itemIdByRole = (catalog: Item[]): Map<RoleKey, string> =>
+  new Map(
+    catalog
+      .filter(i => i.isActive && i.roleKey)
+      .map(i => [i.roleKey as RoleKey, i.id]),
+  )
+
+/**
  * Recalculation contract:
  *   formula line  -> quantity refreshed, item re-pointed at the resolved one
  *   manual line   -> untouched (a deliberate correction must survive)
@@ -43,11 +64,7 @@ export function mergeRecalculation(
   resolved: Item[],
 ): StoredLine[] {
   const byRole = new Map(calculated.map(c => [c.roleKey, c]))
-  const itemIdFor = new Map(
-    resolved
-      .filter(i => i.isActive && i.roleKey)
-      .map(i => [i.roleKey as RoleKey, i.id]),
-  )
+  const itemIdFor = itemIdByRole(resolved)
   const kept: StoredLine[] = []
 
   for (const line of stored) {
@@ -181,12 +198,9 @@ const lineFromRpc = (r: Record<string, unknown>): StoredLine => ({
  * resolved catalog, which is what makes a venue that has never chosen still
  * pin its defaults the first time it is saved.
  *
- * `catalog` must already be resolved (src/lib/resolveCatalog.ts): itemIdFor
- * below is a plain role -> id Map, so an unresolved catalog with two active
- * cameras would mint the LAST one into every freshly calculated line. The
- * `isActive` term in that filter is new — it was `roleKey` alone, which was
- * safe only because the caller happened to pass an active-only array. Belt and
- * braces: a deactivated item must never be minted onto a fresh line.
+ * `catalog` must already be resolved (src/lib/resolveCatalog.ts): itemIdByRole
+ * is a plain role -> id Map, so an unresolved catalog with two active cameras
+ * would mint the LAST one into every freshly calculated line.
  */
 export async function saveVenueAndLines(
   venue: Venue,
@@ -194,11 +208,7 @@ export async function saveVenueAndLines(
   catalog: Item[],
   choices: VenueItemChoice[],
 ): Promise<{ venue: Venue; lines: StoredLine[]; choices: VenueItemChoice[] }> {
-  const itemIdFor = new Map(
-    catalog
-      .filter(i => i.isActive && i.roleKey)
-      .map(i => [i.roleKey as RoleKey, i.id]),
-  )
+  const itemIdFor = itemIdByRole(catalog)
 
   // itemId is authoritative — it survives the item being deactivated or its
   // role key being reassigned. Only lines minted by mergeRecalculation have an

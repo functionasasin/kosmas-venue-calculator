@@ -1,6 +1,7 @@
 import type { Item } from '@/calculator/types'
 import { ROLE_LABELS } from '@/calculator/roleKeys'
 import type { StoredLine } from '@/data/venueLines'
+import { itemsById } from '@/lib/sections'
 
 /**
  * Comparison of two line sets, rendered for the Recalculate preview and the
@@ -29,7 +30,7 @@ const keyOf = (line: StoredLine) => line.roleKey ?? `item:${line.itemId}`
 export function diffLines(
   before: StoredLine[], after: StoredLine[], catalog: Item[],
 ): string[] {
-  const byId = new Map(catalog.map(i => [i.id, i]))
+  const byId = itemsById(catalog)
 
   // A role line is labelled by its ROLE, not by the item currently on it — the
   // item is what may be changing, and "Dahua: Uniview → Dahua" reads as a
