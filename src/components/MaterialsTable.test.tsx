@@ -393,6 +393,66 @@ describe('cabling is admin-only', () => {
   })
 })
 
+/**
+ * A role whose every item has been deactivated. mergeRecalculation mints the
+ * line with an EMPTY itemId — "this role resolved to nothing" — and the row
+ * has to say so.
+ *
+ * Falling through to the role lookup instead names a deactivated candidate,
+ * and with more than one of them the one shown is arbitrary: itemsByRole is
+ * built from the whole catalog with no active filter, and `chosen` holds no
+ * entry for a role with no active winner, so it is first-wins. That is the
+ * same arbitrary resolution resolveCatalog exists to prevent, and it printed a
+ * SKU nobody chose on the row for a line the engine sized at zero watts.
+ * buildPdfBody already drops these lines; this is the screen catching up.
+ */
+describe('a line that resolves to no item', () => {
+  const deactivated = (id: string, name: string): Item => ({
+    ...item('replay_camera', 'camera', name), id, isActive: false,
+  })
+  const cameras = [
+    deactivated('dah', 'Dahua 5459T'),
+    deactivated('uni', 'Uniview Owlview'),
+  ]
+  const unresolved = line('replay_camera', 14, {
+    id: 'new:replay_camera', itemId: '',
+  })
+
+  it('names no item at all rather than an arbitrary deactivated one', () => {
+    render(
+      <MaterialsTable lines={[unresolved]} catalog={[...cameras, ...catalog]}
+        formulas={new Map()} onChange={vi.fn()} isAdmin />,
+    )
+    expect(screen.getByText(/No active item mapped for replay_camera/))
+      .toBeInTheDocument()
+    expect(screen.queryByText(/Dahua/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Uniview/)).not.toBeInTheDocument()
+  })
+
+  // The line still has to be repairable — that is what the swap control is
+  // for — so dropping the name must not drop the row or its picker.
+  it('still offers the swap control that repairs it', () => {
+    render(
+      <MaterialsTable lines={[unresolved]} catalog={[...cameras, ...catalog]}
+        formulas={new Map()} onChange={vi.fn()} isAdmin />,
+    )
+    expect(swapOptionNames()).toContain('iPad A16')
+  })
+
+  // A line whose itemId points at a row that IS in the catalog keeps naming
+  // it, deactivated or not: that is a real pointer to a real item, and the
+  // "(inactive)" badge is how a saved line survives its item being retired.
+  it('still names a deactivated item the line actually points at', () => {
+    render(
+      <MaterialsTable
+        lines={[line('replay_camera', 14, { itemId: 'dah' })]}
+        catalog={[...cameras, ...catalog]}
+        formulas={new Map()} onChange={vi.fn()} isAdmin />,
+    )
+    expect(screen.getByText(/Dahua 5459T \(inactive\)/)).toBeInTheDocument()
+  })
+})
+
 describe('two active items on one role', () => {
   // NOTE: this fixture is deliberately NOT run through resolveCatalog. The
   // component is given the whole catalog on purpose — the swap control's job

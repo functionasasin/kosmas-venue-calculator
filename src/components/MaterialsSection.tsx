@@ -26,6 +26,23 @@ export function MaterialsSection({
   // is right for a formula line and WRONG for a line the user swapped by hand.
   // Resolving by id is what keeps the screen and the PDF naming the same item.
   const byId = new Map(catalog.map(i => [i.id, i]))
+
+  /**
+   * An EMPTY itemId is mergeRecalculation saying the role resolved to nothing,
+   * and it has no item — the row renders "No active item mapped for …" and
+   * saveVenueAndLines refuses it. The role fallback below must not run for it:
+   * byRole is built from the whole catalog with no active filter, and `chosen`
+   * holds no entry for a role with no active winner, so it would name a
+   * DEACTIVATED candidate — whichever came first of however many. That is the
+   * arbitrary resolution resolveCatalog exists to prevent, and it put a SKU
+   * nobody chose on a line the engine sized at zero watts. buildPdfBody drops
+   * these lines on the same test, which is why the sheet was already right
+   * while the screen was not.
+   */
+  const itemFor = (line: StoredLine) =>
+    line.itemId
+      ? byId.get(line.itemId) ?? (line.roleKey ? byRole.get(line.roleKey) : undefined)
+      : undefined
   // Sections start expanded. State is local and not persisted: a section that
   // empties across a recalculation unmounts and loses it, which is fine —
   // a section that disappears and returns is a different thing to the user.
@@ -68,7 +85,7 @@ export function MaterialsSection({
         <MaterialsRow
           key={line.id}
           line={line}
-          item={byId.get(line.itemId) ?? (line.roleKey ? byRole.get(line.roleKey) : undefined)}
+          item={itemFor(line)}
           formula={formulas.get(line.roleKey ?? '') ?? ''}
           // swapOptionsFor returns the whole active catalog when a line's item
           // doesn't resolve (an unrepairable line has to be repairable), which
