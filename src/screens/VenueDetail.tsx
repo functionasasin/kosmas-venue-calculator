@@ -83,12 +83,23 @@ export function VenueDetail() {
    *     reason — and reactivating the Dahua later would find every venue
    *     silently following the catalog default again.
    *
-   * A role that resolved to something takes the resolved item, which is how a
-   * dead choice gets repaired on save (the user saw CHOICE_UNAVAILABLE first).
-   * A role that resolved to NOTHING keeps the venue's stored id untouched:
-   * ROLE_NO_DEFAULT is an admin problem, and throwing away the user's pick
-   * while they fix it would be this component destroying data it cannot
-   * restore.
+   * The venue's stored choice always wins over the resolution, including when
+   * that choice has been deactivated. `resolved.chosen` holds a FALLBACK in
+   * that case — the catalog default, or the sole remaining active item — and
+   * it exists to size and display the venue's list while the pick is broken,
+   * not to replace the pick. Saving the fallback over the stored id would
+   * silently swap the venue onto the catalog default the moment anything else
+   * triggers a save, and reactivating the item later would never undo it,
+   * because by then nothing on screen says the pin is gone. The stored choice
+   * is only ever replaced by the user actually picking something in the
+   * Hardware group.
+   *
+   * `resolved.chosen` only fills a role the venue has never pinned: a venue
+   * that never chose still pins the role's current resolution on its first
+   * save, so a later default flip cannot move it. A role that resolved to
+   * NOTHING keeps the venue's stored id untouched either way: ROLE_NO_DEFAULT
+   * is an admin problem, and throwing away the user's pick while they fix it
+   * would be this component destroying data it cannot restore.
    */
   const choicesToSave = useMemo(() => {
     const stored = new Map(choices.map(c => [c.roleKey, c.itemId]))
@@ -97,7 +108,7 @@ export function VenueDetail() {
       ...stored.keys(),
     ])
     return [...roles].flatMap(roleKey => {
-      const itemId = resolved.chosen.get(roleKey) ?? stored.get(roleKey)
+      const itemId = stored.get(roleKey) ?? resolved.chosen.get(roleKey)
       return itemId ? [{ roleKey, itemId }] : []
     })
   }, [choices, catalogAll, resolved])

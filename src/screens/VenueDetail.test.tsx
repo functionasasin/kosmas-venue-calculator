@@ -434,6 +434,31 @@ describe('per-venue hardware choice', () => {
       .toEqual([{ roleKey: 'replay_camera', itemId: uniview.id }])
   })
 
+  // The complementary case to the test above: here it is the venue's OWN
+  // pick, not the alternate, that gets deactivated. `resolved.chosen` holds
+  // the fallback (the Uniview) in that state, and if choicesToSave ever
+  // preferred the resolution over the stored id again, this would save the
+  // fallback and silently delete the venue's pin on the next unrelated save.
+  it('keeps a stored choice after the chosen item itself is deactivated', async () => {
+    const { listItems } = await import('@/data/items')
+    const { saveVenueAndLines } = await import('@/data/venueLines')
+    const { listChoices } = await import('@/data/venueItemChoices')
+
+    vi.mocked(listItems).mockResolvedValueOnce(
+      [uniview, { ...dahua, isActive: false }],
+    )
+    vi.mocked(listChoices).mockResolvedValueOnce(
+      [{ roleKey: 'replay_camera', itemId: dahua.id }],
+    )
+
+    await renderDetail()
+    fireEvent.click(await screen.findByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(saveVenueAndLines).toHaveBeenCalled())
+
+    expect(vi.mocked(saveVenueAndLines).mock.calls[0][3])
+      .toEqual([{ roleKey: 'replay_camera', itemId: dahua.id }])
+  })
+
   // projection() serialises { venue, lines }. A choice change touches neither,
   // so without a choices term `dirty` stays false, the unsaved-changes guard
   // never arms, and the edit is lost on navigate — silently, which is what
@@ -477,7 +502,12 @@ describe('per-venue hardware choice', () => {
     )
 
     await renderDetail()
-    expect(await screen.findByText(/Dahua 5459T/)).toBeInTheDocument()
+    // Not /Dahua 5459T/: that name also renders in the materials row's swap
+    // picker as the inactive fallback, so it is on screen whether or not the
+    // warning ever fires. The warning's own wording is what CHOICE_UNAVAILABLE
+    // alone produces.
+    expect(await screen.findByText(/deactivated or no longer fills that role/))
+      .toBeInTheDocument()
   })
 
   // §5: mergeRecalculation leaves manual lines alone, deliberately — a

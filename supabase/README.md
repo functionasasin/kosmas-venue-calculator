@@ -8,10 +8,12 @@ The seed is numbered `0003` because it has to land there. It runs under
 `0001`'s original `items_role_key_active` index, which is why it leaves the
 Dahua replay camera inactive; `0011` then relaxes that index and backfills
 `is_default` over the rows the seed created, and `0014` activates the Dahua
-alongside the Uniview. Run the seed last instead and two things break: `0011`
-backfills nothing, so no role has a default and every venue resolves its
-hardware to nothing, and `0014` aborts on its own guard because the row it
-activates does not exist yet.
+alongside the Uniview. Run the seed last instead and `0014` aborts on its own
+guard because the row it activates does not exist yet. `0011` backfilling
+nothing is comparatively harmless — every role still has exactly one active
+item at that point, and `resolveCatalog` falls back to a role's sole active
+item when no default is set, so no role carries a default flag but nothing
+fails to resolve.
 
 ## Accounts
 
