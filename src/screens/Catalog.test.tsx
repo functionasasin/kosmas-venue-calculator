@@ -33,15 +33,18 @@ const renderCatalog = async () => {
  * table that already scrolls sideways on a phone.
  */
 describe('Catalog power column', () => {
-  it('names the kind of draw, not just the number', async () => {
+  // The unit lives in the cell, not the header: this column carries two
+  // different quantities, so a bare 65 beside a bare 2.8 would be unitless as
+  // well as ambiguous.
+  it('names the kind of draw and its unit, not just the number', async () => {
     listItems.mockResolvedValueOnce([
       { ...base, id: 'mac', name: 'Mac mini (M4)', roleKey: 'mac_mini',
         poeWatts: null, mainsWatts: 65 },
       base,
     ])
     await renderCatalog()
-    expect(screen.getByText('65 mains')).toBeInTheDocument()
-    expect(screen.getByText('2.8 PoE')).toBeInTheDocument()
+    expect(screen.getByText('65 W mains')).toBeInTheDocument()
+    expect(screen.getByText('2.8 W PoE')).toBeInTheDocument()
   })
 
   it('shows both when an item somehow draws both ways', async () => {
@@ -49,7 +52,7 @@ describe('Catalog power column', () => {
       { ...base, poeWatts: 7, mainsWatts: 20 },
     ])
     await renderCatalog()
-    expect(screen.getByText('7 PoE + 20 mains')).toBeInTheDocument()
+    expect(screen.getByText('7 W PoE + 20 W mains')).toBeInTheDocument()
   })
 
   it('replaces the PoE W header rather than adding a column', async () => {

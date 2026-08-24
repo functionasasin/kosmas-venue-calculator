@@ -18,11 +18,16 @@ import { toast } from 'sonner'
  * calculateBOM — the UPS is sized on poeWatts + mainsWatts — but they are not
  * interchangeable to a reader: 65 W off a wall socket and 65 W off a switch
  * port are different purchases.
+ *
+ * The unit rides in the cell rather than the header, unlike POE W and RACK U
+ * beside it. One column carries two quantities here, so the row has to say
+ * which one it is holding anyway — and having said "mains", saying "W" costs
+ * two characters and stops the number being unitless.
  */
 const powerLabel = (item: Item) => {
   const parts = []
-  if (item.poeWatts !== null) parts.push(`${item.poeWatts} PoE`)
-  if (item.mainsWatts !== null) parts.push(`${item.mainsWatts} mains`)
+  if (item.poeWatts !== null) parts.push(`${item.poeWatts} W PoE`)
+  if (item.mainsWatts !== null) parts.push(`${item.mainsWatts} W mains`)
   return parts.length > 0 ? parts.join(' + ') : '—'
 }
 
