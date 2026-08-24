@@ -166,6 +166,54 @@ The band scrolls away; the toolbars under it stay `sticky top-0` and Catalog's b
 
 Aligning the lockup against text needs an optical offset, not `align-items: center`: the SVG box spans runner, wordmark, tagline and ™, so its centre sits ~1.94px **below** the wordmark's at 147px. Centre on the box and adjacent text reads low.
 
+## `print_note` is what the buyer must act on, never why
+
+Two fields, and the difference is the whole point: `notes` is internal and
+never printed; `print_note` is the ONLY item field that reaches a document
+handed outside the company. Reasoning behind a spec belongs in `notes`, or
+better, in `podplay-ph-venue-sizing.md` — not on the sheet.
+
+That boundary had already slipped once. The UPS note reached **671 characters**
+on all five rungs — seven printed lines under a one-line item — explaining the
+PF 0.6 assumption, the online-unit exception, kVA vs VA and why AVR, all of
+which the sizing doc already says. `0015` cut it to 194 and the 48-port panel's
+to 264, moving the rest into `notes` by appending, so the rungs that already had
+one kept it. Nothing actionable was dropped: watts-binds, the rung exception,
+line-interactive/AVR, 230V, rack depth and capacity-not-runtime all survive.
+
+`pdf-export.mjs` fails if any print note in the live catalog passes **300
+characters**. That check reads catalog DATA, not code, so it is what stops the
+field collecting an essay again.
+
+## `upsertItem` writes only the columns it is handed
+
+`ItemForm` builds its payload by hand, so any column written as
+`item.foo ?? null` is **cleared every time someone edits an item**, whatever
+they were editing. `is_default` was already guarded with a spread-when-present;
+`mains_watts` was not, so renaming an item destroyed its mains draw — silently,
+because a null reads to `calculateBOM` as a legitimate 0 W and the venue simply
+re-sized ~2.4 VA smaller per lost watt. Fixed 2026-08-24 (`da64055`) with the
+same spread, plus a Mains watts field on the form so the value can be typed back
+at all, plus the Catalog's `Power` column so a wipe is visible.
+
+**Any new nullable column on `items` needs the same three things**, in that
+order: spread-when-present in `upsertItem`, a field in `ItemForm`, and somewhere
+on screen the value can be read. A test in `items.test.ts` pins the write; it is
+the layer that bites, because with the form field present either implementation
+looks fine in a browser.
+
+## A line that maps to no item names no item
+
+`mergeRecalculation` mints an empty `itemId` when a role resolves to nothing.
+Neither surface may fall back to a role lookup for those: `itemsByRole` is built
+from the whole catalog with no active filter, so it returns a DEACTIVATED
+candidate — whichever comes first of however many — which is the arbitrary
+resolution `resolveCatalog` exists to prevent, printing a SKU nobody chose.
+`buildPdfBody` has always dropped them (`if (!line.itemId) continue`);
+`MaterialsSection` learned to in `863aea7`. A line whose `itemId` points at a
+real-but-deactivated row still names it with the `(inactive)` badge — that is a
+saved line surviving its item's retirement, and it is deliberate.
+
 ## Commands
 
 Node 20+, run from the repo root.
@@ -174,4 +222,15 @@ Node 20+, run from the repo root.
 npm run dev / build / preview
 npm test              # vitest run
 npx vitest run -t "19U resolves to 21U"    # single test
+```
+
+Green tests and a clean `tsc` do not see layout, a rendered PDF, or a tier
+nobody has opened. `docs/superpowers/drivers/` drives the built app in Chrome —
+`hardware-choice.mjs`, `tiers.mjs`, `pdf-export.mjs`, sharing `lib/harness.mjs`,
+which carries the real production catalog and needs no credentials. Run them
+from the repo root against a preview build, and read the README there first:
+
+```bash
+npm run build && (npx vite preview --port 4173 &) && sleep 4
+OUT=/tmp/x node docs/superpowers/drivers/pdf-export.mjs   # expect ALL CHECKS PASSED
 ```
