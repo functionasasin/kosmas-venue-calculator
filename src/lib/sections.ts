@@ -54,6 +54,38 @@ export function sectionForLine(
   return sectionForItem(item)
 }
 
+/** id -> item. The other half of itemsByRole, and needed just as often. */
+export const itemsById = (catalog: Item[]): Map<string, Item> =>
+  new Map(catalog.map(i => [i.id, i]))
+
+/**
+ * The item a line names. `itemId` is authoritative — it survives the item
+ * being deactivated or its role being reassigned elsewhere — and the role
+ * lookup is only the fallback for a freshly calculated line that has not been
+ * saved yet.
+ *
+ * An EMPTY itemId is not a miss to fall back from: it is mergeRecalculation
+ * saying the role resolved to NOTHING, and the fallback would then name a
+ * deactivated candidate — whichever of however many `itemsByRole` happens to
+ * hold, since it does not filter on isActive and `chosen` carries no entry for
+ * a role with no active winner. That is the arbitrary resolution
+ * resolveCatalog exists to prevent, and it put a SKU nobody chose on both the
+ * screen and the printed sheet before this guard existed in one place.
+ *
+ * One function because the rule had been written three times — in
+ * MaterialsSection, in buildPdfBody and in MaterialsTable's removed-lines
+ * list — and the third copy had already drifted without the guard.
+ */
+export function resolveLineItem(
+  line: Pick<StoredLine, 'itemId' | 'roleKey'>,
+  byId: Map<string, Item>,
+  byRole: Map<string, Item>,
+): Item | undefined {
+  if (!line.itemId) return undefined
+  return byId.get(line.itemId)
+    ?? (line.roleKey ? byRole.get(line.roleKey) : undefined)
+}
+
 /**
  * One item per role key, for rendering and sectioning.
  *

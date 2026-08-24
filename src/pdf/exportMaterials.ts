@@ -3,7 +3,10 @@ import autoTable from 'jspdf-autotable'
 import type { Item } from '@/calculator/types'
 import type { StoredLine } from '@/data/venueLines'
 import type { SectionId } from '@/lib/sections'
-import { SECTION_LABELS, itemsByRole, sectionForItem, sectionForLine } from '@/lib/sections'
+import {
+  SECTION_LABELS, itemsById, itemsByRole, resolveLineItem, sectionForItem,
+  sectionForLine,
+} from '@/lib/sections'
 import {
   FOOTER_BAND, FOOTER_PNG, HEADER_BAND, HEADER_PNG, KOSMAS_NAVY, KOSMAS_NAVY_TINT,
 } from './letterhead'
@@ -46,23 +49,21 @@ export function buildPdfBody(
    */
   noteRowIndices: Set<number>
 } {
-  const byId = new Map(catalog.map(i => [i.id, i]))
+  const byId = itemsById(catalog)
   const byRole = itemsByRole(catalog)
 
   const buckets = new Map<SectionId, string[][]>()
-  // Per bucket, which of its rows are notes — resolved to absolute row indices
-  // only once the buckets are concatenated below, since a section's offset is
-  // not known until then.
-  const noteRows = new Map<SectionId, Set<number>>()
+  // The note ROWS themselves, not their offsets. A row's absolute index is not
+  // known until the buckets are concatenated below, and translating a
+  // per-bucket offset afterwards is arithmetic that quietly goes wrong the
+  // first time anything is spliced in ahead of a note. Identity needs no
+  // translation.
+  const noteRows = new Set<string[]>()
   const push = (id: SectionId, row: string[], isNote = false) => {
     const bucket = buckets.get(id)
     if (bucket) bucket.push(row)
     else buckets.set(id, [row])
-    if (isNote) {
-      const notes = noteRows.get(id) ?? new Set<number>()
-      notes.add((buckets.get(id)?.length ?? 1) - 1)
-      noteRows.set(id, notes)
-    }
+    if (isNote) noteRows.add(row)
   }
 
   for (const line of lines) {
@@ -79,12 +80,11 @@ export function buildPdfBody(
     // that category rather than resolved at all.
     if (!line.itemId) continue
 
-    // Name resolution: itemId is authoritative and survives deactivation or a
-    // role being reassigned elsewhere; the roleKey lookup is only the fallback
-    // for a freshly calculated line that has not been saved yet.
-    const item =
-      byId.get(line.itemId) ??
-      (line.roleKey ? byRole.get(line.roleKey) : undefined)
+    // Name resolution, shared with the two on-screen sites — see
+    // resolveLineItem. The empty-itemId case is handled above rather than by
+    // that guard, because here the line is DROPPED entirely rather than
+    // rendered without a name.
+    const item = resolveLineItem(line, byId, byRole)
 
     // An unmapped role has no item and so no name to print — it is a data
     // problem to fix on the screen, not a line to hand someone. It used to
@@ -129,16 +129,17 @@ export function buildPdfBody(
 
   const rows: string[][] = []
   const headerRowIndices = new Set<number>()
-  const noteRowIndices = new Set<number>()
   for (const id of PRINT_ORDER) {
     const bucket = buckets.get(id)
     if (!bucket || bucket.length === 0) continue
     headerRowIndices.add(rows.length)
     rows.push([SECTION_LABELS[id], ''])
-    // The bucket's own offsets, shifted past the header row just pushed.
-    for (const i of noteRows.get(id) ?? []) noteRowIndices.add(rows.length + i)
     rows.push(...bucket)
   }
+
+  const noteRowIndices = new Set(
+    rows.flatMap((row, i) => (noteRows.has(row) ? [i] : [])),
+  )
 
   return { rows, headerRowIndices, noteRowIndices }
 }

@@ -6,6 +6,7 @@ import { getVenue, type Venue } from '@/data/venues'
 import { listItems } from '@/data/items'
 import { listChoices, type VenueItemChoice } from '@/data/venueItemChoices'
 import { resolveCatalog, multiOptionRoles } from '@/lib/resolveCatalog'
+import { itemsById } from '@/lib/sections'
 import { ROLE_LABELS, type RoleKey } from '@/calculator/roleKeys'
 import {
   listLines, saveVenueAndLines, mergeRecalculation,
@@ -144,7 +145,7 @@ export function VenueDetail() {
    * is actually wired to it any more. Matching originRoleKey too catches it.
    */
   const overridden = useMemo<Warning[]>(() => {
-    const byId = new Map(catalogAll.map(i => [i.id, i]))
+    const byId = itemsById(catalogAll)
     return choicesToSave.flatMap(c => {
       const line = lines.find(
         l => (l.roleKey === c.roleKey || l.originRoleKey === c.roleKey)
@@ -185,7 +186,13 @@ export function VenueDetail() {
     setPending(mergeRecalculation(lines, result.lines, catalog))
   }
 
-  const diff = pending ? diffLines(lines, pending, catalogAll) : []
+  // Memoised like staleRows below, and for the same reason: diffLines builds a
+  // Map over the whole catalog, and this recomputed on every re-render while
+  // the dialog was open — including renders from typing in the inputs form.
+  const diff = useMemo(
+    () => (pending ? diffLines(lines, pending, catalogAll) : []),
+    [pending, lines, catalogAll],
+  )
 
   // The table is a snapshot from the last recalculation, while the checks read
   // the inputs live. Edit courts from 8 to 12 and the sheet still exports the
