@@ -25,6 +25,44 @@ const renderCatalog = async () => {
   await screen.findByText('Uniview Owlview')
 }
 
+/**
+ * The list had a PoE W column and nothing for mains, so seven items' mains
+ * draw — the Mac mini's 65 W among them — existed only in the database. One
+ * POWER column instead of two: no powered item in this catalog draws both
+ * ways, so a second numeric column would be empty on almost every row of a
+ * table that already scrolls sideways on a phone.
+ */
+describe('Catalog power column', () => {
+  it('names the kind of draw, not just the number', async () => {
+    listItems.mockResolvedValueOnce([
+      { ...base, id: 'mac', name: 'Mac mini (M4)', roleKey: 'mac_mini',
+        poeWatts: null, mainsWatts: 65 },
+      base,
+    ])
+    await renderCatalog()
+    expect(screen.getByText('65 mains')).toBeInTheDocument()
+    expect(screen.getByText('2.8 PoE')).toBeInTheDocument()
+  })
+
+  it('shows both when an item somehow draws both ways', async () => {
+    listItems.mockResolvedValueOnce([
+      { ...base, poeWatts: 7, mainsWatts: 20 },
+    ])
+    await renderCatalog()
+    expect(screen.getByText('7 PoE + 20 mains')).toBeInTheDocument()
+  })
+
+  it('replaces the PoE W header rather than adding a column', async () => {
+    listItems.mockResolvedValueOnce([{ ...base, poeWatts: null, mainsWatts: null }])
+    await renderCatalog()
+    expect(screen.getByRole('columnheader', { name: 'Power' })).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'PoE W' })).not.toBeInTheDocument()
+    // Nothing to report is an em dash, the same as Rack U's empty state.
+    expect(screen.getByText('Uniview Owlview').closest('tr')?.textContent)
+      .toContain('—')
+  })
+})
+
 describe('Catalog with two items on one role', () => {
   // The old guard refused to activate a second item for a role, because
   // items_role_key_active would have rejected the write. That index is gone

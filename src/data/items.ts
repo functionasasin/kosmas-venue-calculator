@@ -40,7 +40,22 @@ export async function upsertItem(item: Partial<Item> & { name: string }) {
     role_key: item.roleKey ?? null,
     supplier: item.supplier ?? null,
     poe_watts: item.poeWatts ?? null,
-    mains_watts: item.mainsWatts ?? null,
+    /**
+     * Present only when the caller supplied it, exactly like is_default below
+     * and for the same reason — with a worse failure.
+     *
+     * `item.mainsWatts ?? null` wrote a null on every edit from ItemForm,
+     * which sent no mainsWatts at all until 2026-08-24, so renaming an item
+     * destroyed its mains draw. Nothing surfaced it: the value is a direct UPS
+     * input (calculateBOM sums poeWatts + mainsWatts) and a null reads there
+     * as a legitimate 0 W, so the venue simply re-sized ~2.4 VA smaller per
+     * lost watt. Unlike is_default it cannot be restored from the app — the
+     * number comes off the device's datasheet.
+     *
+     * `undefined` is "not supplied"; an explicit `null` still writes, because
+     * an item that genuinely draws nothing from the wall is a real edit.
+     */
+    ...(item.mainsWatts !== undefined ? { mains_watts: item.mainsWatts } : {}),
     rack_u: item.rackU ?? null,
     is_active: item.isActive ?? true,
     /**

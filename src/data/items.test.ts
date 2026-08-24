@@ -36,6 +36,35 @@ describe('upsertItem', () => {
     await upsertItem({ name: 'Dahua' })
     expect(upsert.mock.calls[0][0]).not.toHaveProperty('is_default')
   })
+
+
+  /**
+   * Same shape as is_default above, same reason, different blast radius.
+   *
+   * ItemForm sends no mainsWatts, so `mains_watts: item.mainsWatts ?? null`
+   * meant that editing an item's NAME cleared its mains draw. Nothing showed
+   * it: the Catalog had no column for it, the form had no field, and
+   * calculateBOM reads a null as a legitimate 0 W. The UPS is sized on
+   * (poeWatts + mainsWatts), so the venue quietly re-sizes down at ~2.4 VA per
+   * lost watt, and the number cannot be recovered from the UI — it came off
+   * the device's datasheet.
+   */
+  it('omits mains_watts entirely when the caller does not supply it', async () => {
+    await upsertItem({ name: 'Mac mini (M4)' })
+    expect(upsert.mock.calls[0][0]).not.toHaveProperty('mains_watts')
+  })
+
+  it('sends mains_watts when the caller supplies it', async () => {
+    await upsertItem({ name: 'Mac mini (M4)', mainsWatts: 65 })
+    expect(upsert.mock.calls[0][0]).toMatchObject({ mains_watts: 65 })
+  })
+
+  // Explicitly clearing it is a real edit — an item that turns out to draw
+  // nothing from the wall — and must not be confused with not sending it.
+  it('sends a null mains_watts when the caller clears it', async () => {
+    await upsertItem({ name: 'Mac mini (M4)', mainsWatts: null })
+    expect(upsert.mock.calls[0][0]).toMatchObject({ mains_watts: null })
+  })
 })
 
 describe('setItemDefault', () => {

@@ -13,6 +13,19 @@ import { BackToVenues } from '@/components/BackToVenues'
 import { BrandBlock } from '@/components/BrandBlock'
 import { toast } from 'sonner'
 
+/**
+ * How this item is powered and how much it draws. Both numbers feed one sum in
+ * calculateBOM — the UPS is sized on poeWatts + mainsWatts — but they are not
+ * interchangeable to a reader: 65 W off a wall socket and 65 W off a switch
+ * port are different purchases.
+ */
+const powerLabel = (item: Item) => {
+  const parts = []
+  if (item.poeWatts !== null) parts.push(`${item.poeWatts} PoE`)
+  if (item.mainsWatts !== null) parts.push(`${item.mainsWatts} mains`)
+  return parts.length > 0 ? parts.join(' + ') : '—'
+}
+
 export function Catalog() {
   const [items, setItems] = useState<Item[]>([])
   const [editing, setEditing] = useState<Item | 'new' | null>(null)
@@ -121,7 +134,7 @@ export function Catalog() {
                 Role key
               </TableHead>
               <TableHead className="h-7 text-right text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
-                PoE W
+                Power
               </TableHead>
               <TableHead className="h-7 text-right text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
                 Rack U
@@ -140,7 +153,15 @@ export function Catalog() {
                 </TableCell>
                 <TableCell className="py-1.5">{item.category}</TableCell>
                 <TableCell className="py-1.5 font-mono text-xs">{item.roleKey ?? '—'}</TableCell>
-                <TableCell className="py-1.5 text-right tabular-nums">{item.poeWatts ?? '—'}</TableCell>
+                {/* One column, not two: mains draw had no column at all, and
+                    no powered item in this catalog draws both ways, so a
+                    second numeric column would be empty on nearly every row of
+                    a table that already scrolls sideways. Which kind of draw
+                    it is has to be on the row — 65 and 2.8 are the same column
+                    but not the same quantity. */}
+                <TableCell className="py-1.5 text-right tabular-nums whitespace-nowrap">
+                  {powerLabel(item)}
+                </TableCell>
                 <TableCell className="py-1.5 text-right tabular-nums">{item.rackU ?? '—'}</TableCell>
                 <TableCell className="space-x-2 py-1.5 pr-4 text-right">
                   <Button size="sm" variant="ghost" onClick={() => setEditing(item)}>Edit</Button>

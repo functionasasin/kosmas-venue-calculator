@@ -18,6 +18,7 @@ export function ItemForm({ item, onSave, onCancel }: Props) {
     roleKey: item?.roleKey ?? '',
     supplier: item?.supplier ?? '',
     poeWatts: item?.poeWatts?.toString() ?? '',
+    mainsWatts: item?.mainsWatts?.toString() ?? '',
     rackU: item?.rackU?.toString() ?? '',
     notes: item?.notes ?? '',
     printNote: item?.printNote ?? '',
@@ -37,6 +38,10 @@ export function ItemForm({ item, onSave, onCancel }: Props) {
       roleKey: (form.roleKey || null) as Item['roleKey'],
       supplier: form.supplier || null,
       poeWatts: form.poeWatts ? Number(form.poeWatts) : null,
+      // Always sent, even as null. upsertItem distinguishes an absent key
+      // (leave the stored value alone) from an explicit null (clear it), and
+      // this form is the only thing that can set the value at all.
+      mainsWatts: form.mainsWatts ? Number(form.mainsWatts) : null,
       rackU: form.rackU ? Number(form.rackU) : null,
       notes: form.notes || null,
       printNote: form.printNote || null,
@@ -83,6 +88,15 @@ export function ItemForm({ item, onSave, onCancel }: Props) {
             value={form.poeWatts} onChange={set('poeWatts')} />
           <p className="text-xs text-muted-foreground">
             Max draw, not typical — the budget check depends on it.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="mainsWatts">Mains watts</Label>
+          <Input id="mainsWatts" type="number" step="0.1"
+            value={form.mainsWatts} onChange={set('mainsWatts')} />
+          <p className="text-xs text-muted-foreground">
+            Draw from the wall, for items with their own plug. Sizes the UPS —
+            leave it empty for anything powered over PoE.
           </p>
         </div>
         <div className="space-y-2">
