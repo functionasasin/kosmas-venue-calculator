@@ -48,6 +48,17 @@ export function buildPdfBody(
   for (const line of lines) {
     if (line.suppressed) continue
 
+    // An empty itemId is what mergeRecalculation mints for ROLE_NO_DEFAULT —
+    // a role that resolved to no item at all, left untouched, and refused by
+    // saveVenueAndLines as an unresolved line. Falling through to the roleKey
+    // lookup below would resolve it through byRole with no `chosen` map, and
+    // for a role with several active items that picks one of them
+    // ARBITRARILY — printing a SKU nobody chose, on a sheet handed to whoever
+    // is ordering, for a role the engine sized as zero watts. It is a "needs
+    // a decision" line by construction, so it is dropped with the rest of
+    // that category rather than resolved at all.
+    if (!line.itemId) continue
+
     // Name resolution: itemId is authoritative and survives deactivation or a
     // role being reassigned elsewhere; the roleKey lookup is only the fallback
     // for a freshly calculated line that has not been saved yet.

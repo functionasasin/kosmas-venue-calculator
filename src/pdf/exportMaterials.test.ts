@@ -115,6 +115,27 @@ describe('the exported body', () => {
     expect(rows.some(r => r[1] === '—')).toBe(false)
   })
 
+  // C2: the 'flic' fixture above proves nothing about a CONTESTED role,
+  // because this file's catalog holds no 'flic' item at all — byRole.get
+  // returns undefined regardless of the fix, so that test would pass even if
+  // buildPdfBody resolved empty itemIds through byRole. A role with two
+  // active items is the reachable case: mergeRecalculation mints a
+  // ROLE_NO_DEFAULT line with itemId '', and resolving it through byRole with
+  // no `chosen` map would print an ARBITRARY one of the two contested items —
+  // a SKU nobody chose, on a sheet handed to whoever is ordering, for a role
+  // the engine sized as zero watts. Both names must be absent, not just one.
+  it('omits a ROLE_NO_DEFAULT line even when its role has active items to pick from', () => {
+    const contested: Item[] = [
+      ...catalog,
+      item('replay_camera', 'camera', 'Uniview Owlview'),
+      { ...item('replay_camera', 'camera', 'Dahua 5459T'), id: 'id-replay_camera-2' },
+    ]
+    const unresolved: StoredLine = { ...line('replay_camera', 8), itemId: '' }
+    const { rows } = buildPdfBody([unresolved], contested)
+    expect(names(rows)).not.toContain('Uniview Owlview')
+    expect(names(rows)).not.toContain('Dahua 5459T')
+  })
+
   // groupIntoSections (the screen) resolves the section by roleKey only, and a
   // line whose roleKey does not resolve is unsettled — the screen files it
   // under Needs a decision. The PDF must decide the same way and then drop it.
