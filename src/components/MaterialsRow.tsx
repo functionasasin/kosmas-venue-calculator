@@ -18,7 +18,7 @@ interface Props {
   formula: string
   swapOptions: Item[]
   onUpdate: (patch: Partial<StoredLine>) => void
-  onSwap: (roleKey: string) => void
+  onSwap: (itemId: string) => void
   onRemove: () => void
 }
 
@@ -97,8 +97,13 @@ export function MaterialsRow({
   // A button trigger sizes to the selected value and takes an explicit height,
   // so both go at once. The dialog picker below stays native on purpose — it is
   // the phone affordance, and there the OS picker wheel beats an in-page popup.
+  //
+  // Keyed on item id, NOT role key. A role can now hold several active items —
+  // two replay cameras is the case this exists for — and keying on the role
+  // rendered two options with the same value, so picking either one resolved
+  // through a role map and landed on whichever came back last.
   const picker = (
-    <Select value={line.roleKey ?? ''} onValueChange={v => onSwap(v as string)}>
+    <Select value={item?.id ?? ''} onValueChange={v => onSwap(v as string)}>
       <SelectTrigger
         size="sm"
         aria-label={swapLabel}
@@ -106,8 +111,8 @@ export function MaterialsRow({
       >
         <SelectValue>
           {(v: string) => {
-            const sel = options.find(o => o.roleKey === v)
-            return sel ? labelFor(sel) : v
+            const sel = options.find(o => o.id === v)
+            return sel ? labelFor(sel) : (line.roleKey ?? v)
           }}
         </SelectValue>
       </SelectTrigger>
@@ -118,9 +123,7 @@ export function MaterialsRow({
           capped so it cannot run off a phone. */}
       <SelectContent className="w-auto min-w-(--anchor-width) max-w-[min(24rem,calc(100vw-2rem))]">
         {options.map(i => (
-          <SelectItem key={i.roleKey!} value={i.roleKey!}>
-            {labelFor(i)}
-          </SelectItem>
+          <SelectItem key={i.id} value={i.id}>{labelFor(i)}</SelectItem>
         ))}
       </SelectContent>
     </Select>
@@ -210,11 +213,11 @@ export function MaterialsRow({
               <select
                 className="w-full rounded-md border bg-card p-2 text-sm"
                 aria-label={swapLabel}
-                value={line.roleKey ?? ''}
+                value={item?.id ?? ''}
                 onChange={e => onSwap(e.target.value)}
               >
                 {options.map(i => (
-                  <option key={i.roleKey!} value={i.roleKey!}>
+                  <option key={i.id} value={i.id}>
                     {labelFor(i)}
                   </option>
                 ))}

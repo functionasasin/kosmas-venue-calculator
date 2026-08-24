@@ -46,7 +46,7 @@ vi.mock('jspdf-autotable', () => ({
 const item = (roleKey: RoleKey, category: string, name: string): Item => ({
   id: `id-${roleKey}`, name, category, roleKey,
   supplier: null, poeWatts: null, mainsWatts: null, rackU: null,
-  isActive: true, notes: null, printNote: null,
+  isActive: true, isDefault: true, notes: null, printNote: null,
 })
 
 const line = (roleKey: RoleKey, qty: StoredLine['qty']): StoredLine => ({

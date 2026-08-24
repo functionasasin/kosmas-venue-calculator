@@ -62,6 +62,16 @@ export interface Item {
   mainsWatts: number | null
   rackU: number | null
   isActive: boolean
+  /**
+   * This item is what a role key resolves to when a venue has expressed no
+   * choice. At most one ACTIVE item per role may carry it (partial index
+   * items_role_key_default), but a role may legally have none — that is
+   * ROLE_NO_DEFAULT, reported by resolveCatalog rather than guessed at.
+   *
+   * Deactivating an item clears this, enforced by a trigger in 0011 so the
+   * rule holds for raw SQL as well as for the app.
+   */
+  isDefault: boolean
   /** Internal working notes. Never printed. */
   notes: string | null
   /** Constraints that must travel with the item on the handed-out list. */

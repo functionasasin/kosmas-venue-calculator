@@ -228,31 +228,42 @@ describe('UPS rating', () => {
   })
 })
 
-describe('UPS_CAMERA_ASSUMPTION', () => {
-  // The replay camera is not standardised across venues — the units on hand
-  // span 2.8W to 24W, which is three rungs at 14 courts — but the catalog holds
-  // exactly one. So a venue can be sized against a camera it will not receive,
-  // and nothing else in the tool would say so.
+describe('the replay camera drives the UPS rung', () => {
+  // The camera is not standardised across venues — Tela Park runs the Uniview
+  // Owlview at 2.8W, Helios Beta is being built with the Dahua at 17.5W — and
+  // at 14 courts that is a full rung. The engine used to WARN about the gap
+  // because it could not know which camera a venue had; now the resolved
+  // catalog tells it, so the rung itself is the answer and there is nothing to
+  // hedge about.
+  //
+  // Both deltas are the same number by construction — the camera is PoE-only —
+  // so 14 x (17.5 - 2.8) = 205.8 W. A revision of these figures that does not
+  // satisfy that identity is wrong.
   const withCamera = (poeWatts: number) =>
     testCatalog.map(i => (i.roleKey === 'replay_camera' ? { ...i, poeWatts } : i))
 
-  it('stays quiet when the catalog matches PodPlay\'s 17.5W standard', () => {
-    expect(run(pro(14)).codes).not.toContain('UPS_CAMERA_ASSUMPTION')
-  })
-
-  it('fires when a lower-draw camera changes the rung', () => {
-    // The Uniview Owlview at 2.8W: 14 courts falls 1500 VA -> 1000 VA.
+  it('sizes a 14-court Pro venue at 1000 VA on the 2.8 W Uniview', () => {
     const r = calculateBOM(pro(14), withCamera(2.8))
-    const w = r.warnings.find(x => x.code === 'UPS_CAMERA_ASSUMPTION')
-    expect(w).toBeDefined()
-    expect(w!.message).toContain('1000 VA')
-    expect(w!.message).toContain('1500 VA')
+    expect(r.lines.map(l => l.roleKey)).toContain('ups_1000va')
+    // 406 W of load, and 221 W of 600 W on the switch — 37%.
+    expect(r.lines.find(l => l.roleKey === 'ups_1000va')!.formula)
+      .toContain('406 W')
   })
 
-  // Quiet on a difference that does not change the answer, or the warning
-  // becomes noise on every venue and stops being read.
-  it('stays quiet when a different camera lands on the same rung', () => {
-    const r = calculateBOM(pro(14), withCamera(16))
-    expect(r.warnings.map(w => w.code)).not.toContain('UPS_CAMERA_ASSUMPTION')
+  it('sizes the same venue at 1500 VA on the 17.5 W Dahua', () => {
+    const r = calculateBOM(pro(14), withCamera(17.5))
+    expect(r.lines.map(l => l.roleKey)).toContain('ups_1500va')
+    // 612 W of load, and 427 W of 600 W on the switch — 71%.
+    expect(r.lines.find(l => l.roleKey === 'ups_1500va')!.formula)
+      .toContain('612 W')
+  })
+
+  // The tool no longer guesses which camera a venue gets, so it must no longer
+  // say it is guessing.
+  it('never raises UPS_CAMERA_ASSUMPTION, whatever the camera', () => {
+    for (const w of [2.8, 16, 17.5, 24]) {
+      expect(calculateBOM(pro(14), withCamera(w)).warnings.map(x => x.code))
+        .not.toContain('UPS_CAMERA_ASSUMPTION')
+    }
   })
 })

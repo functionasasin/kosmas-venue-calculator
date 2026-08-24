@@ -67,7 +67,9 @@ export function ItemForm({ item, onSave, onCancel }: Props) {
           {ROLE_KEYS.map(k => <option key={k} value={k}>{k}</option>)}
         </select>
         <p className="text-xs text-muted-foreground">
-          Wires this item into the formulas. Only one active item per role.
+          Wires this item into the formulas. Several active items may share a
+          role — a venue picks between them — but exactly one of them is the
+          default. Set that from the catalog list, not here.
         </p>
       </div>
       <div className="space-y-2">

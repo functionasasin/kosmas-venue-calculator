@@ -1,9 +1,14 @@
-import type { VenueInputs, Tier } from '@/calculator/types'
+import type { VenueInputs, Tier, Item } from '@/calculator/types'
 import { allowsSecurityCameras, allowsKisiDoors } from '@/calculator/gates'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { tierLabel } from '@/lib/tierLabel'
+import { ROLE_LABELS, type RoleKey } from '@/calculator/roleKeys'
+import { multiOptionRoles } from '@/lib/resolveCatalog'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 
 const TIERS: Tier[] = [
   'basic', 'basic_plus', 'pro', 'autonomous', 'autonomous_plus',
@@ -12,9 +17,24 @@ const TIERS: Tier[] = [
 interface Props {
   value: VenueInputs
   onChange: (v: VenueInputs) => void
+  /**
+   * The WHOLE catalog, not the resolved one — multiOptionRoles does its own
+   * filtering, and a collapsed catalog would leave every picker offering the
+   * single item it had already picked.
+   *
+   * Choices are not VenueInputs fields — they are catalog state — so they
+   * travel as their own props rather than being absorbed into the inputs type,
+   * which the engine, the database row and the PDF all share.
+   */
+  catalog: Item[]
+  /** What each role actually resolved to, from resolveCatalog. */
+  chosen: Map<RoleKey, string>
+  onPick: (roleKey: RoleKey, itemId: string) => void
 }
 
-export function VenueInputsForm({ value, onChange }: Props) {
+export function VenueInputsForm({
+  value, onChange, catalog, chosen, onPick,
+}: Props) {
   const set = <K extends keyof VenueInputs>(k: K, v: VenueInputs[K]) =>
     onChange({ ...value, [k]: v })
 
@@ -121,6 +141,62 @@ export function VenueInputsForm({ value, onChange }: Props) {
             </p>
           )}
         </div>
+      </div>
+      <HardwareChoices catalog={catalog} chosen={chosen} onPick={onPick} lb={lb} />
+    </div>
+  )
+}
+
+/**
+ * One picker per role key that has more than one active item — the venue's
+ * choice of hardware. It sits with the sizing inputs because it IS one: the
+ * replay camera alone is a full UPS rung at 14 courts.
+ *
+ * Renders nothing at all when no role has a second active item, which is the
+ * catalog's state today. A group offering a choice of one is noise.
+ *
+ * This is NOT the swap control in the materials table. That one is a manual,
+ * per-line override that does not re-size; this one drives the formulas.
+ */
+function HardwareChoices({
+  catalog, chosen, onPick, lb,
+}: {
+  catalog: Item[]
+  chosen: Map<RoleKey, string>
+  onPick: (roleKey: RoleKey, itemId: string) => void
+  lb: string
+}) {
+  const roles = multiOptionRoles(catalog)
+  if (roles.size === 0) return null
+
+  return (
+    <div className="space-y-3 border-t pt-4">
+      <div className="text-[10px] tracking-[.06em] text-muted-foreground uppercase">
+        Hardware
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-1">
+        {[...roles].map(([roleKey, items]) => (
+          <div key={roleKey} className="space-y-1">
+            <span className={lb} id={`hw-${roleKey}`}>{ROLE_LABELS[roleKey]}</span>
+            <Select
+              value={chosen.get(roleKey) ?? ''}
+              onValueChange={v => onPick(roleKey, v as string)}
+            >
+              <SelectTrigger size="sm" aria-labelledby={`hw-${roleKey}`}
+                className="h-8 w-full bg-card">
+                <SelectValue>
+                  {(v: string) =>
+                    items.find(i => i.id === v)?.name ?? 'Choose an item'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="w-auto min-w-(--anchor-width) max-w-[min(24rem,calc(100vw-2rem))]">
+                {items.map(i => (
+                  <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ))}
       </div>
     </div>
   )

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import type { Item } from '@/calculator/types'
 import type { StoredLine } from '@/data/venueLines'
@@ -28,6 +28,7 @@ vi.mock('@/data/venues', () => ({
 vi.mock('@/data/items', () => ({
   listItems: vi.fn(async (): Promise<Item[]> => testCatalog),
 }))
+vi.mock('@/data/venueItemChoices', () => ({ listChoices: vi.fn(async () => []) }))
 vi.mock('@/data/venueLines', async () => {
   const real = await vi.importActual<typeof import('@/data/venueLines')>(
     '@/data/venueLines',
@@ -35,7 +36,10 @@ vi.mock('@/data/venueLines', async () => {
   return {
     ...real,
     listLines: vi.fn(async () => savedLines),
-    saveVenueAndLines: vi.fn(async (v: unknown, l: unknown) => ({ venue: v, lines: l })),
+    saveVenueAndLines: vi.fn(
+      async (v: unknown, l: unknown, _catalog: unknown, ch: unknown) =>
+        ({ venue: v, lines: l, choices: ch ?? [] }),
+    ),
   }
 })
 vi.mock('@/auth/useRole', () => ({ useRole: () => 'admin' }))
@@ -45,9 +49,12 @@ vi.mock('@/auth/useRole', () => ({ useRole: () => 'admin' }))
 // call COUNT silently measures every earlier test too.
 beforeEach(() => vi.clearAllMocks())
 
+// Returns the render result so a test that needs a second render in the same
+// body (comparing two catalog states) can unmount the first cleanly rather
+// than leaving two trees mounted at once.
 const renderDetail = async () => {
   const { VenueDetail } = await import('./VenueDetail')
-  render(
+  return render(
     <MemoryRouter initialEntries={['/venues/v1']}>
       <Routes>
         <Route path="/venues/:id" element={<VenueDetail />} />
@@ -309,4 +316,185 @@ it('guards a venue whose tier produces no lines at all', async () => {
   fireEvent.change(await screen.findByLabelText(/courts/i), { target: { value: '12' } })
   fireEvent.click(screen.getByRole('link', { name: /all venues/i }))
   expect(await screen.findByText(/you have unsaved changes/i)).toBeInTheDocument()
+})
+
+describe('per-venue hardware choice', () => {
+  const uniview = { ...testCatalog.find(i => i.roleKey === 'replay_camera')!,
+    poeWatts: 2.8, isDefault: true }
+  const dahua = { ...uniview, id: 'dah', name: 'Dahua 5459T',
+    poeWatts: 17.5, isDefault: false }
+  const twoCameras = [
+    ...testCatalog.filter(i => i.roleKey !== 'replay_camera'), uniview, dahua,
+  ]
+
+  // Criterion 2, first half. A 14-court Pro venue is 1000 VA on the Uniview
+  // and 1500 VA on the Dahua; if the picker stops moving the rung, this fails.
+  it('sizes the venue against the chosen camera', async () => {
+    const { getVenue } = await import('@/data/venues')
+    const { listItems } = await import('@/data/items')
+    const { listLines } = await import('@/data/venueLines')
+    const { listChoices } = await import('@/data/venueItemChoices')
+
+    vi.mocked(getVenue).mockResolvedValueOnce({ ...venue, courts: 14 })
+    vi.mocked(listItems).mockResolvedValueOnce(twoCameras)
+    // No stored lines: the auto-populate effect fills them from the freshly
+    // calculated result, which is what actually exercises the sizing.
+    vi.mocked(listLines).mockResolvedValueOnce([])
+    vi.mocked(listChoices).mockResolvedValueOnce(
+      [{ roleKey: 'replay_camera', itemId: 'dah' }],
+    )
+    const first = await renderDetail()
+    expect(await screen.findByText('ups_1500va',
+      { selector: '[data-slot="select-value"]' })).toBeInTheDocument()
+    // Unmount before rendering a second copy of the screen, or both trees
+    // stay mounted at once and the second assertion's query is ambiguous.
+    first.unmount()
+
+    vi.mocked(getVenue).mockResolvedValueOnce({ ...venue, courts: 14 })
+    vi.mocked(listItems).mockResolvedValueOnce(twoCameras)
+    vi.mocked(listLines).mockResolvedValueOnce([])
+    // listChoices is left at the file's default (resolves to []), so the role
+    // falls back to the catalog default — the Uniview.
+    await renderDetail()
+    expect(await screen.findByText('ups_1000va',
+      { selector: '[data-slot="select-value"]' })).toBeInTheDocument()
+  })
+
+  // Criterion 2, second half, and the trap §5 exists for: the sizing can move
+  // while the SAVED item and the PDF keep the old camera. The venue must start
+  // with a STORED replay_camera line carrying the Uniview's itemId, or the
+  // assertion proves nothing about the merge — a freshly minted line would
+  // carry the right id either way.
+  it('saves the chosen camera as the line\'s item_id', async () => {
+    const { listItems } = await import('@/data/items')
+    const { listLines, saveVenueAndLines } = await import('@/data/venueLines')
+    const { listChoices } = await import('@/data/venueItemChoices')
+
+    vi.mocked(listItems).mockResolvedValueOnce(twoCameras)
+    vi.mocked(listLines).mockResolvedValueOnce([{
+      id: 'l-cam', venueId: 'v1', itemId: uniview.id, roleKey: 'replay_camera',
+      qty: 8, originRoleKey: null, sortOrder: 0, source: 'formula',
+      suppressed: false, note: null,
+    }])
+    vi.mocked(listChoices).mockResolvedValueOnce(
+      [{ roleKey: 'replay_camera', itemId: 'dah' }],
+    )
+
+    await renderDetail()
+    // Recalculate -> Apply -> Save.
+    fireEvent.click(await screen.findByRole('button', { name: /recalculate/i }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Apply' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(saveVenueAndLines).toHaveBeenCalled())
+
+    const savedLines = vi.mocked(saveVenueAndLines).mock.calls[0][1]
+    expect(savedLines.find(l => l.roleKey === 'replay_camera')!.itemId)
+      .toBe('dah')
+  })
+
+  // The full set every save, derived from the resolution — so a venue that has
+  // never chosen still pins its default the first time it is saved, and a
+  // later default flip cannot move it.
+  it('sends a choice for every multi-option role, even when the venue never picked', async () => {
+    const { listItems } = await import('@/data/items')
+    const { saveVenueAndLines } = await import('@/data/venueLines')
+
+    vi.mocked(listItems).mockResolvedValueOnce(twoCameras)
+    // listChoices is left at the file's default (resolves to []).
+
+    await renderDetail()
+    fireEvent.click(await screen.findByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(saveVenueAndLines).toHaveBeenCalled())
+
+    expect(vi.mocked(saveVenueAndLines).mock.calls[0][3])
+      .toEqual([{ roleKey: 'replay_camera', itemId: uniview.id }])
+  })
+
+  // A stored pin is user data. Deactivating the alternate stops the role being
+  // contested, and a set derived from "currently >1 active" would omit it — so
+  // the next save of that venue, for any unrelated reason, would delete it.
+  // Reactivating the alternate later would then silently follow the default.
+  it('keeps a stored choice after the alternate is deactivated', async () => {
+    const { listItems } = await import('@/data/items')
+    const { saveVenueAndLines } = await import('@/data/venueLines')
+    const { listChoices } = await import('@/data/venueItemChoices')
+
+    vi.mocked(listItems).mockResolvedValueOnce(
+      [uniview, { ...dahua, isActive: false }],
+    )
+    vi.mocked(listChoices).mockResolvedValueOnce(
+      [{ roleKey: 'replay_camera', itemId: uniview.id }],
+    )
+
+    await renderDetail()
+    fireEvent.click(await screen.findByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(saveVenueAndLines).toHaveBeenCalled())
+
+    expect(vi.mocked(saveVenueAndLines).mock.calls[0][3])
+      .toEqual([{ roleKey: 'replay_camera', itemId: uniview.id }])
+  })
+
+  // projection() serialises { venue, lines }. A choice change touches neither,
+  // so without a choices term `dirty` stays false, the unsaved-changes guard
+  // never arms, and the edit is lost on navigate — silently, which is what
+  // 7030054 and 4223ab3 were about.
+  it('marks the venue dirty when a picker changes', async () => {
+    const { listItems } = await import('@/data/items')
+    vi.mocked(listItems).mockResolvedValueOnce(twoCameras)
+    await renderDetail()
+
+    // The Hardware picker in the rail, not a per-line swap control in the
+    // table — it carries the role's label as its accessible name.
+    const trigger = await screen.findByRole('combobox', { name: 'Replay camera' })
+    fireEvent.click(trigger)
+    const popup = document.querySelector('[data-slot="select-content"]')
+    if (!popup) throw new Error('hardware picker did not open')
+    const option = within(popup as HTMLElement).getByRole('option', { name: 'Dahua 5459T' })
+    fireEvent.mouseMove(option)
+    fireEvent.click(option)
+
+    // Both SaveStatus (desktop) and UnsavedStrip (mobile) render in jsdom at
+    // once, since the responsive hiding is CSS the test environment does not
+    // apply — hence AllBy rather than a single match.
+    expect((await screen.findAllByText('Unsaved changes')).length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('link', { name: /all venues/i }))
+    expect(await screen.findByText(/you have unsaved changes/i)).toBeInTheDocument()
+    expect(screen.queryByText('venue list')).not.toBeInTheDocument()
+  })
+
+  // A deactivated part must not be specced onto a fresh BOM, and substituting
+  // silently is the failure this feature exists to remove.
+  it('warns when the venue\'s chosen item was deactivated', async () => {
+    const { listItems } = await import('@/data/items')
+    const { listChoices } = await import('@/data/venueItemChoices')
+
+    vi.mocked(listItems).mockResolvedValueOnce(
+      [uniview, { ...dahua, isActive: false }],
+    )
+    vi.mocked(listChoices).mockResolvedValueOnce(
+      [{ roleKey: 'replay_camera', itemId: 'dah' }],
+    )
+
+    await renderDetail()
+    expect(await screen.findByText(/Dahua 5459T/)).toBeInTheDocument()
+  })
+
+  // §5: mergeRecalculation leaves manual lines alone, deliberately — a
+  // hand-edited line is an override. The consequence has to be stated on the
+  // screen rather than discovered on the printed sheet.
+  it('warns when the chosen role\'s line was edited by hand', async () => {
+    const { listItems } = await import('@/data/items')
+    const { listLines } = await import('@/data/venueLines')
+
+    vi.mocked(listItems).mockResolvedValueOnce(twoCameras)
+    vi.mocked(listLines).mockResolvedValueOnce([{
+      id: 'l-cam', venueId: 'v1', itemId: uniview.id, roleKey: 'replay_camera',
+      qty: 8, originRoleKey: null, sortOrder: 0, source: 'manual',
+      suppressed: false, note: null,
+    }])
+
+    await renderDetail()
+    expect(await screen.findByText(/edited by hand/i)).toBeInTheDocument()
+  })
 })

@@ -38,9 +38,11 @@ the hostname anywhere — the domain is moving from `fnasasin.com` to
 
 ## Database
 
-Schema, policies and the catalog seed live in `supabase/`. Run them in order
-against a new project; `supabase/README.md` covers the two accounts and the
-`app_metadata` role assignment.
+Schema, policies and the catalog seed live in `supabase/`. Run them against a
+new project in **numeric order, with the seed in its own position** (`0001`,
+`0002`, `seed/0003`, then `0004` onwards) — not all the migrations followed by
+the seed, which fails. `supabase/README.md` explains why, and covers the two
+accounts and the `app_metadata` role assignment.
 
 Authorization is enforced by Row Level Security, not by the UI. The anon key
 ships in the JS bundle, so the browser is untrusted: hiding the catalog nav

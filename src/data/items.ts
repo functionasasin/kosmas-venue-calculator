@@ -19,6 +19,7 @@ const fromRow = (r: Tables<'items'>): Item => ({
   mainsWatts: r.mains_watts,
   rackU: r.rack_u,
   isActive: r.is_active,
+  isDefault: r.is_default,
   notes: r.notes,
   printNote: r.print_note,
 })
@@ -42,6 +43,19 @@ export async function upsertItem(item: Partial<Item> & { name: string }) {
     mains_watts: item.mainsWatts ?? null,
     rack_u: item.rackU ?? null,
     is_active: item.isActive ?? true,
+    /**
+     * Present only when the caller supplied it. `item.isDefault ?? false`
+     * would look equivalent and would silently clear the flag on every edit
+     * from ItemForm, which builds its payload by hand and does not send it —
+     * so editing an item's notes would take its role's default away.
+     *
+     * The upsert's ON CONFLICT DO UPDATE only writes the columns present in
+     * the payload, so an absent key leaves the stored value untouched, and a
+     * fresh INSERT falls to the column default (false). "Make default" in the
+     * Catalog is the only thing that moves the flag, and it goes through the
+     * RPC.
+     */
+    ...(item.isDefault !== undefined ? { is_default: item.isDefault } : {}),
     notes: item.notes ?? null,
     print_note: item.printNote ?? null,
     updated_at: new Date().toISOString(),
@@ -53,5 +67,16 @@ export async function upsertItem(item: Partial<Item> & { name: string }) {
 export async function setItemActive(id: string, isActive: boolean) {
   const { error } = await supabase
     .from('items').update({ is_active: isActive }).eq('id', id)
+  if (error) throw error
+}
+
+/**
+ * Moves a role's default onto this item. One RPC, not two writes: clearing the
+ * incumbent and setting the new one in separate statements leaves the role with
+ * no default in between, and doing it the other way round is rejected by
+ * items_role_key_default, which is not deferrable. See 0011.
+ */
+export async function setItemDefault(id: string) {
+  const { error } = await supabase.rpc('set_item_default', { p_item_id: id })
   if (error) throw error
 }

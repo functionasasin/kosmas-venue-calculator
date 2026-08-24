@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { Item } from '@/calculator/types'
 import type { RoleKey } from '@/calculator/roleKeys'
 import type { StoredLine } from '@/data/venueLines'
-import { groupIntoSections, sectionForItem, swapOptionsFor } from './sections'
+import { groupIntoSections, itemsByRole, sectionForItem, swapOptionsFor } from './sections'
 
 /** Categories mirror supabase/seed/0003_catalog_seed.sql exactly. */
 const CATEGORY: Partial<Record<RoleKey, string>> = {
@@ -23,7 +23,7 @@ const CATEGORY: Partial<Record<RoleKey, string>> = {
 const item = (roleKey: RoleKey, category: string): Item => ({
   id: `id-${roleKey}`, name: roleKey, category, roleKey,
   supplier: null, poeWatts: null, mainsWatts: null, rackU: null,
-  isActive: true, notes: null, printNote: null,
+  isActive: true, isDefault: true, notes: null, printNote: null,
 })
 
 const catalog: Item[] = Object.entries(CATEGORY).map(
@@ -167,5 +167,41 @@ describe('swap options', () => {
   it('offers the whole active catalog to a line with no resolvable item', () => {
     const options = swapOptionsFor(line('security_camera', 4), catalog)
     expect(options.length).toBe(catalog.length)
+  })
+})
+
+describe('itemsByRole with more than one item on a role', () => {
+  const dead = { ...item('replay_camera', 'camera'), id: 'dead', isActive: false }
+  const live = { ...item('replay_camera', 'camera'), id: 'live' }
+  const other = { ...item('replay_camera', 'camera'), id: 'other' }
+
+  // `new Map` keeps the LAST entry, so an inactive twin returned after the
+  // active one would shadow it — and itemsByRole filters on roleKey alone,
+  // deliberately, so that a saved line still renders a deactivated item's name.
+  it('prefers the active item over a deactivated one on the same role', () => {
+    expect(itemsByRole([live, dead]).get('replay_camera')!.id).toBe('live')
+    expect(itemsByRole([dead, live]).get('replay_camera')!.id).toBe('live')
+  })
+
+  it('still resolves a role whose only item is inactive', () => {
+    expect(itemsByRole([dead]).get('replay_camera')!.id).toBe('dead')
+  })
+
+  // The venue's resolved choice, not scan order, decides which of two ACTIVE
+  // items a role resolves to. Without this the screen and the PDF would pick
+  // whichever the query returned last, and could disagree with the UPS rung —
+  // the find/Map split the whole design exists to close.
+  it('prefers the venue\'s chosen item among several actives', () => {
+    const chosen = new Map([['replay_camera', 'other']])
+    expect(itemsByRole([live, other], chosen).get('replay_camera')!.id)
+      .toBe('other')
+    expect(itemsByRole([other, live], chosen).get('replay_camera')!.id)
+      .toBe('other')
+  })
+
+  // A stale chosen id must not blank the role.
+  it('falls back to an active item when the chosen id is not present', () => {
+    const chosen = new Map([['replay_camera', 'gone']])
+    expect(itemsByRole([live], chosen).get('replay_camera')!.id).toBe('live')
   })
 })

@@ -69,7 +69,7 @@ describe('saveVenueAndLines', () => {
   // rather than a formatting bug.
   it('sends the loaded updated_at byte-identically as the lock baseline', async () => {
     rpc.mockResolvedValueOnce(ok())
-    await saveVenueAndLines(venue, [], catalog)
+    await saveVenueAndLines(venue, [], catalog, [])
     expect(rpc.mock.calls[0][1].p_expected_updated_at)
       .toBe('2026-08-19T07:58:00.123456+00:00')
   })
@@ -79,7 +79,7 @@ describe('saveVenueAndLines', () => {
   // `invalid input syntax for type integer: "TBD"` and the save fails outright.
   it('sends a TBD line as qty 0 with qty_tbd true, never the sentinel itself', async () => {
     rpc.mockResolvedValueOnce(ok())
-    await saveVenueAndLines(venue, [line({ qty: 'TBD' })], catalog)
+    await saveVenueAndLines(venue, [line({ qty: 'TBD' })], catalog, [])
     const sent = rpc.mock.calls[0][1].p_lines[0]
     expect(sent.qty).toBe(0)
     expect(sent.qty_tbd).toBe(true)
@@ -94,6 +94,7 @@ describe('saveVenueAndLines', () => {
       venue,
       [line({ id: 'a', sortOrder: 99 }), line({ id: 'b', itemId: 'i-ap', sortOrder: 3 })],
       catalog,
+      [],
     )
     expect(rpc.mock.calls[0][1].p_lines.map((l: { sort_order: number }) => l.sort_order))
       .toEqual([0, 1])
@@ -109,7 +110,7 @@ describe('saveVenueAndLines', () => {
       origin_role_key: null, sort_order: 0, source: 'formula',
       suppressed: false, note: null, role_key: 'ups_1500va',
     }]))
-    const result = await saveVenueAndLines(venue, [line()], catalog)
+    const result = await saveVenueAndLines(venue, [line()], catalog, [])
     expect(result.lines[0].roleKey).toBe('ups_1500va')
   })
 
@@ -118,7 +119,7 @@ describe('saveVenueAndLines', () => {
   // may be written either, or the failure is partial.
   it('throws naming the unresolvable lines and sends no RPC at all', async () => {
     const orphan = line({ id: 'x', itemId: '', roleKey: 'flic' })
-    await expect(saveVenueAndLines(venue, [orphan], catalog))
+    await expect(saveVenueAndLines(venue, [orphan], catalog, []))
       .rejects.toBeInstanceOf(UnresolvedLinesError)
     expect(rpc).not.toHaveBeenCalled()
   })
@@ -131,13 +132,54 @@ describe('saveVenueAndLines', () => {
     rpc.mockResolvedValueOnce({
       data: null, error: { code: 'PT409', message: 'venue_conflict' },
     })
-    await expect(saveVenueAndLines(venue, [], catalog))
+    await expect(saveVenueAndLines(venue, [], catalog, []))
       .rejects.toBeInstanceOf(VenueConflictError)
 
     rpc.mockResolvedValueOnce({
       data: null, error: { code: '23502', message: 'null value in column "qty"' },
     })
-    await expect(saveVenueAndLines(venue, [], catalog))
+    await expect(saveVenueAndLines(venue, [], catalog, []))
       .rejects.not.toBeInstanceOf(VenueConflictError)
+  })
+})
+
+describe('saveVenueAndLines and hardware choices', () => {
+  // NOT named `ok` — the file already has an `ok(lines)` FUNCTION at the top
+  // level, and a fixture that is a function in one block and a value in
+  // another is a trap for whoever edits this next.
+  const okWithChoices = { data: { venue: {}, lines: [], choices: [] }, error: null }
+
+  it('sends the venue\'s choices in the same RPC as the lines', async () => {
+    rpc.mockResolvedValueOnce(okWithChoices)
+    await saveVenueAndLines(
+      venue, [], catalog, [{ roleKey: 'replay_camera', itemId: 'i-dahua' }],
+    )
+    expect(rpc.mock.calls[0][1].p_choices).toEqual([
+      { role_key: 'replay_camera', item_id: 'i-dahua' },
+    ])
+  })
+
+  // A venue with no multi-option role sends an empty array, not undefined:
+  // PostgREST resolves the overload on the exact set of argument NAMES, and an
+  // omitted key would fail to match this function at all (PGRST202).
+  it('always sends p_choices, even when there are none', async () => {
+    rpc.mockResolvedValueOnce(okWithChoices)
+    await saveVenueAndLines(venue, [], catalog, [])
+    expect(rpc.mock.calls[0][1]).toHaveProperty('p_choices', [])
+  })
+
+  // runSave rebuilds its saved snapshot from this return value. Choices that
+  // do not come back read as unsaved forever and the venue is permanently
+  // dirty — the bug VenueDetail's projection comment warns about.
+  it('returns the choices the RPC wrote', async () => {
+    rpc.mockResolvedValueOnce({
+      data: {
+        venue: {}, lines: [],
+        choices: [{ venue_id: 'v1', role_key: 'replay_camera', item_id: 'i-dahua' }],
+      },
+      error: null,
+    })
+    const r = await saveVenueAndLines(venue, [], catalog, [])
+    expect(r.choices).toEqual([{ roleKey: 'replay_camera', itemId: 'i-dahua' }])
   })
 })

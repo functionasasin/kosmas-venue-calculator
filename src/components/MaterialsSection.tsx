@@ -12,14 +12,20 @@ interface Props {
   catalog: Item[]
   formulas: Map<string, string>
   isAdmin: boolean
+  chosen?: Map<string, string>
   onUpdate: (id: string, patch: Partial<StoredLine>) => void
-  onSwap: (line: StoredLine, roleKey: string) => void
+  onSwap: (line: StoredLine, itemId: string) => void
   onRemove: (line: StoredLine) => void
 }
 
 export function MaterialsSection({
-  section, byRole, catalog, formulas, isAdmin, onUpdate, onSwap, onRemove,
+  section, byRole, catalog, formulas, isAdmin, chosen, onUpdate, onSwap, onRemove,
 }: Props) {
+  // itemId first, byRole as the fallback — the same order exportMaterials
+  // uses. With several items on one role, byRole holds the resolved one, which
+  // is right for a formula line and WRONG for a line the user swapped by hand.
+  // Resolving by id is what keeps the screen and the PDF naming the same item.
+  const byId = new Map(catalog.map(i => [i.id, i]))
   // Sections start expanded. State is local and not persisted: a section that
   // empties across a recalculation unmounts and loses it, which is fine —
   // a section that disappears and returns is a different thing to the user.
@@ -62,18 +68,18 @@ export function MaterialsSection({
         <MaterialsRow
           key={line.id}
           line={line}
-          item={line.roleKey ? byRole.get(line.roleKey) : undefined}
+          item={byId.get(line.itemId) ?? (line.roleKey ? byRole.get(line.roleKey) : undefined)}
           formula={formulas.get(line.roleKey ?? '') ?? ''}
           // swapOptionsFor returns the whole active catalog when a line's item
           // doesn't resolve (an unrepairable line has to be repairable), which
           // for a non-admin would otherwise print cable item names into the
           // swap picker on a line that isn't even hidden. Filtering belongs
           // here, not in sections.ts — that function's behaviour is correct.
-          swapOptions={swapOptionsFor(line, catalog).filter(
+          swapOptions={swapOptionsFor(line, catalog, chosen).filter(
             i => isAdmin || sectionForItem(i) !== 'cabling',
           )}
           onUpdate={patch => onUpdate(line.id, patch)}
-          onSwap={roleKey => onSwap(line, roleKey)}
+          onSwap={itemId => onSwap(line, itemId)}
           onRemove={() => onRemove(line)}
         />
       ))}

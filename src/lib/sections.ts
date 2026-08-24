@@ -54,8 +54,40 @@ export function sectionForLine(
   return sectionForItem(item)
 }
 
-export function itemsByRole(catalog: Item[]): Map<string, Item> {
-  return new Map(catalog.filter(i => i.roleKey).map(i => [i.roleKey as string, i]))
+/**
+ * One item per role key, for rendering and sectioning.
+ *
+ * Filters on roleKey alone and NOT on isActive, deliberately: the callers pass
+ * the ALL-ITEMS catalog so a saved line whose item was deactivated still
+ * renders its name instead of vanishing.
+ *
+ * That, plus several active items per role, is why the preference order has to
+ * be explicit — `new Map` keeps the last entry, so without it the answer is
+ * scan order:
+ *
+ *   1. the venue's chosen item, when the caller supplies the map
+ *   2. any active item
+ *   3. whatever is left (a role whose only item is deactivated)
+ *
+ * `chosen` is optional because two callers legitimately have no venue in hand:
+ * exportMaterials resolves by itemId first and only falls back to this, and
+ * sections.test.ts drives it directly. Omitting it means "any active item
+ * wins", which is correct for every single-option role — i.e. all of them
+ * until a second item is activated.
+ */
+export function itemsByRole(
+  catalog: Item[], chosen?: Map<string, string>,
+): Map<string, Item> {
+  const byRole = new Map<string, Item>()
+  for (const i of catalog) {
+    if (!i.roleKey) continue
+    const held = byRole.get(i.roleKey)
+    if (!held) { byRole.set(i.roleKey, i); continue }
+    if (chosen?.get(i.roleKey) === i.id) { byRole.set(i.roleKey, i); continue }
+    if (chosen?.get(i.roleKey) === held.id) continue
+    if (!held.isActive && i.isActive) byRole.set(i.roleKey, i)
+  }
+  return byRole
 }
 
 /**
@@ -64,8 +96,10 @@ export function itemsByRole(catalog: Item[]): Map<string, Item> {
  * engine's emission order, and it is what MaterialsTable already renders.
  * Do not sort by sortOrder; mergeRecalculation mints every line with 0.
  */
-export function groupIntoSections(lines: StoredLine[], catalog: Item[]): Section[] {
-  const byRole = itemsByRole(catalog)
+export function groupIntoSections(
+  lines: StoredLine[], catalog: Item[], chosen?: Map<string, string>,
+): Section[] {
+  const byRole = itemsByRole(catalog, chosen)
   const buckets = new Map<SectionId, StoredLine[]>()
 
   for (const line of lines) {
@@ -89,9 +123,11 @@ export function groupIntoSections(lines: StoredLine[], catalog: Item[]): Section
  * same-section filter would offer it nothing — and swapping is exactly how the
  * "No active item mapped for …" case gets repaired. It keeps the full list.
  */
-export function swapOptionsFor(line: StoredLine, catalog: Item[]): Item[] {
+export function swapOptionsFor(
+  line: StoredLine, catalog: Item[], chosen?: Map<string, string>,
+): Item[] {
   const active = catalog.filter(i => i.isActive && i.roleKey)
-  const item = line.roleKey ? itemsByRole(catalog).get(line.roleKey) : undefined
+  const item = line.roleKey ? itemsByRole(catalog, chosen).get(line.roleKey) : undefined
   if (!item) return active
   const target = sectionForItem(item)
   return active.filter(i => sectionForItem(i) === target)

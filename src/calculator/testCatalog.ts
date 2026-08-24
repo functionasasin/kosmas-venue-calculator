@@ -43,6 +43,8 @@ export const testCatalog: Item[] = ROLE_KEYS.map(roleKey => ({
   mainsWatts: MAINS_WATTS[roleKey] ?? null,
   rackU: RACK_U[roleKey] ?? 0,
   isActive: true,
+  // The fixture is one item per role, so each one IS its role's default.
+  isDefault: true,
   notes: null,
   printNote: null,
 }))

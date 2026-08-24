@@ -19,6 +19,7 @@ export type Database = {
           category: string
           id: string
           is_active: boolean
+          is_default: boolean
           mains_watts: number | null
           name: string
           notes: string | null
@@ -33,6 +34,7 @@ export type Database = {
           category?: string
           id?: string
           is_active?: boolean
+          is_default?: boolean
           mains_watts?: number | null
           name: string
           notes?: string | null
@@ -47,6 +49,7 @@ export type Database = {
           category?: string
           id?: string
           is_active?: boolean
+          is_default?: boolean
           mains_watts?: number | null
           name?: string
           notes?: string | null
@@ -113,6 +116,12 @@ export type Database = {
           },
         ]
       }
+      venue_item_choices: {
+        Row: { venue_id: string; role_key: string; item_id: string }
+        Insert: { venue_id: string; role_key: string; item_id: string }
+        Update: { venue_id?: string; role_key?: string; item_id?: string }
+        Relationships: []
+      }
       venues: {
         Row: {
           backup_internet: boolean
@@ -167,8 +176,17 @@ export type Database = {
     }
     Functions: {
       save_venue: {
-        Args: { p_expected_updated_at?: string; p_lines: Json; p_venue: Json }
+        Args: {
+          p_venue: Json
+          p_lines: Json
+          p_choices: Json
+          p_expected_updated_at?: string
+        }
         Returns: Json
+      }
+      set_item_default: {
+        Args: { p_item_id: string }
+        Returns: undefined
       }
     }
     Enums: {

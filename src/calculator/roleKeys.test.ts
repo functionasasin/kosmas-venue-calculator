@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ROLE_KEYS, readRoleKey } from './roleKeys'
+import { ROLE_KEYS, ROLE_LABELS, readRoleKey } from './roleKeys'
 
 describe('ROLE_KEYS', () => {
   it('contains no duplicates, because a duplicate would let two catalog items claim one role', () => {
@@ -43,5 +43,24 @@ describe('readRoleKey', () => {
     expect(readRoleKey('')).toBeNull()
     expect(readRoleKey(null)).toBeNull()
     expect(readRoleKey(undefined)).toBeNull()
+  })
+})
+
+describe('ROLE_LABELS', () => {
+  // A missing label renders `undefined` in a picker and in the recalculation
+  // diff. Record<RoleKey, string> already fails the build on an omission —
+  // this catches the other direction, a label left behind after a role key is
+  // retired, which compiles fine and quietly accumulates.
+  it('labels every role key and nothing else', () => {
+    expect(Object.keys(ROLE_LABELS).sort()).toEqual([...ROLE_KEYS].sort())
+  })
+
+  // These strings are read by whoever holds the printed sheet beside the
+  // screen, so they are prose, not identifiers.
+  it('uses human wording, never the raw key', () => {
+    for (const [key, label] of Object.entries(ROLE_LABELS)) {
+      expect(label).not.toBe(key)
+      expect(label).not.toMatch(/_/)
+    }
   })
 })

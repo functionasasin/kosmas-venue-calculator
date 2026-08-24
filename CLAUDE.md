@@ -71,6 +71,56 @@ The spreadsheet marks some quantities `"TBD"` on purpose. Reproduce the TBD; don
 
 **The iPad fence bracket used to be the third, and is now gone entirely** (2026-08-17). It was folded into the **iPad Locking Wall Mount**, whose kit ships with the fence/pole hardware — a separate line double-buys. `ipad_fence_bracket` is out of `roleKeys.ts`, `perCourt.ts` and the seed, and `FENCE_BRACKET_MANUAL` went with it. **This is a claim about the mount SKU Kosmas buys, not a correction to the source**, which still carries row 46 and sizes it 1/court for Pickleball Kingdom — so reconciling code against the sheet will keep suggesting it be restored. Don't, unless the mount SKU changed; `perCourt.test.ts` fails if it comes back, and the original formula is preserved in `podplay-ph-venue-sizing.md`. The old trap still applies to the row that remains: don't copy `= courts` onto anything from the wall-mount row beside it.
 
+## A role key can hold more than one active item now
+
+Until `0011`, `items_role_key_active` meant one ACTIVE item per role key —
+the catalog chose, and every venue got the same SKU whether it fit or not.
+That index is gone. `items_role_key_default` (`0011`) replaces it:
+uniqueness moved from ACTIVE to DEFAULT, so several items can share a role
+key and exactly one of them is what a venue gets until it picks otherwise.
+"Only one active item per role" is retired language — it is now one
+*default* active item per role, and several active items is the supported,
+intended state, not a bug to guard against. `ItemForm`'s role-key help text
+and the Catalog screen's `Make default` control say so now.
+
+**The Uniview/Dahua replay camera either/or is resolved this way, not by
+flipping one for the other.** Kosmas builds venues on both — Tela Park on
+the Uniview Owlview (2.8W), Helios Beta on the Dahua 5459T (17.5W) — and the
+two are a full UPS rung apart at 14 courts (1000 VA vs 1500 VA), so the old
+single-camera catalog was wrong for one of them no matter which camera it
+held. `venue_item_choices` (`0012`) is one row per (venue, role key), only
+for roles that have ever had more than one active item — a role with a
+single option has nothing to pin.
+
+**`0010` is deleted, unapplied. `0011`-`0014` replaced it.** `0010` would
+have picked the Dahua for every venue by deactivating the Uniview — the same
+either/or this feature exists to remove, just pointed the other way. `0011`
+adds `is_default`, swaps the index, and adds `set_item_default` (one RPC, so
+a default never moves as two writes with the role holding none in between).
+`0012` adds `venue_item_choices` + RLS. `0013` swaps `save_venue` for a
+4-argument overload that persists a venue's choices transactionally with its
+lines — split that into two calls and a venue's pinned camera can disagree
+with its `venue_lines.item_id`, which is exactly what `0007` eliminated for
+the venue+lines write. `0014` activates the Dahua alongside the Uniview (the
+Uniview keeps the default) and, in the same transaction, pins every existing
+venue to the Uniview — so applying it changes no venue's output until
+someone picks.
+
+**`resolveCatalog` (`src/lib/resolveCatalog.ts`) is what keeps the sizing
+engine safe from any of this.** `planUps`, `checkPoeBudget`, `sumRackU`, the
+`POE_DATA_INCOMPLETE` check, `itemsByRole`, `itemIdFor` and more all assume
+one active item per role, and they do not even fail the same way — a `Map`
+keeps the last duplicate, a `find` keeps the first — so handed a role with
+two active items, the UPS rung and the PoE check could disagree about which
+camera holds it, with nothing raised anywhere. `resolveCatalog` runs once
+per venue, before any of those, and re-establishes the invariant in memory:
+the venue's choice wins if it is still active and still holds the role, else
+the role's default, else the sole active item, else the role resolves to
+nothing and a warning says so (`ROLE_NO_DEFAULT`, `CHOICE_UNAVAILABLE`)
+rather than picking arbitrarily. If the engine itself ever becomes
+choice-aware, this guarantee — and every one of those call sites' safety —
+goes with it; don't remove `resolveCatalog` as a redundant layer.
+
 ## There is no brand input
 
 *"Brand" here means the venue **operator** — PodPlay / PingPod / Pickleball Kingdom, a sizing input. Not the Kosmas brand book two sections below, which governs the logo. Different things, same word.*

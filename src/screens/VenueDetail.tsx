@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { calculateBOM } from '@/calculator'
-import type { Item, VenueInputs } from '@/calculator/types'
+import type { Item, VenueInputs, Warning } from '@/calculator/types'
 import { getVenue, type Venue } from '@/data/venues'
 import { listItems } from '@/data/items'
+import { listChoices, type VenueItemChoice } from '@/data/venueItemChoices'
+import { resolveCatalog, multiOptionRoles } from '@/lib/resolveCatalog'
+import { ROLE_LABELS, type RoleKey } from '@/calculator/roleKeys'
 import {
   listLines, saveVenueAndLines, mergeRecalculation,
   VenueConflictError, UnresolvedLinesError, type StoredLine,
@@ -21,50 +24,83 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useRole } from '@/auth/useRole'
 import { toast } from 'sonner'
-
-/**
- * Role-keyed comparison of two line sets, rendered for the diff dialog. Shared
- * by the Recalculate preview and the staleness check so the two can never
- * disagree about whether anything would change.
- */
-function diffLines(before: StoredLine[], after: StoredLine[]): string[] {
-  const prev = new Map(before.map(l => [l.roleKey, l]))
-  const next = new Map(after.map(l => [l.roleKey, l]))
-  const rows: string[] = []
-  for (const [role, l] of next) {
-    const was = prev.get(role)
-    if (!was) rows.push(`+ ${role}: ${l.qty}`)
-    else if (was.qty !== l.qty) rows.push(`~ ${role}: ${was.qty} → ${l.qty}`)
-  }
-  for (const [role] of prev) {
-    if (!next.has(role)) rows.push(`− ${role}: removed`)
-  }
-  return rows
-}
+import { diffLines } from '@/lib/diffLines'
 
 export function VenueDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const role = useRole()
   const [venue, setVenue] = useState<Venue | null>(null)
-  // Two views of the catalog on purpose. `catalog` is active-only and drives
-  // the formulas and the itemId resolution in saveVenueAndLines — sizing must target
-  // what can actually be bought, and the engine resolves a role with a plain
-  // find(), so an inactive twin sharing a role key could shadow the real one.
-  // `catalogAll` includes deactivated items so a saved line still renders its
-  // item's name instead of silently vanishing from the table.
-  const [catalog, setCatalog] = useState<Item[]>([])
+  // ONE catalog in state, everything else derived. `catalogAll` includes
+  // deactivated items so a saved line still renders its item's name; the
+  // collapsed view the formulas need is derived from it, not fetched again.
+  // Resolving twice would raise CHOICE_UNAVAILABLE twice and could only name
+  // the dead item on one of the two calls.
   const [catalogAll, setCatalogAll] = useState<Item[]>([])
   const [lines, setLines] = useState<StoredLine[]>([])
+  // The venue's STORED choices. Deliberately not normalised to the effective
+  // set on load: re-resolving against the stored value is what keeps
+  // CHOICE_UNAVAILABLE on screen until someone actually picks.
+  const [choices, setChoices] = useState<VenueItemChoice[]>([])
 
   useEffect(() => {
     if (!id) return
-    Promise.all([getVenue(id), listItems(), listItems(true), listLines(id)])
-      .then(([v, c, all, l]) => {
-        setVenue(v); setCatalog(c); setCatalogAll(all); setLines(l)
+    Promise.all([getVenue(id), listItems(true), listLines(id), listChoices(id)])
+      .then(([v, all, l, c]) => {
+        setVenue(v); setCatalogAll(all); setLines(l); setChoices(c)
       })
       .catch(e => toast.error(e.message))
   }, [id])
+
+  const resolved = useMemo(
+    () => resolveCatalog(catalogAll, choices),
+    [catalogAll, choices],
+  )
+  // COLLAPSED, and only for the engine and the save. Sizing must target what
+  // can actually be bought, and saveVenueAndLines mints item ids from this
+  // same array. Everything the user looks at gets catalogAll instead.
+  const catalog = useMemo(
+    () => resolved.catalog.filter(i => i.isActive),
+    [resolved],
+  )
+
+  /**
+   * The venue's FULL choice set, in the form the RPC wants. save_venue deletes
+   * and re-inserts, so anything missing here is DELETED — which makes this the
+   * one place a venue's pins can be silently lost.
+   *
+   * Two sources, unioned:
+   *
+   *   - every role that currently has more than one active item, pinned to
+   *     whatever it resolved to. This is what makes a venue that never chose
+   *     pin its default on first save, so a later default flip cannot move it.
+   *
+   *   - every role the venue already has a stored choice for. Necessary
+   *     because "has more than one active item" is a CURRENT fact and §3's
+   *     invariant is a historical one: deactivate the Dahua and replay_camera
+   *     stops being contested, so a set derived from the first source alone
+   *     would drop the pin on the next save of that venue for any unrelated
+   *     reason — and reactivating the Dahua later would find every venue
+   *     silently following the catalog default again.
+   *
+   * A role that resolved to something takes the resolved item, which is how a
+   * dead choice gets repaired on save (the user saw CHOICE_UNAVAILABLE first).
+   * A role that resolved to NOTHING keeps the venue's stored id untouched:
+   * ROLE_NO_DEFAULT is an admin problem, and throwing away the user's pick
+   * while they fix it would be this component destroying data it cannot
+   * restore.
+   */
+  const choicesToSave = useMemo(() => {
+    const stored = new Map(choices.map(c => [c.roleKey, c.itemId]))
+    const roles = new Set<RoleKey>([
+      ...multiOptionRoles(catalogAll).keys(),
+      ...stored.keys(),
+    ])
+    return [...roles].flatMap(roleKey => {
+      const itemId = resolved.chosen.get(roleKey) ?? stored.get(roleKey)
+      return itemId ? [{ roleKey, itemId }] : []
+    })
+  }, [choices, catalogAll, resolved])
 
   const [pending, setPending] = useState<StoredLine[] | null>(null)
 
@@ -76,27 +112,57 @@ export function VenueDetail() {
     () => (venue && catalog.length > 0 ? calculateBOM(venue, catalog) : null),
     [venue, catalog],
   )
-  const warnings = result?.warnings ?? []
   const formulas = useMemo(
     () => new Map((result?.lines ?? []).map(l => [l.roleKey, l.formula])),
     [result],
   )
 
+  /**
+   * A hand-edited line is exempt from recalculation, item included, so the
+   * picker does not drive it. That is deliberate — an override must survive —
+   * but the consequence has to be said on the screen rather than found on the
+   * printed sheet.
+   */
+  const overridden = useMemo<Warning[]>(() => {
+    const byId = new Map(catalogAll.map(i => [i.id, i]))
+    return choicesToSave.flatMap(c => {
+      const line = lines.find(
+        l => l.roleKey === c.roleKey && l.source === 'manual' && !l.suppressed,
+      )
+      if (!line) return []
+      return [{
+        code: 'CHOICE_OVERRIDDEN',
+        level: 'warn' as const,
+        message:
+          `The ${ROLE_LABELS[c.roleKey].toLowerCase()} line on this list was ` +
+          `edited by hand, so it keeps "${byId.get(line.itemId)?.name ?? 'its item'}" ` +
+          'whatever the picker above says. Remove the line and recalculate if ' +
+          'the picker should drive it.',
+      }]
+    })
+  }, [choicesToSave, lines, catalogAll])
+
+  const warnings = [
+    ...(result?.warnings ?? []), ...resolved.warnings, ...overridden,
+  ]
+
   /** Recompute and show what would change first — spec §7 requires the diff. */
   const recalculate = () => {
     if (!result) return
-    setPending(mergeRecalculation(lines, result.lines))
+    setPending(mergeRecalculation(lines, result.lines, catalog))
   }
 
-  const diff = pending ? diffLines(lines, pending) : []
+  const diff = pending ? diffLines(lines, pending, catalogAll) : []
 
   // The table is a snapshot from the last recalculation, while the checks read
   // the inputs live. Edit courts from 8 to 12 and the sheet still exports the
   // 8-court quantities, with nothing on the page saying so. This detects that
   // gap using the same merge the Recalculate dialog previews.
   const staleRows = useMemo(
-    () => (result ? diffLines(lines, mergeRecalculation(lines, result.lines)) : []),
-    [result, lines],
+    () => (result
+      ? diffLines(lines, mergeRecalculation(lines, result.lines, catalog), catalogAll)
+      : []),
+    [result, lines, catalog, catalogAll],
   )
   const stale = staleRows.length > 0
 
@@ -104,7 +170,7 @@ export function VenueDetail() {
   // would resurrect lines the user suppressed.
   useEffect(() => {
     if (result && lines.length === 0) {
-      setLines(current => mergeRecalculation(current, result.lines))
+      setLines(current => mergeRecalculation(current, result.lines, catalog))
     }
   }, [result, lines.length])
 
@@ -130,10 +196,18 @@ export function VenueDetail() {
    * `id` and `venueId` are excluded because mergeRecalculation mints
    * `new:${roleKey}` ids with an empty venueId that can never equal what the RPC
    * returns — comparing them would report dirty on every recalculation.
+   *
+   * `choicesToSave`, not `choices`: it is what the save writes, so it is what
+   * "unsaved" has to be measured against. Sorted, because the array's order
+   * comes from a Set iteration and a reordering that changes nothing must not
+   * read as an edit.
    */
-  const projection = (v: Venue | null, ls: StoredLine[]) => JSON.stringify({
+  const projection = (
+    v: Venue | null, ls: StoredLine[], cs: VenueItemChoice[],
+  ) => JSON.stringify({
     venue: v && { ...v, updatedAt: '', updatedByEmail: '', createdByEmail: '' },
     lines: ls.map(({ id: _id, venueId: _v, ...rest }) => rest),
+    choices: [...cs].sort((a, b) => a.roleKey.localeCompare(b.roleKey)),
   })
 
   const [saved, setSaved] = useState<string | null>(null)
@@ -148,13 +222,18 @@ export function VenueDetail() {
     // never armed on those venues, `dirty` stayed false forever, and editing a
     // Basic venue to upgrade it — the whole reason to open one — lost the edits
     // with no dialog and no beforeunload.
+    //
+    // `choicesToSave` is correct in this dependency array without being added
+    // for a subtler reason — all four load states settle in one batched
+    // `.then` — but relying on that is not something the next reader should
+    // have to work out.
     if (venue && saved === null &&
         (result === null || lines.length > 0 || result.lines.length === 0)) {
-      setSaved(projection(venue, lines))
+      setSaved(projection(venue, lines, choicesToSave))
     }
-  }, [venue, lines, result, saved])
+  }, [venue, lines, result, saved, choicesToSave])
 
-  const dirty = saved !== null && saved !== projection(venue, lines)
+  const dirty = saved !== null && saved !== projection(venue, lines, choicesToSave)
 
   const [leaving, setLeaving] = useState(false)
 
@@ -210,13 +289,14 @@ export function VenueDetail() {
     try {
       // Named `written`, not `saved`: Task 6 adds a `saved` snapshot state to
       // this component and the shadowing would be silent.
-      const written = await saveVenueAndLines(target, toSave, catalog)
+      const written = await saveVenueAndLines(target, toSave, catalog, choicesToSave)
       setVenue(written.venue)
       setLines(written.lines)
+      setChoices(written.choices)
       // Without this the snapshot stays at pre-save state and the venue reads
       // as permanently dirty — the guard would then fire on every exit, and a
       // guard that always fires is one people learn to click through.
-      setSaved(projection(written.venue, written.lines))
+      setSaved(projection(written.venue, written.lines, written.choices))
       toast.success('Saved')
       return written
     } catch (e) {
@@ -265,7 +345,10 @@ export function VenueDetail() {
           return false
         }} />
         <div className="space-y-4 p-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-          <VenueInputsForm value={venue} onChange={onInputs} />
+          <VenueInputsForm value={venue} onChange={onInputs} catalog={catalogAll}
+            chosen={resolved.chosen}
+            onPick={(roleKey, itemId) => setChoices(cs =>
+              [...cs.filter(c => c.roleKey !== roleKey), { roleKey, itemId }])} />
           {warnings.length > 0 && (
             <div className="border-t pt-4">
               <WarningsPanel warnings={warnings} />
@@ -308,7 +391,7 @@ export function VenueDetail() {
         <UnsavedStrip dirty={dirty} />
 
         <div className="min-w-0 flex-1 py-4">
-          <MaterialsTable lines={lines} catalog={catalogAll}
+          <MaterialsTable lines={lines} catalog={catalogAll} chosen={resolved.chosen}
             formulas={formulas} onChange={setLines} isAdmin={role === 'admin'} />
         </div>
       </div>

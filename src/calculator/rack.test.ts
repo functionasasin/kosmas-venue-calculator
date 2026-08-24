@@ -5,7 +5,7 @@ import type { Item, CalculatedLine } from './types'
 const item = (roleKey: string, rackU: number | null): Item => ({
   id: roleKey, name: roleKey, category: 'test', roleKey: roleKey as never,
   supplier: null, poeWatts: null, mainsWatts: null, rackU,
-  isActive: true, notes: null, printNote: null,
+  isActive: true, isDefault: true, notes: null, printNote: null,
 })
 
 describe('sumRackU', () => {

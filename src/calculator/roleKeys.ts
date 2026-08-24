@@ -59,3 +59,51 @@ export type RoleKey = (typeof ROLE_KEYS)[number]
  */
 export const readRoleKey = (v: string | null | undefined): RoleKey | null =>
   v != null && (ROLE_KEYS as readonly string[]).includes(v) ? (v as RoleKey) : null
+
+/**
+ * Human labels for the role keys. Read by the venue's hardware pickers, by the
+ * recalculation diff and by the staleness dialog — every place a role key used
+ * to be shown raw.
+ *
+ * Kept beside ROLE_KEYS rather than in src/lib so the two cannot drift: the
+ * Record<RoleKey, string> type fails the build the moment a role key is added
+ * without a label.
+ */
+export const ROLE_LABELS: Record<RoleKey, string> = {
+  replay_camera: 'Replay camera',
+  security_camera: 'Security camera',
+  ipad: 'iPad',
+  ipad_poe_adapter: 'iPad PoE adapter',
+  ipad_wall_mount: 'iPad wall mount',
+  apple_tv: 'Apple TV',
+  display: 'Display',
+  switch_24_pro: '24-port PoE switch (Pro)',
+  switch_24_std: '24-port PoE switch (standard)',
+  switch_48_pro: '48-port PoE switch (Pro)',
+  gateway_udm_se: 'Gateway (UDM-SE)',
+  gateway_udm_pro: 'Gateway (UDM-Pro)',
+  access_point: 'Access point',
+  kisi_controller: 'Kisi controller',
+  kisi_reader: 'Kisi reader',
+  mac_mini: 'Mac mini',
+  mac_mini_shelf: 'Mac mini rack shelf',
+  replay_ssd_1tb: 'Replay SSD 1TB',
+  replay_ssd_2tb: 'Replay SSD 2TB',
+  replay_ssd_4tb: 'Replay SSD 4TB',
+  patch_panel_24: '24-port patch panel',
+  patch_panel_48: '48-port patch panel',
+  cat6_0m5: 'Cat6 patch cable 0.5m',
+  cat6_1m: 'Cat6 patch cable 1m',
+  cat6_3m: 'Cat6 patch cable 3m',
+  ups_750va: 'UPS 750 VA',
+  ups_1000va: 'UPS 1000 VA',
+  ups_1500va: 'UPS 1500 VA',
+  ups_2000va: 'UPS 2000 VA',
+  ups_3000va: 'UPS 3000 VA',
+  rack_12u: '12U rack',
+  rack_16u: '16U rack',
+  rack_21u: '21U rack',
+  rack_27u: '27U rack',
+  flic: 'Flic button',
+  signage: 'Signage',
+}

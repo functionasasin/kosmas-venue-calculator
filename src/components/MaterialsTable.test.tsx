@@ -14,7 +14,7 @@ export const item = (
 ): Item => ({
   id: `id-${roleKey}`, name, category, roleKey,
   supplier: null, poeWatts: null, mainsWatts: null, rackU: null,
-  isActive: true, notes: null, printNote: null,
+  isActive: true, isDefault: true, notes: null, printNote: null,
 })
 
 export const line = (
@@ -343,8 +343,8 @@ describe('cabling is admin-only', () => {
     const options = Array.from(
       (screen.getByLabelText('Add line') as HTMLSelectElement).options,
     ).map(o => o.value)
-    expect(options).toContain('ups_1500va')
-    expect(options).not.toContain('cat6_0m5')
+    expect(options).toContain('id-ups_1500va')
+    expect(options).not.toContain('id-cat6_0m5')
   })
 
   // THE data-loss guard. save_venue deletes every row for the venue and
@@ -390,6 +390,87 @@ describe('cabling is admin-only', () => {
     const offered = swapOptionNames()
     for (const name of cableNames) expect(offered).not.toContain(name)
     expect(offered).toContain('UPS 1500 VA')
+  })
+})
+
+describe('two active items on one role', () => {
+  // NOTE: this fixture is deliberately NOT run through resolveCatalog. The
+  // component is given the whole catalog on purpose — the swap control's job
+  // is to offer the alternate — so the test must mirror that or it would be
+  // asserting a state the app never reaches.
+  const cameras = [
+    ...catalog.filter(i => i.roleKey !== 'replay_camera'),
+    { ...item('replay_camera', 'camera'), id: 'uni', name: 'Uniview' },
+    { ...item('replay_camera', 'camera'), id: 'dah', name: 'Dahua' },
+  ]
+
+  // The swap picker used to key on role key, so two cameras rendered two
+  // options with the SAME value and the handler resolved through a role map —
+  // last wins. Picking either one landed on whichever came back last from the
+  // query, silently, and that item went onto the saved line and the PDF.
+  it('offers both cameras as distinct options and swaps to the one picked', async () => {
+    const onChange = vi.fn()
+    render(
+      <MaterialsTable
+        lines={[line('replay_camera', 8, { itemId: 'uni' })]}
+        catalog={cameras}
+        formulas={new Map()}
+        onChange={onChange}
+        isAdmin
+      />,
+    )
+
+    const popup = openSwapPicker()
+    expect(popup.getAllByRole('option').map(o => o.textContent?.trim()))
+      .toEqual(expect.arrayContaining(['Uniview', 'Dahua']))
+
+    const dahua = popup.getByRole('option', { name: 'Dahua' })
+    fireEvent.mouseMove(dahua)
+    fireEvent.click(dahua)
+
+    expect(onChange.mock.calls[0][0][0]).toMatchObject({
+      itemId: 'dah', roleKey: 'replay_camera', source: 'manual',
+    })
+  })
+
+  // originRoleKey records the role a line VACATED. Swapping between two items
+  // that hold the SAME role vacates nothing, and stamping it would put the role
+  // into mergeRecalculation's `present` set twice — which is how a swapped line
+  // stops the vacated role being re-added, a behaviour that must not fire here.
+  it('does not set originRoleKey when the swap stays inside the role', async () => {
+    const onChange = vi.fn()
+    render(
+      <MaterialsTable
+        lines={[line('replay_camera', 8, { itemId: 'uni' })]}
+        catalog={cameras}
+        formulas={new Map()}
+        onChange={onChange}
+        isAdmin
+      />,
+    )
+
+    swapTo('Dahua')
+
+    expect(onChange.mock.calls[0][0][0].originRoleKey).toBeNull()
+  })
+
+  it('still sets originRoleKey when the swap crosses to another role', async () => {
+    const onChange = vi.fn()
+    render(
+      <MaterialsTable
+        lines={[line('replay_camera', 8, { itemId: 'uni' })]}
+        catalog={cameras}
+        formulas={new Map()}
+        onChange={onChange}
+        isAdmin
+      />,
+    )
+
+    swapTo('Samsung 65in')
+
+    expect(onChange.mock.calls[0][0][0]).toMatchObject({
+      roleKey: 'display', originRoleKey: 'replay_camera',
+    })
   })
 })
 

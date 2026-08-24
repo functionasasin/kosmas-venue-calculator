@@ -9,14 +9,19 @@
 -- hands out. The two columns are disjoint and feed different budgets: poe_watts
 -- feeds the switch PoE check, mains_watts feeds UPS sizing. A switch has both.
 --
--- NOTE: the replay camera is NOT standardised across venues. This seed keeps the
--- Uniview Owlview (2.8W) active, matching production, with the Dahua (17.5W)
--- as an inactive alternate. Migration 0010 flips them — it is written but NOT
--- applied, pending a decision, because Helios Beta wants the Dahua while Tela
--- Park runs the Uniview. The gap is real: a 14-court venue is 1000 VA on the
--- Uniview and 1500 VA on the Dahua, which is why calculateBOM raises
--- UPS_CAMERA_ASSUMPTION when the catalog and the doc's 17.5W standard disagree
--- on the rung. If 0010 is applied, swap these two rows to match.
+-- NOTE: the replay camera is NOT standardised across venues, and after
+-- migration 0014 the catalog no longer has to choose — BOTH cameras are
+-- active, the Uniview Owlview (2.8W, Tela Park) is the role's DEFAULT, the
+-- Dahua (17.5W, Helios Beta) is the alternative, and each venue picks through
+-- venue_item_choices. The gap is real: a 14-court venue is 1000 VA on the
+-- Uniview and 1500 VA on the Dahua.
+--
+-- This file is deliberately NOT that end state. It runs as 0003, under
+-- 0001's items_role_key_active index, so a second active replay camera here
+-- would fail the bootstrap. 0011 relaxes the index and backfills is_default;
+-- 0014 activates the Dahua and pins existing venues. Run in order, a new
+-- project lands where production lands. Migration 0010 used to flip the two
+-- cameras instead; it was deleted unapplied.
 --
 -- Prices are deliberately absent. They are entered through the admin catalog
 -- form and never leave it.
@@ -59,11 +64,12 @@ insert into items (name, category, role_key, supplier, poe_watts, rack_u, notes,
   ('Kisi Controller Pro 2', 'network', 'kisi_controller', null, null, null, 'Autonomous tiers only. Not stocked in PH — ships from US/HK. Sized 1 per 4 doors, which is the doc''s INTENT: Cost Analysis!F37 tests the empty cell Z16 instead of Z14, so the sheet returns 1 controller for every venue whatever the door count. rack_u is null on purpose — the source calls it rack-mounted but records no U figure, so the rack total excludes it and a warning says so.', 'Lands on a UDM RJ45 port, not the switch — non-PoE, 1 port per controller. Verify the rack bracket before ordering.'),
   ('Kisi Reader Pro 2.1', 'court', 'kisi_reader', null, 7, 0, 'Autonomous tiers only. Not stocked in PH — ships from US/HK. 1 per door. The 2.1, not the Pro 2: it adds Apple ECP 2.0 and offline support, and the PH Kisi supplier does not stock the older generation anyway. 7W max, 802.3af.', 'Goes on the UDM-SE''s PoE ports first, overflowing to the switch only when the gateway runs out. This is a deliberate Kosmas deviation — PodPlay''s guides put every reader on the switch. Tag each UDM port carrying a reader onto the ACCESS CONTROL VLAN.');
 
--- Alternates, inactive so they do not claim a role key. Only one active item
--- may hold a role_key (unique index items_role_key_active), so activating one
--- of these means deactivating the incumbent FIRST or the write is rejected.
+-- Alternates and retired hardware. Inactive, so they hold no role key and
+-- reach no BOM. Until 0011 only one ACTIVE item could hold a role key at all;
+-- after it, several can — but this file runs before that, so these stay
+-- inactive here and 0014 is what activates the Dahua.
 insert into items (name, category, role_key, supplier, poe_watts, rack_u, is_active, notes) values
-  ('Dahua DH-IPC-HDW5459T-ZE-IL-2712 (Replay Camera)', 'camera', null, 'Drextech', 17.5, 0, false, 'PodPlay''s Option-1 primary standard and what Helios Beta is being built with — 8 units on hand (recorded 2026-08-18), 6 more pending for its 14 courts. 4MP 1/1.8", 2.7-12mm motorized varifocal, Smart Dual Light, 802.3at, 17.5W MAX / 5W typical. The 12V/2A input rating is a 24W supply envelope, NOT a draw figure. Activating this is migration 0010 and is a real sizing change: 6x the Uniview''s draw, a full UPS rung at 14 courts. Set illumination to IR, not white/dual — that is what keeps 17.5W true.'),
+  ('Dahua DH-IPC-HDW5459T-ZE-IL-2712 (Replay Camera)', 'camera', null, 'Drextech', 17.5, 0, false, 'PodPlay''s Option-1 primary standard and what Helios Beta is being built with — 8 units on hand (recorded 2026-08-18), 6 more pending for its 14 courts. 4MP 1/1.8", 2.7-12mm motorized varifocal, Smart Dual Light, 802.3at, 17.5W MAX / 5W typical. The 12V/2A input rating is a 24W supply envelope, NOT a draw figure. Inactive HERE because this file runs under 0001''s index; 0014 activates it ALONGSIDE the Uniview, which keeps the role default, so a venue picks between them rather than the catalog choosing. 6x the Uniview''s draw — a full UPS rung at 14 courts. Set illumination to IR, not white/dual — that is what keeps 17.5W true.'),
   ('KSTAR MP RT 3K S UPS', 'power', null, 'Drextech', null, 2, false, 'RETIRED as a BOM line 2026-08-20 — the tool specs the UPS by VA rating now, not by SKU. Still the unit Kosmas stocks and installs: 3000VA/2700W on-line, i.e. the top rung, so it satisfies every venue. 600mm deep.');
 
 -- Mains draw, verified against the manufacturers on 2026-08-20 rather than

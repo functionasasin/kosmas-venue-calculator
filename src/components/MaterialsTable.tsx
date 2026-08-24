@@ -13,10 +13,17 @@ interface Props {
   formulas: Map<string, string>
   onChange: (lines: StoredLine[]) => void
   isAdmin: boolean
+  chosen?: Map<string, string>
 }
 
-export function MaterialsTable({ lines, catalog, formulas, onChange, isAdmin }: Props) {
-  const byRole = itemsByRole(catalog)
+export function MaterialsTable({
+  lines, catalog, formulas, onChange, isAdmin, chosen,
+}: Props) {
+  // The venue's resolved choice decides which of several active items a role
+  // resolves to. The catalog itself is NOT collapsed — the swap control must
+  // still be able to offer the alternate.
+  const byRole = itemsByRole(catalog, chosen)
+  const byId = new Map(catalog.map(i => [i.id, i]))
 
   // UI visibility only. The anon key ships in the bundle and the venue_lines
   // RLS policy grants read to any authenticated user, so this is the same kind
@@ -39,7 +46,7 @@ export function MaterialsTable({ lines, catalog, formulas, onChange, isAdmin }: 
   // filtered array reaching onChange would delete the omitted rows from the
   // database.
   const sections = groupIntoSections(
-    lines.filter(l => !l.suppressed && !hidden(l)), catalog,
+    lines.filter(l => !l.suppressed && !hidden(l)), catalog, chosen,
   )
 
   const update = (id: string, patch: Partial<StoredLine>) =>
@@ -58,31 +65,39 @@ export function MaterialsTable({ lines, catalog, formulas, onChange, isAdmin }: 
     onChange(lines.map(l => (l.id === line.id ? { ...l, suppressed: false } : l)))
 
   // originRoleKey records the role this line vacated. It is set once — a
-  // second swap must not overwrite the original, or recalculation re-adds it.
-  // itemId moves with roleKey: exportMaterials resolves by itemId first, so a
-  // stale one prints the item the user swapped away from.
-  const swap = (line: StoredLine, roleKey: string) => {
-    const target = byRole.get(roleKey)
+  // second swap must not overwrite the original, or recalculation re-adds it —
+  // and it is NOT set at all when the swap stays inside the role, which is the
+  // two-cameras case: nothing was vacated, and stamping it would make
+  // mergeRecalculation treat the role as present twice.
+  //
+  // Keyed on item id, not role key: with several active items on one role a
+  // role-keyed lookup is last-wins and lands on the wrong SKU.
+  const swap = (line: StoredLine, itemId: string) => {
+    const target = byId.get(itemId)
+    if (!target) return
     onChange(lines.map(l =>
       l.id === line.id
         ? {
             ...l,
-            roleKey: roleKey as StoredLine['roleKey'],
-            itemId: target?.id ?? l.itemId,
-            originRoleKey: l.originRoleKey ?? l.roleKey,
+            roleKey: target.roleKey,
+            itemId: target.id,
+            originRoleKey:
+              target.roleKey === l.roleKey
+                ? l.originRoleKey
+                : l.originRoleKey ?? l.roleKey,
             source: 'manual' as const,
           }
         : l))
   }
 
-  const add = (roleKey: string) => {
-    const item = byRole.get(roleKey)
+  const add = (itemId: string) => {
+    const item = byId.get(itemId)
     if (!item) return
     onChange([...lines, {
-      id: `new-manual:${roleKey}:${Date.now()}`,
+      id: `new-manual:${item.id}:${Date.now()}`,
       venueId: '',
       itemId: item.id,
-      roleKey: roleKey as StoredLine['roleKey'],
+      roleKey: item.roleKey,
       qty: 1,
       originRoleKey: null,
       sortOrder: lines.length,
@@ -129,6 +144,7 @@ export function MaterialsTable({ lines, catalog, formulas, onChange, isAdmin }: 
               catalog={catalog}
               formulas={formulas}
               isAdmin={isAdmin}
+              chosen={chosen}
               onUpdate={update}
               onSwap={swap}
               onRemove={remove}
@@ -149,7 +165,7 @@ export function MaterialsTable({ lines, catalog, formulas, onChange, isAdmin }: 
         >
           <option value="">— choose an item —</option>
           {addable.map(i => (
-            <option key={i.roleKey!} value={i.roleKey!}>{i.name}</option>
+            <option key={i.id} value={i.id}>{i.name}</option>
           ))}
         </select>
       </div>
@@ -158,7 +174,7 @@ export function MaterialsTable({ lines, catalog, formulas, onChange, isAdmin }: 
         <div className="space-y-1 px-4 text-sm text-muted-foreground">
           <p>Removed lines (will not return on recalculation):</p>
           {removed.map(l => {
-            const item = l.roleKey ? byRole.get(l.roleKey) : undefined
+            const item = byId.get(l.itemId) ?? (l.roleKey ? byRole.get(l.roleKey) : undefined)
             return (
               <div key={l.id} className="flex items-center gap-2">
                 <span>{item?.name ?? l.roleKey}</span>

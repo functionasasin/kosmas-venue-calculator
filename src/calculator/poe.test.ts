@@ -12,7 +12,7 @@ const noKisi: KisiPlan = {
 const item = (roleKey: string, poeWatts: number | null): Item => ({
   id: roleKey, name: roleKey, category: 'test', roleKey: roleKey as never,
   supplier: null, poeWatts, mainsWatts: null, rackU: null,
-  isActive: true, notes: null, printNote: null,
+  isActive: true, isDefault: true, notes: null, printNote: null,
 })
 
 const plan48: SwitchPlan = {

@@ -12,13 +12,6 @@ import type { RoleKey } from './roleKeys'
 
 // Roles that draw PoE. Used only to decide whether a missing wattage is worth
 // complaining about — a rack or a cable having no wattage is normal.
-/**
- * The replay camera the sizing doc's UPS tables are written against. Not a
- * claim about what Kosmas stocks — it is the reference point the warning below
- * compares the live catalog to.
- */
-const DOC_REPLAY_WATTS = 17.5
-
 const POE_BEARING = new Set<RoleKey>([
   'replay_camera', 'security_camera', 'ipad_poe_adapter', 'access_point',
   'kisi_reader',
@@ -133,31 +126,13 @@ export function calculateBOM(inputs: VenueInputs, catalog: Item[]): BomResult {
     })
   }
 
-  // The rung is decided by the replay camera more than by anything else — the
-  // cameras on hand span 2.8 W to 24 W, which is three rungs at 14 courts. The
-  // catalog holds one camera while venues do not share one, so when the two
-  // disagree on the answer that has to be said out loud rather than left for
-  // whoever compares the sheet to the venue.
-  const replay = catalog.find(i => i.roleKey === 'replay_camera' && i.isActive)
-  if (replay && replay.poeWatts !== null && replay.poeWatts !== DOC_REPLAY_WATTS) {
-    const atDocWatts = planUps(
-      inputs,
-      lines,
-      catalog.map(i =>
-        i.roleKey === 'replay_camera' ? { ...i, poeWatts: DOC_REPLAY_WATTS } : i),
-    )
-    if (atDocWatts.rung !== ups.rung) {
-      warnings.push({
-        code: 'UPS_CAMERA_ASSUMPTION',
-        level: 'warn',
-        message:
-          `The ${ups.rung} VA rating assumes ${replay.poeWatts} W replay ` +
-          `cameras (${replay.name}). With PodPlay's ${DOC_REPLAY_WATTS} W ` +
-          `standard camera this venue would need ${atDocWatts.rung} VA. ` +
-          'Confirm which camera this venue gets before ordering the UPS.',
-      })
-    }
-  }
+  // UPS_CAMERA_ASSUMPTION and DOC_REPLAY_WATTS were here until 2026-08-20. The
+  // warning compared the catalog's replay camera against PodPlay's 17.5 W
+  // standard and spoke when the two produced different rungs. It existed
+  // solely because the catalog held ONE camera while venues did not share one,
+  // so the tool could not know which a venue would get. It can now —
+  // venue_item_choices, resolved by src/lib/resolveCatalog.ts — and a warning
+  // hedging an answered question is noise on every correctly-specced venue.
 
   // Rack is sized from everything above, so it is appended last.
   const rack = pickRack(sumRackU(lines, catalog))

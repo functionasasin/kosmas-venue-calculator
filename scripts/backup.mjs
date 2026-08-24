@@ -16,7 +16,7 @@
 
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs'
 
-const TABLES = ['items', 'venues', 'venue_lines']
+const TABLES = ['items', 'venues', 'venue_lines', 'venue_item_choices']
 
 const env = Object.fromEntries(
   readFileSync(new URL('../.env', import.meta.url), 'utf8')

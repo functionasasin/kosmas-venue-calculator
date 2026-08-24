@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import type { CalculatedLine, Item, Qty } from '@/calculator/types'
 import { readRoleKey, type RoleKey } from '@/calculator/roleKeys'
 import { getVenue, venueFromRow, type Venue } from './venues'
+import { choiceFromRow, type VenueItemChoice } from './venueItemChoices'
 
 export interface StoredLine {
   id: string
@@ -20,17 +21,33 @@ export interface StoredLine {
 
 /**
  * Recalculation contract:
- *   formula line  -> quantity refreshed
+ *   formula line  -> quantity refreshed, item re-pointed at the resolved one
  *   manual line   -> untouched (a deliberate correction must survive)
  *   suppressed    -> stays suppressed (a deleted line must not resurrect)
  *   formula line no longer produced -> dropped
- *   newly produced -> added as `formula`
+ *   newly produced -> added as `formula`, already carrying its item
+ *
+ * `resolved` is a catalog that has been through resolveCatalog, so exactly one
+ * ACTIVE item holds each role key. The item resolution lives here beside
+ * itemIdFor rather than on CalculatedLine, which is the sizing output and is
+ * constructed directly by several engine tests.
+ *
+ * Re-pointing itemId is not cosmetic. exportMaterials resolves the printed
+ * name by itemId first and saveVenueAndLines prefers a line's stored itemId
+ * over the role map, so without this a venue's hardware choice would move the
+ * UPS rung and leave the old item on the saved list and on the PDF.
  */
 export function mergeRecalculation(
   stored: StoredLine[],
   calculated: CalculatedLine[],
+  resolved: Item[],
 ): StoredLine[] {
   const byRole = new Map(calculated.map(c => [c.roleKey, c]))
+  const itemIdFor = new Map(
+    resolved
+      .filter(i => i.isActive && i.roleKey)
+      .map(i => [i.roleKey as RoleKey, i.id]),
+  )
   const kept: StoredLine[] = []
 
   for (const line of stored) {
@@ -39,7 +56,15 @@ export function mergeRecalculation(
       continue
     }
     const fresh = line.roleKey ? byRole.get(line.roleKey) : undefined
-    if (fresh) kept.push({ ...line, qty: fresh.qty })
+    if (fresh) {
+      // `?? line.itemId`, not `?? ''`: a role that currently resolves to
+      // nothing must not blank an itemId the line already had, or a transient
+      // catalog state would turn a saveable venue into an unresolved-lines
+      // error.
+      const itemId =
+        (line.roleKey ? itemIdFor.get(line.roleKey) : undefined) ?? line.itemId
+      kept.push({ ...line, qty: fresh.qty, itemId })
+    }
     // A formula line with no fresh counterpart is dropped.
   }
 
@@ -56,7 +81,10 @@ export function mergeRecalculation(
     kept.push({
       id: `new:${c.roleKey}`,
       venueId: '',
-      itemId: '',
+      // Empty when the role resolves to nothing — the line still renders, as
+      // "No active item mapped for …", and saveVenueAndLines raises
+      // UnresolvedLinesError rather than writing a dangling row.
+      itemId: itemIdFor.get(c.roleKey) ?? '',
       roleKey: c.roleKey,
       qty: c.qty,
       originRoleKey: null,
@@ -144,20 +172,32 @@ const lineFromRpc = (r: Record<string, unknown>): StoredLine => ({
 })
 
 /**
- * Saves the venue and its whole materials list in ONE transaction, with an
- * optimistic-lock check against the `updatedAt` this venue was loaded with.
+ * Saves the venue, its whole materials list AND its hardware choices in ONE
+ * transaction, with an optimistic-lock check against the `updatedAt` this
+ * venue was loaded with.
  *
- * Replaces saveVenue + saveLines, which were two independent writes, the second
- * of which was itself a DELETE followed by a separate INSERT. A failure between
- * them left a venue whose inputs and materials list disagreed — exactly the
- * divergence the stale/staleExport machinery exists to catch, reached through
- * the save path instead of through editing.
+ * `choices` is the venue's FULL set, not a delta — the RPC deletes and
+ * re-inserts, so an omitted role is a removal. VenueDetail derives it from the
+ * resolved catalog, which is what makes a venue that has never chosen still
+ * pin its defaults the first time it is saved.
+ *
+ * `catalog` must already be resolved (src/lib/resolveCatalog.ts): itemIdFor
+ * below is a plain role -> id Map, so an unresolved catalog with two active
+ * cameras would mint the LAST one into every freshly calculated line. The
+ * `isActive` term in that filter is new — it was `roleKey` alone, which was
+ * safe only because the caller happened to pass an active-only array. Belt and
+ * braces: a deactivated item must never be minted onto a fresh line.
  */
 export async function saveVenueAndLines(
-  venue: Venue, lines: StoredLine[], catalog: Item[],
-): Promise<{ venue: Venue; lines: StoredLine[] }> {
+  venue: Venue,
+  lines: StoredLine[],
+  catalog: Item[],
+  choices: VenueItemChoice[],
+): Promise<{ venue: Venue; lines: StoredLine[]; choices: VenueItemChoice[] }> {
   const itemIdFor = new Map(
-    catalog.filter(i => i.roleKey).map(i => [i.roleKey as RoleKey, i.id]),
+    catalog
+      .filter(i => i.isActive && i.roleKey)
+      .map(i => [i.roleKey as RoleKey, i.id]),
   )
 
   // itemId is authoritative — it survives the item being deactivated or its
@@ -200,6 +240,7 @@ export async function saveVenueAndLines(
       backup_internet: venue.backupInternet,
     },
     p_lines: payload,
+    p_choices: choices.map(c => ({ role_key: c.roleKey, item_id: c.itemId })),
     // Verbatim. Never through a Date — see Venue.updatedAt.
     p_expected_updated_at: venue.updatedAt,
   })
@@ -231,9 +272,16 @@ export async function saveVenueAndLines(
   const payloadOut = data as unknown as {
     venue: Record<string, unknown>
     lines: Record<string, unknown>[]
+    choices: { role_key: string | null; item_id: string }[]
   }
   return {
     venue: venueFromRow(payloadOut.venue),
     lines: payloadOut.lines.map(lineFromRpc),
+    // Same narrowing as listChoices: role_key is unconstrained text, so a
+    // choice for a role the app has retired is dropped rather than typed as a
+    // RoleKey.
+    choices: (payloadOut.choices ?? [])
+      .map(choiceFromRow)
+      .filter((c): c is VenueItemChoice => c !== null),
   }
 }

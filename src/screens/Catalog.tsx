@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { listItems, upsertItem, setItemActive } from '@/data/items'
+import { listItems, upsertItem, setItemActive, setItemDefault } from '@/data/items'
 import type { Item } from '@/calculator/types'
 import { ItemForm } from '@/components/ItemForm'
 import { Button } from '@/components/ui/button'
@@ -31,25 +31,32 @@ export function Catalog() {
     }
   }
 
+  // The guard that used to live here refused to reactivate an item whose role
+  // key was held by another active item, because items_role_key_active would
+  // have rejected the write with raw constraint text naming the constraint
+  // rather than the conflicting item.
+  //
+  // That index is gone (0011). Several active items per role is the supported
+  // state now — it is the whole point of venue_item_choices — and the
+  // uniqueness that remains is on the DEFAULT flag, which activation never
+  // sets. There is nothing left to pre-empt.
   const toggle = async (item: Item) => {
-    // Reactivating an item whose role key was claimed meanwhile violates the
-    // partial unique index. Postgres's raw text names the constraint, not the
-    // conflicting item, so the conflict is resolved here and named.
-    if (!item.isActive && item.roleKey) {
-      const holder = items.find(
-        i => i.isActive && i.roleKey === item.roleKey && i.id !== item.id,
-      )
-      if (holder) {
-        toast.error(
-          `"${holder.name}" already holds the role ${item.roleKey}. ` +
-          'Deactivate it first.',
-        )
-        return
-      }
-    }
     try {
       await setItemActive(item.id, !item.isActive)
       reload()
+    } catch (e) {
+      toast.error((e as Error).message)
+    }
+  }
+
+  // One RPC. Clearing the incumbent and setting the new default as two writes
+  // leaves the role with no default in between, and the other order is
+  // rejected by items_role_key_default, which is not deferrable.
+  const makeDefault = async (item: Item) => {
+    try {
+      await setItemDefault(item.id)
+      reload()
+      toast.success(`${item.name} is now the default for ${item.roleKey}`)
     } catch (e) {
       toast.error((e as Error).message)
     }
@@ -119,7 +126,7 @@ export function Catalog() {
               <TableHead className="h-7 text-right text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
                 Rack U
               </TableHead>
-              <TableHead className="w-52 pr-4" />
+              <TableHead className="w-72 pr-4" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -129,6 +136,7 @@ export function Catalog() {
                 <TableCell className="py-1.5 pl-4 font-medium group-hover/row:shadow-[inset_2px_0_0_var(--brand)]">
                   {item.name}
                   {!item.isActive && <Badge variant="outline" className="ml-2">inactive</Badge>}
+                  {item.isDefault && <Badge variant="outline" className="ml-2">default</Badge>}
                 </TableCell>
                 <TableCell className="py-1.5">{item.category}</TableCell>
                 <TableCell className="py-1.5 font-mono text-xs">{item.roleKey ?? '—'}</TableCell>
@@ -136,6 +144,15 @@ export function Catalog() {
                 <TableCell className="py-1.5 text-right tabular-nums">{item.rackU ?? '—'}</TableCell>
                 <TableCell className="space-x-2 py-1.5 pr-4 text-right">
                   <Button size="sm" variant="ghost" onClick={() => setEditing(item)}>Edit</Button>
+                  {/* Only for an active, role-keyed item that is not already
+                      the default. A deactivated row cannot hold one — the 0011
+                      trigger clears the flag — so offering it would promise
+                      something the database immediately undoes. */}
+                  {item.isActive && item.roleKey && !item.isDefault && (
+                    <Button size="sm" variant="ghost" onClick={() => makeDefault(item)}>
+                      Make default
+                    </Button>
+                  )}
                   <Button size="sm" variant="ghost" onClick={() => toggle(item)}>
                     {item.isActive ? 'Deactivate' : 'Reactivate'}
                   </Button>
