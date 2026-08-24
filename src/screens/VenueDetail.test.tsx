@@ -527,4 +527,24 @@ describe('per-venue hardware choice', () => {
     await renderDetail()
     expect(await screen.findByText(/edited by hand/i)).toBeInTheDocument()
   })
+
+  // B1: a swap that crosses roles leaves the line under its NEW roleKey and
+  // records the vacated role in originRoleKey (see MaterialsTable's swap()).
+  // A roleKey-only match against replay_camera would find nothing here, so
+  // the vacated role's picker would look wired to a line while nothing on
+  // screen actually reads from it — the warning has to catch this case too.
+  it('warns when the chosen role\'s line was hand-swapped to a different role', async () => {
+    const { listItems } = await import('@/data/items')
+    const { listLines } = await import('@/data/venueLines')
+
+    vi.mocked(listItems).mockResolvedValueOnce(twoCameras)
+    vi.mocked(listLines).mockResolvedValueOnce([{
+      id: 'l-cam', venueId: 'v1', itemId: 'display', roleKey: 'display',
+      qty: 1, originRoleKey: 'replay_camera', sortOrder: 0, source: 'manual',
+      suppressed: false, note: null,
+    }])
+
+    await renderDetail()
+    expect(await screen.findByText(/hand-swapped/i)).toBeInTheDocument()
+  })
 })

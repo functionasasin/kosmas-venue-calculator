@@ -133,23 +133,45 @@ export function VenueDetail() {
    * picker does not drive it. That is deliberate — an override must survive —
    * but the consequence has to be said on the screen rather than found on the
    * printed sheet.
+   *
+   * A swap that crosses roles (Materials table -> "swap to a different
+   * role's item") leaves the line under its NEW roleKey and records the
+   * vacated role in originRoleKey — MaterialsTable's swap() does this so
+   * mergeRecalculation's `present` set still treats the vacated role as
+   * occupied and does not re-add it. That means a plain roleKey match here
+   * misses exactly the case this warning exists for: the vacated role's
+   * picker in the rail looks like it drives a line, but nothing on screen
+   * is actually wired to it any more. Matching originRoleKey too catches it.
    */
   const overridden = useMemo<Warning[]>(() => {
     const byId = new Map(catalogAll.map(i => [i.id, i]))
     return choicesToSave.flatMap(c => {
       const line = lines.find(
-        l => l.roleKey === c.roleKey && l.source === 'manual' && !l.suppressed,
+        l => (l.roleKey === c.roleKey || l.originRoleKey === c.roleKey)
+          && l.source === 'manual' && !l.suppressed,
       )
       if (!line) return []
-      return [{
-        code: 'CHOICE_OVERRIDDEN',
-        level: 'warn' as const,
-        message:
-          `The ${ROLE_LABELS[c.roleKey].toLowerCase()} line on this list was ` +
-          `edited by hand, so it keeps "${byId.get(line.itemId)?.name ?? 'its item'}" ` +
-          'whatever the picker above says. Remove the line and recalculate if ' +
-          'the picker should drive it.',
-      }]
+      const itemName = byId.get(line.itemId)?.name ?? 'its item'
+      const roleLabel = ROLE_LABELS[c.roleKey].toLowerCase()
+      // Same-role edit: the line is still named for this role, and still
+      // holds an item that fills it. Cross-role swap: the line moved to a
+      // different role entirely, so naming it "the {role} line" while
+      // pointing at an item from another role would read as a mismatch —
+      // say plainly that the role's line is gone and where it went instead.
+      // The swap target's own role is named in parens when it has one; a
+      // line can land on a roleless item (a cable, say — roleKey null is a
+      // real state, not just the freshly-added case), and there is nothing
+      // to name there beyond the item itself.
+      const message = line.roleKey === c.roleKey
+        ? `The ${roleLabel} line on this list was edited by hand, so it ` +
+          `keeps "${itemName}" whatever the picker above says. Remove the ` +
+          'line and recalculate if the picker should drive it.'
+        : `The ${roleLabel} line on this list was hand-swapped to ` +
+          `"${itemName}"${line.roleKey ? ` (${ROLE_LABELS[line.roleKey].toLowerCase()})` : ''}, ` +
+          `so nothing on this list fills ${roleLabel} any more and the ` +
+          'picker above drives nothing. Remove the line and recalculate to ' +
+          'bring it back.'
+      return [{ code: 'CHOICE_OVERRIDDEN', level: 'warn' as const, message }]
     })
   }, [choicesToSave, lines, catalogAll])
 
