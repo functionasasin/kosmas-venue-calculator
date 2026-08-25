@@ -566,6 +566,66 @@ describe('per-venue hardware choice', () => {
     expect(screen.queryByText(/edited by hand/i)).not.toBeInTheDocument()
   })
 
+  // The warning compares against what the venue is SIZED on, which is
+  // resolved.chosen — not the entry in choicesToSave, which deliberately
+  // carries the STORED pin so a save cannot overwrite it. The two disagree
+  // exactly here: the pin is deactivated, so the venue is sized on the fallback
+  // while the stored id still names the dead item. Comparing against the pin
+  // reported a drift between two items the venue is not sized on either way,
+  // in the one state where the user is already being told their pick is gone.
+  it('says nothing when a hand-edited line names the fallback its dead pin resolved to', async () => {
+    const { listItems } = await import('@/data/items')
+    const { listLines } = await import('@/data/venueLines')
+    const { listChoices } = await import('@/data/venueItemChoices')
+
+    vi.mocked(listItems).mockResolvedValueOnce(
+      [...testCatalog.filter(i => i.roleKey !== 'replay_camera'),
+        uniview, { ...dahua, isActive: false }],
+    )
+    vi.mocked(listChoices).mockResolvedValueOnce(
+      [{ roleKey: 'replay_camera', itemId: dahua.id }],
+    )
+    vi.mocked(listLines).mockResolvedValueOnce([{
+      id: 'l-cam', venueId: 'v1', itemId: uniview.id, roleKey: 'replay_camera',
+      qty: 8, originRoleKey: null, sortOrder: 0, source: 'manual',
+      suppressed: false, note: null,
+    }])
+
+    await renderDetail()
+    // CHOICE_UNAVAILABLE still fires — the pick really is gone. What must not
+    // appear is a second warning claiming the list and the sizing disagree.
+    expect(await screen.findByText(/deactivated or no longer fills that role/))
+      .toBeInTheDocument()
+    expect(screen.queryByText(/edited by hand/i)).not.toBeInTheDocument()
+  })
+
+  // The mirror of the case above, and the reason a `find` on its own is not
+  // enough: a role can hold two manual lines — a hand-edited formula line plus
+  // one added by hand — and the first can agree while the second prints an item
+  // the venue is not sized on. Reporting the first and stopping hides it.
+  it('names the drifted line when another line on the same role agrees', async () => {
+    const { listItems } = await import('@/data/items')
+    const { listLines } = await import('@/data/venueLines')
+
+    vi.mocked(listItems).mockResolvedValueOnce(twoCameras)
+    vi.mocked(listLines).mockResolvedValueOnce([
+      {
+        id: 'l-cam', venueId: 'v1', itemId: uniview.id, roleKey: 'replay_camera',
+        qty: 6, originRoleKey: null, sortOrder: 0, source: 'manual',
+        suppressed: false, note: null,
+      },
+      {
+        id: 'l-cam-2', venueId: 'v1', itemId: dahua.id, roleKey: 'replay_camera',
+        qty: 2, originRoleKey: null, sortOrder: 1, source: 'manual',
+        suppressed: false, note: null,
+      },
+    ])
+
+    await renderDetail()
+    const said = await screen.findByText(/edited by hand/i)
+    expect(said.textContent).toContain(dahua.name)
+  })
+
   // B1: a swap that crosses roles leaves the line under its NEW roleKey and
   // records the vacated role in originRoleKey (see MaterialsTable's swap()).
   // A roleKey-only match against replay_camera would find nothing here, so

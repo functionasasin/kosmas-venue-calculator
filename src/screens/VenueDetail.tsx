@@ -144,14 +144,28 @@ export function VenueDetail() {
    *     control writes the venue's choice for a same-role swap now, so the
    *     live way to reach this is gone; what remains is a line hand-swapped
    *     before that delegation existed, and a role holding a second line. An
-   *     item that AGREES with the choice is not reported — a manual line
-   *     freezes its quantity, which is not this warning's business.
+   *     item that AGREES is not reported — a manual line freezes its quantity,
+   *     which is not this warning's business.
    *
    *   - the line was swapped to another role's item entirely. It keeps its new
    *     roleKey and records the vacated one in originRoleKey (MaterialsTable's
    *     swap()), so a plain roleKey match misses it — and it is the worse of
    *     the two, because nothing on the list fills the role at all while the
    *     venue is still sized as though something does.
+   *
+   * `resolved.chosen`, NOT the entry in choicesToSave, is what "sized on"
+   * means. choicesToSave deliberately carries the venue's STORED pin so a save
+   * cannot overwrite it, and the two disagree in exactly the state this warning
+   * is most likely to be read in: a pin whose item was deactivated sizes the
+   * venue on the fallback while the stored id still names the dead item.
+   * Comparing against the pin there reports a drift between two items the venue
+   * is not sized on either way, and stays silent on the line that really has
+   * drifted.
+   *
+   * A role can hold more than one manual line — a hand-edited formula line plus
+   * one added by hand — so the FIRST match is not good enough: it can agree
+   * while a second line prints an item the venue is not sized on. The one that
+   * actually drifted is the one worth naming.
    */
   const overridden = useMemo<Warning[]>(() => {
     const byId = itemsById(catalogAll)
@@ -159,17 +173,22 @@ export function VenueDetail() {
       [{ code: 'CHOICE_OVERRIDDEN', level: 'warn' as const, message }]
 
     return choicesToSave.flatMap(c => {
+      const sizedId = resolved.chosen.get(c.roleKey)
+      // The role resolved to nothing at all. ROLE_NO_DEFAULT already says so,
+      // and there is no item to say the list disagrees with.
+      if (!sizedId) return []
+
       const line = lines.find(
         l => (l.roleKey === c.roleKey || l.originRoleKey === c.roleKey)
-          && l.source === 'manual' && !l.suppressed,
+          && l.source === 'manual' && !l.suppressed
+          && (l.roleKey !== c.roleKey || l.itemId !== sizedId),
       )
       if (!line) return []
       const itemName = byId.get(line.itemId)?.name ?? 'its item'
       const roleLabel = ROLE_LABELS[c.roleKey].toLowerCase()
 
       if (line.roleKey === c.roleKey) {
-        if (line.itemId === c.itemId) return []
-        const sizedName = byId.get(c.itemId)?.name ?? 'another item'
+        const sizedName = byId.get(sizedId)?.name ?? 'another item'
         return warn(
           `The ${roleLabel} line on this list was edited by hand and still ` +
           `names "${itemName}", but this venue is sized on "${sizedName}". ` +
@@ -189,7 +208,7 @@ export function VenueDetail() {
         'recalculate to bring it back.',
       )
     })
-  }, [choicesToSave, lines, catalogAll])
+  }, [choicesToSave, lines, catalogAll, resolved])
 
   const warnings = [
     ...(result?.warnings ?? []), ...resolved.warnings, ...overridden,

@@ -4,6 +4,7 @@ import type { StoredLine } from '@/data/venueLines'
 import {
   groupIntoSections, itemsById, itemsByRole, resolveLineItem, sectionForItem,
 } from '@/lib/sections'
+import { multiOptionRoles } from '@/lib/resolveCatalog'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableHead, TableHeader, TableRow,
@@ -34,6 +35,9 @@ export function MaterialsTable({
   // still be able to offer the alternate.
   const byRole = itemsByRole(catalog, chosen)
   const byId = itemsById(catalog)
+  // Roles with more than one ACTIVE item — the ones a venue can genuinely
+  // choose between. See swap() for why a pin is written for these alone.
+  const contested = multiOptionRoles(catalog)
 
   // UI visibility only. The anon key ships in the bundle and the venue_lines
   // RLS policy grants read to any authenticated user, so this is the same kind
@@ -94,6 +98,16 @@ export function MaterialsTable({
    * inactive target it can hand this is the value already selected: the guard
    * is what stops re-picking a retired SKU pinning the venue to it.
    *
+   * A pin is written only for a role that is actually CONTESTED — the same
+   * test choicesToSave uses, so the two agree on what a choice even is. The
+   * other way in here is a repair: a line whose own item was retired keeps
+   * naming it, which is the second option that made the picker appear at all,
+   * and picking the live replacement is not a choice between anything. Pinning
+   * it anyway outlives the repair — choicesToSave persists every stored role
+   * forever — so the day that replacement is itself retired, this venue alone
+   * carries a dead pin, and with one active item left the row renders as plain
+   * text and there is no control anywhere to clear it.
+   *
    * itemId is re-pointed here rather than left to the next recalculation: the
    * row has to show what was just picked. `source` is deliberately untouched,
    * so a formula line stays one and the rows the choice moves underneath it —
@@ -114,7 +128,7 @@ export function MaterialsTable({
     if (!target) return
 
     if (target.isActive && target.roleKey && target.roleKey === line.roleKey) {
-      onPick(target.roleKey, target.id)
+      if (contested.has(target.roleKey)) onPick(target.roleKey, target.id)
       onChange(lines.map(l => (l.id === line.id ? { ...l, itemId: target.id } : l)))
       return
     }
