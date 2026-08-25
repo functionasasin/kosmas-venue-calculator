@@ -578,12 +578,19 @@ describe('two active items on one role', () => {
 
   // The reachable half of the isActive guard in swap(). A line whose own item
   // was retired keeps naming it — that is what the "(inactive)" fallback in the
-  // picker is for — and the repair is to pick the live one, which is a choice
-  // like any other and must reach the engine as one. The other half of the
-  // guard, a swap ONTO a deactivated item, cannot be driven from here: the
+  // picker is for — and the repair is to pick the live one. The other half of
+  // the guard, a swap ONTO a deactivated item, cannot be driven from here: the
   // picker offers the active family plus the line's own item, so an inactive
   // target is only ever the value already selected.
-  it('pins the live replacement when the line\'s own item was retired', async () => {
+  //
+  // No PIN, though, and that is the point of the test. The role has one active
+  // item, so there is nothing to choose between; the picker only appeared
+  // because the line's retired item counts as the second option. A pin written
+  // here outlives the repair — choicesToSave persists every stored role
+  // forever — and the day the replacement is itself retired this venue alone
+  // carries a dead pin, on a row that by then renders as plain text with no
+  // control to clear it.
+  it('repairs a line whose own item was retired WITHOUT pinning the role', async () => {
     const onChange = vi.fn()
     const onPick = vi.fn()
     render(
@@ -599,7 +606,9 @@ describe('two active items on one role', () => {
 
     swapTo('Uniview')
 
-    expect(onPick).toHaveBeenCalledWith('replay_camera', 'uni')
+    expect(onPick).not.toHaveBeenCalled()
+    // Still re-pointed, and still a formula line: the row shows the live item
+    // straight away, and recalculation would have landed on it anyway.
     expect(onChange.mock.calls[0][0][0]).toMatchObject({
       itemId: 'uni', source: 'formula',
     })
