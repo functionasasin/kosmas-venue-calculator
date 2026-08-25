@@ -126,9 +126,9 @@ export const ROLE_LABELS: Record<RoleKey, string> = {
  * Two ways hardware gets added, and only the second one reaches this file:
  *
  *   1. Another SKU on an EXISTING role key — a second display, an M4 Pro Mac
- *      mini. Nothing here changes. Activate the item and the swap picker, the
- *      rail's HardwareChoices and venue_item_choices all pick it up, which is
- *      the machinery 0011-0014 built for the two replay cameras.
+ *      mini. Nothing here changes. Activate the item and the swap picker and
+ *      venue_item_choices pick it up, which is the machinery 0011-0014 built
+ *      for the two replay cameras.
  *   2. A new KIND of thing, which needs its own role key because the formulas
  *      have to size it — an Android tablet draws differently and takes a
  *      different mount. That starts in podplay-ph-venue-sizing.md, not here.
@@ -139,8 +139,10 @@ export const ROLE_LABELS: Record<RoleKey, string> = {
  * Note that a swap BETWEEN two role keys in one family (a UPS rung to another
  * rung, an iPad to a hypothetical Android tablet) is a manual per-line
  * override, not a re-size — MaterialsTable.swap stamps originRoleKey and marks
- * the line manual, which exempts it from recalculation. The rail's picker is
- * the control that drives the formulas, and it stays keyed on the role.
+ * the line manual, which exempts it from recalculation. A swap that stays
+ * INSIDE one role key is the opposite: swap() records it as the venue's choice
+ * and the formulas re-size on it. Same control, and the family is what decides
+ * which options are even offered, not which of the two a pick turns out to be.
  */
 export const ROLE_FAMILY: Record<RoleKey, string> = {
   replay_camera: 'replay_camera',
