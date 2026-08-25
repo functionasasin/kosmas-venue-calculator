@@ -17,13 +17,18 @@
 -- Uniview and 1500 VA on the Dahua.
 --
 -- Names here are likewise the PRE-migration ones: 0016 strips "(Replay
--- Camera)" from the Dahua and "(Access Point)" from the U7-LR, and it asserts
--- an exact-name match, so those two rows must be seeded with the suffix still
--- on them or a from-scratch rebuild fails at 0016. The Dahua's name was also
--- aligned to the live row on 2026-08-25 — this file had it as
--- "Dahua DH-IPC-HDW5459T-ZE-IL-2712", production as
+-- Camera)" from the Dahua and "(Access Point)" from the U7-LR and asserts it
+-- renamed exactly one row each, so those two must be seeded with the suffix
+-- still on them or a from-scratch rebuild fails there. Only the SUFFIX has to
+-- match — 0016 keys on role_key, not on the full name — so a future rename of
+-- either SKU does not have to be mirrored here to keep the migration working.
+--
+-- The Dahua's name was separately aligned to the live row on 2026-08-25: this
+-- file had it as "Dahua DH-IPC-HDW5459T-ZE-IL-2712", production as
 -- "EmpireTech / Dahua IPC-HDW5459T-ZE-IL", and 0014's `like` predicate matched
--- both, which is how the two drifted unnoticed.
+-- both, which is how the two drifted unnoticed. Production is also what
+-- podplay-ph-venue-sizing.md § Option 1 calls the camera; the "-2712" is the
+-- lens designation kosmas-inventory.md uses for the units on the shelf.
 --
 -- This file is deliberately NOT that end state. It runs as 0003, under
 -- 0001's items_role_key_active index, so a second active replay camera here

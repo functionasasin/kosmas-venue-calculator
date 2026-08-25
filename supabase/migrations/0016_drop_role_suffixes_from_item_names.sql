@@ -22,17 +22,29 @@
 -- Display-only: no application code matches on items.name, and venue_lines
 -- references items by id, so this is order-independent with the deploy.
 --
--- Exact-name predicates with an asserted match count, following 0014: this runs
--- once against live data with no rollback path, and a `like` that quietly
--- matched two rows (or zero, after a partial re-run) would rename something
--- unintended or claim success having renamed nothing.
+-- Rows are identified by ROLE_KEY plus the suffix being stripped, never by the
+-- full display name. 0014 is the reason: its `like '%IPC-HDW5459T-ZE-IL%'`
+-- predicate matched a DIFFERENT name in the seed than in production
+-- ("Dahua DH-IPC-HDW5459T-ZE-IL-2712" vs "EmpireTech / Dahua
+-- IPC-HDW5459T-ZE-IL"), each environment satisfied its count-1 assertion
+-- separately, and the drift went unnoticed for weeks. Matching on the stable
+-- identifier instead means this migration does not care what the rest of the
+-- name says, and no future rename of these SKUs has to be mirrored into the
+-- seed to keep it working.
+--
+-- role_key alone is not enough — replay_camera has held two active items since
+-- 0014 — so the suffix predicate is what narrows it to the one row that has a
+-- role suffix to lose. The count is still asserted: this runs once against live
+-- data with no rollback path, and a predicate that matched two rows (or zero,
+-- after a partial re-run) would rename something unintended or claim success
+-- having renamed nothing.
 do $$
 declare
   v_renamed int;
 begin
   update items
-     set name = 'EmpireTech / Dahua IPC-HDW5459T-ZE-IL'
-   where name = 'EmpireTech / Dahua IPC-HDW5459T-ZE-IL (Replay Camera)';
+     set name = replace(name, ' (Replay Camera)', '')
+   where role_key = 'replay_camera' and name like '% (Replay Camera)';
   get diagnostics v_renamed = row_count;
   if v_renamed <> 1 then
     raise exception
@@ -40,8 +52,8 @@ begin
   end if;
 
   update items
-     set name = 'UniFi U7-LR'
-   where name = 'UniFi U7-LR (Access Point)';
+     set name = replace(name, ' (Access Point)', '')
+   where role_key = 'access_point' and name like '% (Access Point)';
   get diagnostics v_renamed = row_count;
   if v_renamed <> 1 then
     raise exception
