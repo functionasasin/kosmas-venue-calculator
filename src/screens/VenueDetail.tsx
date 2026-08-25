@@ -130,22 +130,34 @@ export function VenueDetail() {
   )
 
   /**
-   * A hand-edited line is exempt from recalculation, item included, so the
-   * picker does not drive it. That is deliberate — an override must survive —
-   * but the consequence has to be said on the screen rather than found on the
-   * printed sheet.
+   * What the venue is SIZED on, versus what its list actually names.
    *
-   * A swap that crosses roles (Materials table -> "swap to a different
-   * role's item") leaves the line under its NEW roleKey and records the
-   * vacated role in originRoleKey — MaterialsTable's swap() does this so
-   * mergeRecalculation's `present` set still treats the vacated role as
-   * occupied and does not re-add it. That means a plain roleKey match here
-   * misses exactly the case this warning exists for: the vacated role's
-   * picker in the rail looks like it drives a line, but nothing on screen
-   * is actually wired to it any more. Matching originRoleKey too catches it.
+   * calculateBOM reads the inputs and the resolved catalog, never the stored
+   * lines, so a hand-edited line cannot change the rung, the port count or the
+   * PoE budget — it only changes what gets printed. mergeRecalculation leaves
+   * manual lines alone, deliberately, so the two can drift apart with nothing
+   * on screen saying so, and the printed sheet is where it would be found.
+   *
+   * Two ways they drift, and both are reported:
+   *
+   *   - the role's line still fills it but names a different item. The swap
+   *     control writes the venue's choice for a same-role swap now, so the
+   *     live way to reach this is gone; what remains is a line hand-swapped
+   *     before that delegation existed, and a role holding a second line. An
+   *     item that AGREES with the choice is not reported — a manual line
+   *     freezes its quantity, which is not this warning's business.
+   *
+   *   - the line was swapped to another role's item entirely. It keeps its new
+   *     roleKey and records the vacated one in originRoleKey (MaterialsTable's
+   *     swap()), so a plain roleKey match misses it — and it is the worse of
+   *     the two, because nothing on the list fills the role at all while the
+   *     venue is still sized as though something does.
    */
   const overridden = useMemo<Warning[]>(() => {
     const byId = itemsById(catalogAll)
+    const warn = (message: string): Warning[] =>
+      [{ code: 'CHOICE_OVERRIDDEN', level: 'warn' as const, message }]
+
     return choicesToSave.flatMap(c => {
       const line = lines.find(
         l => (l.roleKey === c.roleKey || l.originRoleKey === c.roleKey)
@@ -154,25 +166,28 @@ export function VenueDetail() {
       if (!line) return []
       const itemName = byId.get(line.itemId)?.name ?? 'its item'
       const roleLabel = ROLE_LABELS[c.roleKey].toLowerCase()
-      // Same-role edit: the line is still named for this role, and still
-      // holds an item that fills it. Cross-role swap: the line moved to a
-      // different role entirely, so naming it "the {role} line" while
-      // pointing at an item from another role would read as a mismatch —
-      // say plainly that the role's line is gone and where it went instead.
-      // The swap target's own role is named in parens when it has one; a
-      // line can land on a roleless item (a cable, say — roleKey null is a
-      // real state, not just the freshly-added case), and there is nothing
-      // to name there beyond the item itself.
-      const message = line.roleKey === c.roleKey
-        ? `The ${roleLabel} line on this list was edited by hand, so it ` +
-          `keeps "${itemName}" whatever the picker above says. Remove the ` +
-          'line and recalculate if the picker should drive it.'
-        : `The ${roleLabel} line on this list was hand-swapped to ` +
-          `"${itemName}"${line.roleKey ? ` (${ROLE_LABELS[line.roleKey].toLowerCase()})` : ''}, ` +
-          `so nothing on this list fills ${roleLabel} any more and the ` +
-          'picker above drives nothing. Remove the line and recalculate to ' +
-          'bring it back.'
-      return [{ code: 'CHOICE_OVERRIDDEN', level: 'warn' as const, message }]
+
+      if (line.roleKey === c.roleKey) {
+        if (line.itemId === c.itemId) return []
+        const sizedName = byId.get(c.itemId)?.name ?? 'another item'
+        return warn(
+          `The ${roleLabel} line on this list was edited by hand and still ` +
+          `names "${itemName}", but this venue is sized on "${sizedName}". ` +
+          'Remove the line and recalculate to bring the two back in step.',
+        )
+      }
+
+      // Naming the swap target's own role in parens when it has one: a line
+      // can land on a roleless item (a cable, say — roleKey null is a real
+      // state, not just the freshly-added case), and there is nothing to name
+      // there beyond the item itself.
+      return warn(
+        `The ${roleLabel} line on this list was hand-swapped to ` +
+        `"${itemName}"${line.roleKey ? ` (${ROLE_LABELS[line.roleKey].toLowerCase()})` : ''}, ` +
+        `so nothing on this list fills ${roleLabel} any more — though the ` +
+        'venue is still sized as if something does. Remove the line and ' +
+        'recalculate to bring it back.',
+      )
     })
   }, [choicesToSave, lines, catalogAll])
 
@@ -224,6 +239,15 @@ export function VenueDetail() {
 
   const onInputs = (inputs: VenueInputs) =>
     setVenue(v => (v ? { ...v, ...inputs } : v))
+
+  /**
+   * The venue's pick for one role key, from the materials table's swap
+   * control. Replaces the role's previous entry rather than appending: a
+   * second pick for the same role would otherwise leave two rows for
+   * choicesToSave to pick between by scan order.
+   */
+  const pick = (roleKey: RoleKey, itemId: string) =>
+    setChoices(cs => [...cs.filter(c => c.roleKey !== roleKey), { roleKey, itemId }])
 
   const [conflict, setConflict] = useState<VenueConflictError | null>(null)
   const [unresolved, setUnresolved] = useState<StoredLine[] | null>(null)
@@ -385,10 +409,7 @@ export function VenueDetail() {
           return false
         }} />
         <div className="space-y-4 p-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-          <VenueInputsForm value={venue} onChange={onInputs} catalog={catalogAll}
-            chosen={resolved.chosen}
-            onPick={(roleKey, itemId) => setChoices(cs =>
-              [...cs.filter(c => c.roleKey !== roleKey), { roleKey, itemId }])} />
+          <VenueInputsForm value={venue} onChange={onInputs} />
           {warnings.length > 0 && (
             <div className="border-t pt-4">
               <WarningsPanel warnings={warnings} />
@@ -432,7 +453,8 @@ export function VenueDetail() {
 
         <div className="min-w-0 flex-1 py-4">
           <MaterialsTable lines={lines} catalog={catalogAll} chosen={resolved.chosen}
-            formulas={formulas} onChange={setLines} isAdmin={role === 'admin'} />
+            formulas={formulas} onChange={setLines} isAdmin={role === 'admin'}
+            onPick={pick} />
         </div>
       </div>
 

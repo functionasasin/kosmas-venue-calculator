@@ -465,15 +465,24 @@ describe('per-venue hardware choice', () => {
   // 7030054 and 4223ab3 were about.
   it('marks the venue dirty when a picker changes', async () => {
     const { listItems } = await import('@/data/items')
+    const { listLines } = await import('@/data/venueLines')
     vi.mocked(listItems).mockResolvedValueOnce(twoCameras)
+    // The file's default saved venue is one UPS line, so the table would hold
+    // no camera row to pick from. An empty venue populates from the formulas.
+    vi.mocked(listLines).mockResolvedValueOnce([])
     await renderDetail()
 
-    // The Hardware picker in the rail, not a per-line swap control in the
-    // table — it carries the role's label as its accessible name.
-    const trigger = await screen.findByRole('combobox', { name: 'Replay camera' })
+    // The materials row's swap control — the only hardware picker left since
+    // 2026-08-25, and the one whose same-role swap writes the venue's choice.
+    // A rail group used to make the same call from the sidebar.
+    // Named for the item the row currently holds — the fixture's replay camera
+    // carries its role key as its name — because several rows have a picker.
+    const trigger = await screen.findByRole(
+      'combobox', { name: `Swap item for ${uniview.name}` },
+    )
     fireEvent.click(trigger)
     const popup = document.querySelector('[data-slot="select-content"]')
-    if (!popup) throw new Error('hardware picker did not open')
+    if (!popup) throw new Error('swap picker did not open')
     const option = within(popup as HTMLElement).getByRole('option', { name: 'Dahua 5459T' })
     fireEvent.mouseMove(option)
     fireEvent.click(option)
@@ -510,22 +519,51 @@ describe('per-venue hardware choice', () => {
       .toBeInTheDocument()
   })
 
-  // §5: mergeRecalculation leaves manual lines alone, deliberately — a
-  // hand-edited line is an override. The consequence has to be stated on the
-  // screen rather than discovered on the printed sheet.
-  it('warns when the chosen role\'s line was edited by hand', async () => {
+  // §5: mergeRecalculation leaves manual lines alone, deliberately, so a
+  // hand-edited line can keep naming an item the venue is no longer sized on —
+  // the rung, the ports and the PoE budget all read the resolved catalog, never
+  // the lines. The consequence has to be stated on the screen rather than
+  // discovered on the printed sheet. A same-role swap writes the choice now, so
+  // what reaches this state is a line swapped before that delegation existed.
+  it('warns when a hand-edited line names an item the venue is not sized on', async () => {
+    const { listItems } = await import('@/data/items')
+    const { listLines } = await import('@/data/venueLines')
+
+    vi.mocked(listItems).mockResolvedValueOnce(twoCameras)
+    vi.mocked(listLines).mockResolvedValueOnce([{
+      id: 'l-cam', venueId: 'v1', itemId: dahua.id, roleKey: 'replay_camera',
+      qty: 8, originRoleKey: null, sortOrder: 0, source: 'manual',
+      suppressed: false, note: null,
+    }])
+
+    await renderDetail()
+    // The venue has no stored pin, so it is sized on the role default — the
+    // Uniview, which the fixture names for its role key — while the line names
+    // the Dahua.
+    const said = await screen.findByText(/edited by hand/i)
+    expect(said.textContent).toContain(dahua.name)
+    expect(said.textContent).toContain(uniview.name)
+  })
+
+  // The other side of that line, and the one the old wording got wrong: a
+  // hand-edited line whose item AGREES with what the venue is sized on has
+  // nothing to report. It froze its quantity, which this warning is not about,
+  // and firing anyway put a permanent warning on every venue that had ever
+  // corrected a count.
+  it('says nothing when a hand-edited line names the item it is sized on', async () => {
     const { listItems } = await import('@/data/items')
     const { listLines } = await import('@/data/venueLines')
 
     vi.mocked(listItems).mockResolvedValueOnce(twoCameras)
     vi.mocked(listLines).mockResolvedValueOnce([{
       id: 'l-cam', venueId: 'v1', itemId: uniview.id, roleKey: 'replay_camera',
-      qty: 8, originRoleKey: null, sortOrder: 0, source: 'manual',
+      qty: 6, originRoleKey: null, sortOrder: 0, source: 'manual',
       suppressed: false, note: null,
     }])
 
     await renderDetail()
-    expect(await screen.findByText(/edited by hand/i)).toBeInTheDocument()
+    await screen.findByRole('button', { name: 'Save' })
+    expect(screen.queryByText(/edited by hand/i)).not.toBeInTheDocument()
   })
 
   // B1: a swap that crosses roles leaves the line under its NEW roleKey and

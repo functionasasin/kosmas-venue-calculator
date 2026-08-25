@@ -140,9 +140,8 @@ to `tablet`, `apple_tv` to `media_player`, `flic` to `button`, `mac_mini` to
 `server`. The string is a grouping key and is never rendered, so an accurate
 name is free now and a rename later is not. Only a NEW KIND of thing reaches
 this file; another SKU on an existing role key (a second display, an M4 Pro Mac
-mini) needs no code at all — activate it and the swap picker, the rail's
-`HardwareChoices` and `venue_item_choices` all pick it up, which is the
-machinery `0011`-`0014` built.
+mini) needs no code at all — activate it and the swap picker and
+`venue_item_choices` pick it up, which is the machinery `0011`-`0014` built.
 
 Two cases deliberately keep the WHOLE active catalog, and both are the same
 rule — a picker that offers nothing makes "No active item mapped for …"
@@ -176,6 +175,45 @@ row each, so a from-scratch rebuild needs a suffix to strip. **`0016` keys on
 lesson of `0014`: its `like` predicate matched a different name in the seed than
 in production, each satisfied its own count-1 assertion, and the drift went
 unnoticed for weeks.
+
+## One swap control, and it means two different things
+
+**A swap that stays inside the line's own role writes the venue's CHOICE; a
+swap across roles is a manual override.** `MaterialsTable`'s `swap()` decides
+which, and the difference is the whole reason there is only one control.
+
+A rail group called `HardwareChoices` used to make the same-role write, because
+the row picker could only mint a manual line — and a manual line is exempt from
+recalculation, so swapping the replay camera there printed the Dahua on a venue
+still sized on the Uniview: same rung, same PoE budget, same port count, nothing
+on screen saying so. Two controls, one of them silently wrong, for the one role
+that has a second active item. **Removed 2026-08-25**; `VenueInputsForm` is
+inputs only again, and `multiOptionRoles` is now read solely by `choicesToSave`.
+
+What the delegating branch does and does not do:
+
+- calls `onPick` → `venue_item_choices` → `resolveCatalog` → the engine. That is
+  the only path a SKU choice reaches the rung, the ports and the PoE budget.
+- re-points `venue_lines.item_id` immediately, so the row shows what was just
+  picked rather than waiting for a recalculation.
+- **leaves `source` alone.** The line stays a formula line, and the rows the
+  choice moves *underneath* it — the rung, the switch — come up as stale for the
+  Recalculate dialog. The camera is no longer in that diff, and its absence is
+  how you tell delegation is working.
+- requires the target to be ACTIVE. A pin on a deactivated item is
+  `CHOICE_UNAVAILABLE` and `resolveCatalog` falls straight back to the default,
+  so a swap onto a retired SKU stays a manual override — which is how a saved
+  line survives its item's retirement.
+
+**`CHOICE_OVERRIDDEN` was rewritten with it.** It used to fire for any manual
+line on a chosen role, agreeing item or not, and told the user about "the picker
+above". It now reports an actual disagreement between what the list NAMES and
+what the venue is SIZED on — a hand-edited line freezes its quantity, which is
+not this warning's business. Reachable now only for a line swapped before the
+delegation existed, and for a role holding a second line.
+
+`hardware-choice.mjs` drives all of this; the checks that discriminate it from
+the old behaviour are the `edited` badge and the recalc diff.
 
 ## There is no brand input
 
