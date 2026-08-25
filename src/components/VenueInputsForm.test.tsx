@@ -1,28 +1,16 @@
 import type { ComponentProps } from 'react'
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { VenueInputsForm } from './VenueInputsForm'
-import type { VenueInputs, Item } from '@/calculator/types'
-import { testCatalog } from '@/calculator/testCatalog'
+import type { VenueInputs } from '@/calculator/types'
 
 const inputs: VenueInputs = {
   courts: 8, tier: 'pro', securityCameras: 0,
   kisiDoors: 0, extendedRetention: false, backupInternet: false,
 }
 
-// Every render goes through here. The catalog props are required, so a helper
-// is what keeps 13 call sites from each having to restate "this test is not
-// about hardware choices". Optional defaults on the component itself would be
-// the other way to do it, and worse: VenueDetail could then ship passing no
-// catalog at all and nothing would say so.
 const renderForm = (props: Partial<ComponentProps<typeof VenueInputsForm>> = {}) =>
-  render(
-    <VenueInputsForm
-      value={inputs} onChange={vi.fn()}
-      catalog={[]} chosen={new Map()} onPick={vi.fn()}
-      {...props}
-    />,
-  )
+  render(<VenueInputsForm value={inputs} onChange={vi.fn()} {...props} />)
 
 const tierSelect = () => screen.getByLabelText('Tier') as HTMLSelectElement
 const optionsOf = (s: HTMLSelectElement) =>
@@ -148,71 +136,5 @@ describe('VenueInputsForm tier-gated inputs', () => {
     renderForm({ value: full, onChange })
     fireEvent.change(tierSelect(), { target: { value: 'autonomous_plus' } })
     expect(onChange).toHaveBeenCalledWith({ ...full, tier: 'autonomous_plus', kisiDoors: 3 })
-  })
-})
-
-const second = (roleKey: string, id: string, name: string): Item => ({
-  ...testCatalog.find(i => i.roleKey === roleKey)!,
-  id, name, isDefault: false,
-})
-
-const twoCameras = [
-  ...testCatalog,
-  second('replay_camera', 'dah', 'Dahua 5459T'),
-]
-const univiewId = testCatalog.find(i => i.roleKey === 'replay_camera')!.id
-
-// The swap picker on the materials table is a Base UI Select, not a native
-// <select>: the trigger is a button and the options exist only inside a
-// portal while the popup is open, so a pick is driven the way a user performs
-// one — open, then mousemove+click the item — rather than by firing `change`
-// at the element. See src/components/MaterialsTable.test.tsx for the same
-// sequence against the swap picker.
-const openPicker = (label: string) => {
-  fireEvent.click(screen.getByLabelText(label))
-  const popup = document.querySelector('[data-slot="select-content"]')
-  if (!popup) throw new Error('picker did not open')
-  return within(popup as HTMLElement)
-}
-
-describe('VenueInputsForm hardware pickers', () => {
-  // The catalog's state today: one active item per role. A "Hardware" group
-  // offering a choice of one is worse than no group at all.
-  it('renders nothing when no role has a second active item', () => {
-    renderForm({ catalog: testCatalog, chosen: new Map([['replay_camera', univiewId]]) })
-    expect(screen.queryByText('Hardware')).not.toBeInTheDocument()
-  })
-
-  it('renders one picker per role that has a real choice', () => {
-    renderForm({ catalog: twoCameras, chosen: new Map([['replay_camera', univiewId]]) })
-    expect(screen.getByText('Hardware')).toBeInTheDocument()
-    expect(screen.getByLabelText('Replay camera')).toBeInTheDocument()
-    // Not one per role key — only the contested one.
-    expect(screen.queryByLabelText('Display')).not.toBeInTheDocument()
-  })
-
-  // The item the venue is actually sized against has to be what the control
-  // shows, or the form quietly reports a different camera than the one driving
-  // the UPS rung — the same class of failure as a tier <select> whose value
-  // matches no option.
-  it('shows the resolved item as selected', () => {
-    renderForm({ catalog: twoCameras, chosen: new Map([['replay_camera', 'dah']]) })
-    expect(screen.getByLabelText('Replay camera')).toHaveTextContent('Dahua 5459T')
-  })
-
-  // A picker change is a sizing change, so it must reach VenueDetail's
-  // projection — otherwise `dirty` stays false, the unsaved-changes guard does
-  // not arm, and the edit is lost on navigate with nothing said.
-  it('reports the role and the item when a picker changes', () => {
-    const onPick = vi.fn()
-    renderForm({
-      catalog: twoCameras,
-      chosen: new Map([['replay_camera', univiewId]]),
-      onPick,
-    })
-    const option = openPicker('Replay camera').getByRole('option', { name: 'Dahua 5459T' })
-    fireEvent.mouseMove(option)
-    fireEvent.click(option)
-    expect(onPick).toHaveBeenCalledWith('replay_camera', 'dah')
   })
 })

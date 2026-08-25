@@ -1,4 +1,5 @@
 import type { Item } from '@/calculator/types'
+import type { RoleKey } from '@/calculator/roleKeys'
 import type { StoredLine } from '@/data/venueLines'
 import {
   groupIntoSections, itemsById, itemsByRole, resolveLineItem, sectionForItem,
@@ -16,10 +17,17 @@ interface Props {
   onChange: (lines: StoredLine[]) => void
   isAdmin: boolean
   chosen?: Map<string, string>
+  /**
+   * Records which of a role's several active items this venue buys — the
+   * venue_item_choices write. Until 2026-08-25 a second control in the rail
+   * made this call and the swap below could not; see swap() for why the two
+   * collapsed into one.
+   */
+  onPick: (roleKey: RoleKey, itemId: string) => void
 }
 
 export function MaterialsTable({
-  lines, catalog, formulas, onChange, isAdmin, chosen,
+  lines, catalog, formulas, onChange, isAdmin, chosen, onPick,
 }: Props) {
   // The venue's resolved choice decides which of several active items a role
   // resolves to. The catalog itself is NOT collapsed — the swap control must
@@ -66,17 +74,51 @@ export function MaterialsTable({
   const restore = (line: StoredLine) =>
     onChange(lines.map(l => (l.id === line.id ? { ...l, suppressed: false } : l)))
 
-  // originRoleKey records the role this line vacated. It is set once — a
-  // second swap must not overwrite the original, or recalculation re-adds it —
-  // and it is NOT set at all when the swap stays inside the role, which is the
-  // two-cameras case: nothing was vacated, and stamping it would make
-  // mergeRecalculation treat the role as present twice.
-  //
-  // Keyed on item id, not role key: with several active items on one role a
-  // role-keyed lookup is last-wins and lands on the wrong SKU.
+  /**
+   * Two different statements share one control, and which one a swap makes is
+   * decided by whether it stays inside the line's own role.
+   *
+   * INSIDE the role, onto an active item: that is not an override at all, it
+   * is the venue saying which of the role's active items it buys — exactly
+   * what venue_item_choices records and what resolveCatalog feeds the engine.
+   * Writing it as a manual line instead printed the new camera while the UPS
+   * rung, the PoE budget and the port count all stayed sized for the old one,
+   * with nothing on screen saying so. A separate picker in the rail used to be
+   * the only way to say it; delegating here is what let that second control go.
+   *
+   * The target has to be ACTIVE. A choice pinned to a deactivated item is
+   * CHOICE_UNAVAILABLE and resolveCatalog falls straight back to the default,
+   * so swapping onto a retired SKU stays what it has always been — a manual
+   * override, which is how a saved line survives its item's retirement. The
+   * picker offers the active family plus the line's OWN item, so the only
+   * inactive target it can hand this is the value already selected: the guard
+   * is what stops re-picking a retired SKU pinning the venue to it.
+   *
+   * itemId is re-pointed here rather than left to the next recalculation: the
+   * row has to show what was just picked. `source` is deliberately untouched,
+   * so a formula line stays one and the rows the choice moves underneath it —
+   * the rung, the switch — surface as stale for the Recalculate dialog.
+   *
+   * ACROSS roles it is an override, and unchanged: originRoleKey records the
+   * role the line vacated. It is set once — a second swap must not overwrite
+   * the original, or recalculation re-adds it — and never when the role is
+   * unchanged, which now reaches this branch only for an inactive target:
+   * nothing was vacated, and stamping it would make mergeRecalculation treat
+   * the role as present twice.
+   *
+   * Keyed on item id, not role key: with several active items on one role a
+   * role-keyed lookup is last-wins and lands on the wrong SKU.
+   */
   const swap = (line: StoredLine, itemId: string) => {
     const target = byId.get(itemId)
     if (!target) return
+
+    if (target.isActive && target.roleKey && target.roleKey === line.roleKey) {
+      onPick(target.roleKey, target.id)
+      onChange(lines.map(l => (l.id === line.id ? { ...l, itemId: target.id } : l)))
+      return
+    }
+
     onChange(lines.map(l =>
       l.id === line.id
         ? {

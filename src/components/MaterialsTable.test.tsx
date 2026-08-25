@@ -83,6 +83,7 @@ describe('swapping an item', () => {
         formulas={new Map()}
         onChange={onChange}
         isAdmin
+        onPick={vi.fn()}
       />,
     )
 
@@ -109,6 +110,7 @@ describe('swapping an item', () => {
         formulas={new Map()}
         onChange={onChange}
         isAdmin
+        onPick={vi.fn()}
       />,
     )
 
@@ -136,7 +138,8 @@ describe('sections', () => {
   it('renders a header per non-empty section, in order', () => {
     render(
       <MaterialsTable lines={mixed} catalog={sectioned} isAdmin
-        formulas={new Map()} onChange={vi.fn()} />,
+        formulas={new Map()} onChange={vi.fn()} onPick={vi.fn()}
+        />,
     )
     const headers = screen.getAllByTestId('section-header').map(h => h.textContent)
     expect(headers).toEqual([
@@ -150,7 +153,8 @@ describe('sections', () => {
   it('shows the visible line count in each header', () => {
     render(
       <MaterialsTable lines={mixed} catalog={sectioned} isAdmin
-        formulas={new Map()} onChange={vi.fn()} />,
+        formulas={new Map()} onChange={vi.fn()} onPick={vi.fn()}
+        />,
     )
     expect(screen.getByTestId('section-header-rack').textContent).toContain('1')
   })
@@ -160,7 +164,8 @@ describe('sections', () => {
     const withRemoved = [...mixed, line('ipad', 8, { suppressed: true })]
     render(
       <MaterialsTable lines={withRemoved} catalog={sectioned} isAdmin
-        formulas={new Map()} onChange={vi.fn()} />,
+        formulas={new Map()} onChange={vi.fn()} onPick={vi.fn()}
+        />,
     )
     expect(screen.getByTestId('section-header-court').textContent).toContain('1')
     expect(screen.getByText(/Removed lines/i)).toBeInTheDocument()
@@ -169,7 +174,8 @@ describe('sections', () => {
   it('renders no section headers for a venue with no lines', () => {
     render(
       <MaterialsTable lines={[]} catalog={sectioned} isAdmin
-        formulas={new Map()} onChange={vi.fn()} />,
+        formulas={new Map()} onChange={vi.fn()} onPick={vi.fn()}
+        />,
     )
     expect(screen.queryAllByTestId('section-header')).toHaveLength(0)
   })
@@ -187,7 +193,8 @@ describe('resolving a TBD line', () => {
     const onChange = vi.fn()
     render(
       <MaterialsTable lines={[line('access_point', 'TBD')]} catalog={sectioned} isAdmin
-        formulas={new Map()} onChange={onChange} />,
+        formulas={new Map()} onChange={onChange} onPick={vi.fn()}
+        />,
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'TBD' }))
@@ -210,7 +217,8 @@ describe('resolving a TBD line', () => {
       const [ls, setLs] = useState<StoredLine[]>([line('access_point', 'TBD')])
       return (
         <MaterialsTable lines={ls} catalog={sectioned} isAdmin
-          formulas={new Map()} onChange={setLs} />
+          formulas={new Map()} onChange={setLs} onPick={vi.fn()}
+          />
       )
     }
     render(<Harness />)
@@ -241,7 +249,8 @@ describe('quantity commits on blur, not on every keystroke', () => {
     const onChange = vi.fn()
     render(
       <MaterialsTable lines={[line('ups_1500va', 1)]} catalog={sectioned} isAdmin
-        formulas={new Map()} onChange={onChange} />,
+        formulas={new Map()} onChange={onChange} onPick={vi.fn()}
+        />,
     )
 
     fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '5' } })
@@ -258,7 +267,8 @@ describe('quantity commits on blur, not on every keystroke', () => {
     const onChange = vi.fn()
     render(
       <MaterialsTable lines={[line('ups_1500va', 1)]} catalog={sectioned} isAdmin
-        formulas={new Map()} onChange={onChange} />,
+        formulas={new Map()} onChange={onChange} onPick={vi.fn()}
+        />,
     )
 
     const input = screen.getByRole('spinbutton')
@@ -275,7 +285,8 @@ describe('quantity commits on blur, not on every keystroke', () => {
     const onChange = vi.fn()
     render(
       <MaterialsTable lines={[line('access_point', 'TBD')]} catalog={sectioned} isAdmin
-        formulas={new Map()} onChange={onChange} />,
+        formulas={new Map()} onChange={onChange} onPick={vi.fn()}
+        />,
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'TBD' }))
@@ -291,7 +302,8 @@ describe('quantity commits on blur, not on every keystroke', () => {
     const onChange = vi.fn()
     render(
       <MaterialsTable lines={[line('ups_1500va', 1)]} catalog={sectioned} isAdmin
-        formulas={new Map()} onChange={onChange} />,
+        formulas={new Map()} onChange={onChange} onPick={vi.fn()}
+        />,
     )
 
     fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '5' } })
@@ -317,7 +329,8 @@ describe('cabling is admin-only', () => {
   it('shows the Cabling section to an admin', () => {
     render(
       <MaterialsTable lines={withCable} catalog={sectioned} isAdmin
-        formulas={new Map()} onChange={vi.fn()} />,
+        formulas={new Map()} onChange={vi.fn()} onPick={vi.fn()}
+        />,
     )
     expect(screen.getByTestId('section-header-cabling')).toBeInTheDocument()
   })
@@ -325,7 +338,8 @@ describe('cabling is admin-only', () => {
   it('hides it from a user', () => {
     render(
       <MaterialsTable lines={withCable} catalog={sectioned} isAdmin={false}
-        formulas={new Map()} onChange={vi.fn()} />,
+        formulas={new Map()} onChange={vi.fn()} onPick={vi.fn()}
+        />,
     )
     expect(screen.queryByTestId('section-header-cabling')).not.toBeInTheDocument()
     expect(screen.queryByText('Vention Cat6 0.5M')).not.toBeInTheDocument()
@@ -336,7 +350,8 @@ describe('cabling is admin-only', () => {
     const suppressed = [line('ups_1500va', 1), line('cat6_0m5', 26, { suppressed: true })]
     render(
       <MaterialsTable lines={suppressed} catalog={sectioned} isAdmin={false}
-        formulas={new Map()} onChange={vi.fn()} />,
+        formulas={new Map()} onChange={vi.fn()} onPick={vi.fn()}
+        />,
     )
     expect(screen.queryByText(/Removed lines/i)).not.toBeInTheDocument()
   })
@@ -345,7 +360,8 @@ describe('cabling is admin-only', () => {
   it('keeps cable items out of the Add-line picker for a user', () => {
     render(
       <MaterialsTable lines={[line('ups_1500va', 1)]} catalog={sectioned} isAdmin={false}
-        formulas={new Map()} onChange={vi.fn()} />,
+        formulas={new Map()} onChange={vi.fn()} onPick={vi.fn()}
+        />,
     )
     const options = Array.from(
       (screen.getByLabelText('Add line') as HTMLSelectElement).options,
@@ -362,7 +378,8 @@ describe('cabling is admin-only', () => {
     const onChange = vi.fn()
     render(
       <MaterialsTable lines={withCable} catalog={sectioned} isAdmin={false}
-        formulas={new Map()} onChange={onChange} />,
+        formulas={new Map()} onChange={onChange} onPick={vi.fn()}
+        />,
     )
 
     fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '2' } })
@@ -383,7 +400,8 @@ describe('cabling is admin-only', () => {
     const unresolved = [line('display', 8)]
     render(
       <MaterialsTable lines={unresolved} catalog={sectioned} isAdmin={false}
-        formulas={new Map()} onChange={vi.fn()} />,
+        formulas={new Map()} onChange={vi.fn()} onPick={vi.fn()}
+        />,
     )
 
     expect(screen.getByText(/No active item mapped for display/)).toBeInTheDocument()
@@ -428,7 +446,8 @@ describe('a line that resolves to no item', () => {
   it('names no item at all rather than an arbitrary deactivated one', () => {
     render(
       <MaterialsTable lines={[unresolved]} catalog={[...cameras, ...catalog]}
-        formulas={new Map()} onChange={vi.fn()} isAdmin />,
+        formulas={new Map()} onChange={vi.fn()} isAdmin onPick={vi.fn()}
+        />,
     )
     expect(screen.getByText(/No active item mapped for replay_camera/))
       .toBeInTheDocument()
@@ -441,7 +460,8 @@ describe('a line that resolves to no item', () => {
   it('still offers the swap control that repairs it', () => {
     render(
       <MaterialsTable lines={[unresolved]} catalog={[...cameras, ...catalog]}
-        formulas={new Map()} onChange={vi.fn()} isAdmin />,
+        formulas={new Map()} onChange={vi.fn()} isAdmin onPick={vi.fn()}
+        />,
     )
     expect(swapOptionNames()).toContain('iPad A16')
   })
@@ -458,7 +478,8 @@ describe('a line that resolves to no item', () => {
       <MaterialsTable
         lines={[{ ...unresolved, suppressed: true }]}
         catalog={[...cameras, ...catalog]}
-        formulas={new Map()} onChange={vi.fn()} isAdmin />,
+        formulas={new Map()} onChange={vi.fn()} isAdmin onPick={vi.fn()}
+        />,
     )
     expect(screen.getByText(/Removed lines/)).toBeInTheDocument()
     expect(screen.queryByText('Dahua 5459T')).not.toBeInTheDocument()
@@ -475,7 +496,8 @@ describe('a line that resolves to no item', () => {
       <MaterialsTable
         lines={[line('replay_camera', 14, { itemId: 'dah' })]}
         catalog={[...cameras, ...catalog]}
-        formulas={new Map()} onChange={vi.fn()} isAdmin />,
+        formulas={new Map()} onChange={vi.fn()} isAdmin onPick={vi.fn()}
+        />,
     )
     expect(screen.getByText(/Dahua 5459T \(inactive\)/)).toBeInTheDocument()
   })
@@ -505,6 +527,7 @@ describe('two active items on one role', () => {
         formulas={new Map()}
         onChange={onChange}
         isAdmin
+        onPick={vi.fn()}
       />,
     )
 
@@ -517,7 +540,68 @@ describe('two active items on one role', () => {
     fireEvent.click(dahua)
 
     expect(onChange.mock.calls[0][0][0]).toMatchObject({
-      itemId: 'dah', roleKey: 'replay_camera', source: 'manual',
+      itemId: 'dah', roleKey: 'replay_camera',
+    })
+  })
+
+  // The point of the delegation. Which of a role's active items a venue buys
+  // is a SIZING statement — the two cameras are 2.8 W and 17.5 W, a full UPS
+  // rung apart at 14 courts — and only venue_item_choices carries it into
+  // resolveCatalog and the engine. Recorded as a manual line instead, the
+  // picked camera reached the printed sheet while the rung, the PoE budget and
+  // the port count all stayed sized for the one it replaced.
+  it('records a same-role swap as the venue\'s choice, not as an override', async () => {
+    const onChange = vi.fn()
+    const onPick = vi.fn()
+    render(
+      <MaterialsTable
+        lines={[line('replay_camera', 8, { itemId: 'uni' })]}
+        catalog={cameras}
+        formulas={new Map()}
+        onChange={onChange}
+        isAdmin
+        onPick={onPick}
+      />,
+    )
+
+    swapTo('Dahua')
+
+    expect(onPick).toHaveBeenCalledWith('replay_camera', 'dah')
+    // Still re-pointed here rather than left to the next recalculation: the row
+    // has to show what was just picked. `source` untouched is what keeps the
+    // line following the formulas — including the quantity, and including a
+    // later change of mind.
+    expect(onChange.mock.calls[0][0][0]).toMatchObject({
+      itemId: 'dah', source: 'formula',
+    })
+  })
+
+  // The reachable half of the isActive guard in swap(). A line whose own item
+  // was retired keeps naming it — that is what the "(inactive)" fallback in the
+  // picker is for — and the repair is to pick the live one, which is a choice
+  // like any other and must reach the engine as one. The other half of the
+  // guard, a swap ONTO a deactivated item, cannot be driven from here: the
+  // picker offers the active family plus the line's own item, so an inactive
+  // target is only ever the value already selected.
+  it('pins the live replacement when the line\'s own item was retired', async () => {
+    const onChange = vi.fn()
+    const onPick = vi.fn()
+    render(
+      <MaterialsTable
+        lines={[line('replay_camera', 8, { itemId: 'dah' })]}
+        catalog={cameras.map(i => (i.id === 'dah' ? { ...i, isActive: false } : i))}
+        formulas={new Map()}
+        onChange={onChange}
+        isAdmin
+        onPick={onPick}
+      />,
+    )
+
+    swapTo('Uniview')
+
+    expect(onPick).toHaveBeenCalledWith('replay_camera', 'uni')
+    expect(onChange.mock.calls[0][0][0]).toMatchObject({
+      itemId: 'uni', source: 'formula',
     })
   })
 
@@ -525,6 +609,8 @@ describe('two active items on one role', () => {
   // that hold the SAME role vacates nothing, and stamping it would put the role
   // into mergeRecalculation's `present` set twice — which is how a swapped line
   // stops the vacated role being re-added, a behaviour that must not fire here.
+  // The delegating branch never touches it; this pins that it does not, so the
+  // guard survives the two branches being reordered.
   it('does not set originRoleKey when the swap stays inside the role', async () => {
     const onChange = vi.fn()
     render(
@@ -534,6 +620,7 @@ describe('two active items on one role', () => {
         formulas={new Map()}
         onChange={onChange}
         isAdmin
+        onPick={vi.fn()}
       />,
     )
 
@@ -555,6 +642,7 @@ describe('two active items on one role', () => {
         formulas={new Map()}
         onChange={onChange}
         isAdmin
+        onPick={vi.fn()}
       />,
     )
 
@@ -581,7 +669,8 @@ describe('a row with nothing to choose', () => {
   it('renders the item name as text when the family has one active item', () => {
     render(
       <MaterialsTable lines={[line('display', 8)]} catalog={catalog} isAdmin
-        formulas={new Map()} onChange={vi.fn()} />,
+        formulas={new Map()} onChange={vi.fn()} onPick={vi.fn()}
+        />,
     )
     // Scoped to the row: the Add-line <select> below the table carries an
     // <option> with the same text, which a document-wide query also matches.
@@ -593,7 +682,8 @@ describe('a row with nothing to choose', () => {
   it('keeps the picker when the family holds a real alternative', () => {
     render(
       <MaterialsTable lines={[line('ups_1500va', 1)]} catalog={catalog} isAdmin
-        formulas={new Map()} onChange={vi.fn()} />,
+        formulas={new Map()} onChange={vi.fn()} onPick={vi.fn()}
+        />,
     )
     expect(swapPicker()).toBeInTheDocument()
     expect(swapOptionNames()).toEqual(
@@ -609,7 +699,8 @@ describe('a row with nothing to choose', () => {
     const replacement = { ...item('display', 'court', 'LG 65in'), id: 'lg' }
     render(
       <MaterialsTable lines={[line('display', 8)]} catalog={[...retired, replacement]}
-        isAdmin formulas={new Map()} onChange={vi.fn()} />,
+        isAdmin formulas={new Map()} onChange={vi.fn()} onPick={vi.fn()}
+        />,
     )
     expect(swapPicker()).toBeInTheDocument()
     expect(swapOptionNames()).toEqual(
@@ -622,7 +713,8 @@ describe('a row with nothing to choose', () => {
   it('drops the select from the actions dialog too', () => {
     render(
       <MaterialsTable lines={[line('display', 8)]} catalog={catalog} isAdmin
-        formulas={new Map()} onChange={vi.fn()} />,
+        formulas={new Map()} onChange={vi.fn()} onPick={vi.fn()}
+        />,
     )
     fireEvent.click(screen.getByRole('button', { name: /actions/i }))
     expect(screen.queryByRole('combobox', { name: /^Swap item/ })).toBeNull()
@@ -642,7 +734,8 @@ describe('the row actions control', () => {
     const onChange = vi.fn()
     render(
       <MaterialsTable lines={[line('display', 8)]} catalog={sectioned} isAdmin
-        formulas={new Map()} onChange={onChange} />,
+        formulas={new Map()} onChange={onChange} onPick={vi.fn()}
+        />,
     )
 
     fireEvent.click(screen.getByRole('button', { name: /actions/i }))
