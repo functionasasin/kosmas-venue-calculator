@@ -92,8 +92,8 @@ export function VenueDetail() {
    * silently swap the venue onto the catalog default the moment anything else
    * triggers a save, and reactivating the item later would never undo it,
    * because by then nothing on screen says the pin is gone. The stored choice
-   * is only ever replaced by the user actually picking something in the
-   * Hardware group.
+   * is only ever replaced by the user actually picking something in a row's
+   * swap control.
    *
    * `resolved.chosen` only fills a role the venue has never pinned: a venue
    * that never chose still pins the role's current resolution on its first

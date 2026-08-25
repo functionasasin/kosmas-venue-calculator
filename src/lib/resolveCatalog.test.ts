@@ -125,9 +125,10 @@ describe('resolveCatalog', () => {
 })
 
 describe('multiOptionRoles', () => {
-  // This is what decides whether a picker renders at all. On today's catalog
-  // it must be empty, or the Hardware group appears on every venue offering a
-  // choice of one.
+  // This is what decides which roles a venue pins on save — choicesToSave
+  // unions it with the roles already stored. On a catalog where every role has
+  // one item it must be empty, or every venue starts writing pins for roles
+  // that have nothing to choose between.
   it('is empty when every role has a single active item', () => {
     expect(multiOptionRoles([uniview]).size).toBe(0)
   })
