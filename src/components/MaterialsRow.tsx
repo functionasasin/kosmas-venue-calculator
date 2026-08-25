@@ -88,6 +88,22 @@ export function MaterialsRow({
   const swapLabel = `Swap item for ${item?.name ?? line.roleKey ?? 'unmapped line'}`
   const labelFor = (i: Item) => `${i.name}${i === inactiveFallback ? ' (inactive)' : ''}`
 
+  // swapOptionsFor narrows to the line's role family, and about half the roles
+  // on a stock Pro venue have exactly one active item in theirs — the Mac mini,
+  // the iPad, the display, the Flic. A Select there opens a popup holding the
+  // item already on screen, so the chevron advertises a choice that does not
+  // exist; dropping it is what lets a chevron mean "there is a real
+  // alternative here". Counted off `options`, not off swapOptions, so the
+  // deactivated current item counts as the second: a retired SKU plus its live
+  // replacement IS a choice and keeps its picker.
+  //
+  // A line that resolves to NO item keeps its picker whatever the count. The
+  // row reads "No active item mapped for …" and the swap control is the only
+  // thing that repairs it — swapOptionsFor hands that case the whole active
+  // catalog for exactly this reason, and collapsing it to text because the
+  // catalog happened to offer one candidate would make the error permanent.
+  const choosable = options.length > 1 || !item
+
   // A native <select> was replaced here on 2026-08-17. It had two symptoms that
   // looked separate and were one element: no height class left it ~19px, under
   // the 24px tap-target floor, and `lg:w-auto` made it as wide as its *longest*
@@ -102,7 +118,13 @@ export function MaterialsRow({
   // two replay cameras is the case this exists for — and keying on the role
   // rendered two options with the same value, so picking either one resolved
   // through a role map and landed on whichever came back last.
-  const picker = (
+  const picker = !choosable ? (
+    // h-7 and text-sm mirror SelectTrigger size="sm" so a row does not jog
+    // vertically depending on whether its family has an alternative.
+    <span data-slot="item-name" className="flex h-7 items-center truncate text-sm">
+      {item ? labelFor(item) : (line.roleKey ?? '')}
+    </span>
+  ) : (
     <Select value={item?.id ?? ''} onValueChange={v => onSwap(v as string)}>
       <SelectTrigger
         size="sm"
@@ -210,18 +232,28 @@ export function MaterialsRow({
           <div className="space-y-3">
             <div>
               <p className="mb-1 text-sm text-muted-foreground">Swap item</p>
-              <select
-                className="w-full rounded-md border bg-card p-2 text-sm"
-                aria-label={swapLabel}
-                value={item?.id ?? ''}
-                onChange={e => onSwap(e.target.value)}
-              >
-                {options.map(i => (
-                  <option key={i.id} value={i.id}>
-                    {labelFor(i)}
-                  </option>
-                ))}
-              </select>
+              {/* Same rule as the inline picker, and it has to be applied in
+                  both places: these two controls already diverged once (the
+                  inline one grew an "(inactive)" option the dialog never got)
+                  which is why they share one options array. */}
+              {choosable ? (
+                <select
+                  className="w-full rounded-md border bg-card p-2 text-sm"
+                  aria-label={swapLabel}
+                  value={item?.id ?? ''}
+                  onChange={e => onSwap(e.target.value)}
+                >
+                  {options.map(i => (
+                    <option key={i.id} value={i.id}>
+                      {labelFor(i)}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-sm">
+                  {item ? labelFor(item) : (line.roleKey ?? '')}
+                </p>
+              )}
             </div>
             <Button
               variant="outline"

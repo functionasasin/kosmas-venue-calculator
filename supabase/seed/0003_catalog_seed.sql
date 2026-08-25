@@ -16,6 +16,15 @@
 -- venue_item_choices. The gap is real: a 14-court venue is 1000 VA on the
 -- Uniview and 1500 VA on the Dahua.
 --
+-- Names here are likewise the PRE-migration ones: 0016 strips "(Replay
+-- Camera)" from the Dahua and "(Access Point)" from the U7-LR, and it asserts
+-- an exact-name match, so those two rows must be seeded with the suffix still
+-- on them or a from-scratch rebuild fails at 0016. The Dahua's name was also
+-- aligned to the live row on 2026-08-25 — this file had it as
+-- "Dahua DH-IPC-HDW5459T-ZE-IL-2712", production as
+-- "EmpireTech / Dahua IPC-HDW5459T-ZE-IL", and 0014's `like` predicate matched
+-- both, which is how the two drifted unnoticed.
+--
 -- This file is deliberately NOT that end state. It runs as 0003, under
 -- 0001's items_role_key_active index, so a second active replay camera here
 -- would fail the bootstrap. 0011 relaxes the index and backfills is_default;
@@ -69,7 +78,7 @@ insert into items (name, category, role_key, supplier, poe_watts, rack_u, notes,
 -- after it, several can — but this file runs before that, so these stay
 -- inactive here and 0014 is what activates the Dahua.
 insert into items (name, category, role_key, supplier, poe_watts, rack_u, is_active, notes) values
-  ('Dahua DH-IPC-HDW5459T-ZE-IL-2712 (Replay Camera)', 'camera', null, 'Drextech', 17.5, 0, false, 'PodPlay''s Option-1 primary standard and what Helios Beta is being built with — 8 units on hand (recorded 2026-08-18), 6 more pending for its 14 courts. 4MP 1/1.8", 2.7-12mm motorized varifocal, Smart Dual Light, 802.3at, 17.5W MAX / 5W typical. The 12V/2A input rating is a 24W supply envelope, NOT a draw figure. Inactive HERE because this file runs under 0001''s index; 0014 activates it ALONGSIDE the Uniview, which keeps the role default, so a venue picks between them rather than the catalog choosing. 6x the Uniview''s draw — a full UPS rung at 14 courts. Set illumination to IR, not white/dual — that is what keeps 17.5W true.'),
+  ('EmpireTech / Dahua IPC-HDW5459T-ZE-IL (Replay Camera)', 'camera', null, 'Drextech', 17.5, 0, false, 'PodPlay''s Option-1 primary standard and what Helios Beta is being built with — 8 units on hand (recorded 2026-08-18), 6 more pending for its 14 courts. 4MP 1/1.8", 2.7-12mm motorized varifocal, Smart Dual Light, 802.3at, 17.5W MAX / 5W typical. The 12V/2A input rating is a 24W supply envelope, NOT a draw figure. Inactive HERE because this file runs under 0001''s index; 0014 activates it ALONGSIDE the Uniview, which keeps the role default, so a venue picks between them rather than the catalog choosing. 6x the Uniview''s draw — a full UPS rung at 14 courts. Set illumination to IR, not white/dual — that is what keeps 17.5W true.'),
   ('KSTAR MP RT 3K S UPS', 'power', null, 'Drextech', null, 2, false, 'RETIRED as a BOM line 2026-08-20 — the tool specs the UPS by VA rating now, not by SKU. Still the unit Kosmas stocks and installs: 3000VA/2700W on-line, i.e. the top rung, so it satisfies every venue. 600mm deep.');
 
 -- Mains draw, verified against the manufacturers on 2026-08-20 rather than

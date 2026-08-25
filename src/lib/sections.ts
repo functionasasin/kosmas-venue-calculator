@@ -1,4 +1,5 @@
 import type { Item } from '@/calculator/types'
+import { ROLE_FAMILY, readRoleKey } from '@/calculator/roleKeys'
 import type { StoredLine } from '@/data/venueLines'
 
 export type SectionId = 'rack' | 'court' | 'cabling' | 'decide'
@@ -147,20 +148,48 @@ export function groupIntoSections(
 }
 
 /**
- * Constrained by the line's *item's* category, not by the section the line
+ * Constrained by the line's *item's* ROLE FAMILY, not by the section the line
  * currently renders in — a TBD line lives in `decide` but must still be
  * swappable for its real peers.
  *
- * A line whose item does not resolve is the exception: it has no category, so a
- * same-section filter would offer it nothing — and swapping is exactly how the
- * "No active item mapped for …" case gets repaired. It keeps the full list.
+ * The section was the constraint until 2026-08-25 and was far too coarse:
+ * SECTION_FOR_CATEGORY above folds rack, compute, storage, power and network
+ * into one `rack` band, so the UDM line offered patch panels, a Kisi
+ * controller, three switches, five UPS rungs, four racks and an SSD — and the
+ * replay camera line offered the Autonomous+ security camera, which is not a
+ * substitute for it. ROLE_FAMILY groups only the genuine variants of one piece
+ * of hardware; see its comment for how new hardware joins a family.
+ *
+ * Two cases keep the FULL list instead, and both are the same rule: a picker
+ * that offers nothing makes "No active item mapped for …" permanent, and
+ * swapping is exactly how that gets repaired.
+ *
+ *   - The line's item does not resolve at all, so there is no family to filter
+ *     by.
+ *   - The family resolves but has no ACTIVE member — every item on the role
+ *     was deactivated. itemsByRole deliberately ignores isActive, so the role
+ *     still names a retired item and the family is still known; it is just
+ *     empty. Narrowing to it would replace one unrepairable row with another.
  */
 export function swapOptionsFor(
   line: StoredLine, catalog: Item[], chosen?: Map<string, string>,
 ): Item[] {
   const active = catalog.filter(i => i.isActive && i.roleKey)
   const item = line.roleKey ? itemsByRole(catalog, chosen).get(line.roleKey) : undefined
-  if (!item) return active
-  const target = sectionForItem(item)
-  return active.filter(i => sectionForItem(i) === target)
+  const target = familyOf(item)
+  if (!target) return active
+  const family = active.filter(i => familyOf(i) === target)
+  return family.length > 0 ? family : active
+}
+
+/**
+ * Null for an item with no role key, and for a role key the catalog holds but
+ * ROLE_KEYS no longer does — `items.role_key` is plain text with no check
+ * constraint, so a retired key (the junction boxes, the HDMI cable) still
+ * comes back from the database. Both cases mean "no family", which routes to
+ * the full-catalog fallback above rather than to an empty picker.
+ */
+function familyOf(item: Item | undefined): string | null {
+  const role = readRoleKey(item?.roleKey)
+  return role ? ROLE_FAMILY[role] : null
 }
