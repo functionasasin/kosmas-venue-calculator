@@ -121,6 +121,58 @@ rather than picking arbitrarily. If the engine itself ever becomes
 choice-aware, this guarantee — and every one of those call sites' safety —
 goes with it; don't remove `resolveCatalog` as a redundant layer.
 
+## The swap picker is narrowed by role FAMILY, not by section
+
+`ROLE_FAMILY` in `roleKeys.ts` groups role keys into the variants of one piece
+of hardware — five `ups_*` rungs are one `ups`, both `gateway_udm_*` are one
+`gateway`, `switch_24_std/24_pro/48_pro` are one `switch`. `swapOptionsFor`
+filters a line's options by it.
+
+**It replaced a section filter, and the section was never a plausible
+constraint** (2026-08-25). `SECTION_FOR_CATEGORY` folds rack, compute, storage,
+power and network into the one `Rack` band, so the UDM line offered patch
+panels, a Kisi controller, three switches, five UPS rungs, four racks and an
+SSD; the replay camera line offered the Autonomous+ security camera, which the
+tier model says is not a substitute for it.
+
+**Families are named for the FUNCTION, never the incumbent SKU** — `ipad` maps
+to `tablet`, `apple_tv` to `media_player`, `flic` to `button`, `mac_mini` to
+`server`. The string is a grouping key and is never rendered, so an accurate
+name is free now and a rename later is not. Only a NEW KIND of thing reaches
+this file; another SKU on an existing role key (a second display, an M4 Pro Mac
+mini) needs no code at all — activate it and the swap picker, the rail's
+`HardwareChoices` and `venue_item_choices` all pick it up, which is the
+machinery `0011`-`0014` built.
+
+Two cases deliberately keep the WHOLE active catalog, and both are the same
+rule — a picker that offers nothing makes "No active item mapped for …"
+permanent: a line whose item does not resolve at all, and a family whose every
+item has been deactivated (`itemsByRole` ignores `isActive`, so the family is
+known and merely empty). `MaterialsRow` mirrors the second one: `choosable` is
+`options.length > 1 || !item`, so an unresolved row keeps its control however
+few candidates exist.
+
+**A row whose family holds one active item renders as plain text**, in the
+inline picker and the phone dialog alike. That is about half the rows on a
+stock Pro venue, and it is what lets a chevron mean "there is a real
+alternative here" rather than opening a popup holding the item already on
+screen. The deactivated current item counts toward the two — a retired SKU plus
+its live replacement IS a choice.
+
+`docs/superpowers/drivers/swap-options.mjs` is the only thing that can see any
+of this; no unit test reads a popup, and the section filter was green for as
+long as it was wrong.
+
+**Item names stopped restating the role in `0016`.** `(Replay Camera)` on the
+Dahua and `(Access Point)` on the U7-LR are gone — the picker carries the role
+now, and on a printed BOM a role suffix reads as part of the SKU. The Dahua's
+had a reason once: the same SKU was seeded twice, as `replay_camera` and as the
+`security_camera` a placeholder now holds. **`(Owlview)` deliberately stays** —
+it is Uniview's product-line name, the same kind of thing as `(U8000F)`,
+`(Gen 2)` or `(M4)`, and the half of the name a supplier recognises. The seed
+still carries both suffixes on purpose: `0016` asserts an exact-name match, so
+a from-scratch rebuild needs the pre-rename names to strip.
+
 ## There is no brand input
 
 *"Brand" here means the venue **operator** — PodPlay / PingPod / Pickleball Kingdom, a sizing input. Not the Kosmas brand book two sections below, which governs the logo. Different things, same word.*

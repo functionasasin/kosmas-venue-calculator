@@ -63,7 +63,12 @@ const swapTo = (name: string | RegExp, index = 0) => {
 const catalog: Item[] = [
   item('display', 'court', 'Samsung 65in'),
   item('ipad', 'court', 'iPad A16'),
+  // Two UPS rungs, because the swap picker is now constrained to a line's role
+  // FAMILY and a rung is the everyday cross-role swap that survives that: a
+  // display and an iPad are different families and can no longer be swapped
+  // for one another, so they cannot carry the originRoleKey tests below.
   item('ups_1500va', 'power', 'UPS 1500 VA'),
+  item('ups_3000va', 'power', 'UPS 3000 VA'),
 ]
 
 describe('swapping an item', () => {
@@ -73,7 +78,7 @@ describe('swapping an item', () => {
     const onChange = vi.fn()
     render(
       <MaterialsTable
-        lines={[line('display', 8)]}
+        lines={[line('ups_1500va', 1)]}
         catalog={catalog}
         formulas={new Map()}
         onChange={onChange}
@@ -81,12 +86,12 @@ describe('swapping an item', () => {
       />,
     )
 
-    swapTo('iPad A16')
+    swapTo('UPS 3000 VA')
 
     const [updated] = onChange.mock.calls[0][0] as StoredLine[]
-    expect(updated.roleKey).toBe('ipad')
-    expect(updated.itemId).toBe('id-ipad')
-    expect(updated.originRoleKey).toBe('display')
+    expect(updated.roleKey).toBe('ups_3000va')
+    expect(updated.itemId).toBe('id-ups_3000va')
+    expect(updated.originRoleKey).toBe('ups_1500va')
     expect(updated.source).toBe('manual')
   })
 
@@ -97,7 +102,9 @@ describe('swapping an item', () => {
     const onChange = vi.fn()
     render(
       <MaterialsTable
-        lines={[line('ipad', 8, { originRoleKey: 'display', source: 'manual' })]}
+        lines={[line('ups_1500va', 1, {
+          originRoleKey: 'ups_750va', source: 'manual',
+        })]}
         catalog={catalog}
         formulas={new Map()}
         onChange={onChange}
@@ -105,10 +112,10 @@ describe('swapping an item', () => {
       />,
     )
 
-    swapTo('Samsung 65in')
+    swapTo('UPS 3000 VA')
 
     const [updated] = onChange.mock.calls[0][0] as StoredLine[]
-    expect(updated.originRoleKey).toBe('display')
+    expect(updated.originRoleKey).toBe('ups_750va')
   })
 })
 
@@ -535,11 +542,15 @@ describe('two active items on one role', () => {
     expect(onChange.mock.calls[0][0][0].originRoleKey).toBeNull()
   })
 
+  // The other half of the contrast above. A swap ACROSS roles still stamps
+  // originRoleKey — it just has to stay inside the role family now, which the
+  // UPS rungs are: five roles, one family, and swapping between them is the
+  // reason cross-role swap survives the picker being narrowed at all.
   it('still sets originRoleKey when the swap crosses to another role', async () => {
     const onChange = vi.fn()
     render(
       <MaterialsTable
-        lines={[line('replay_camera', 8, { itemId: 'uni' })]}
+        lines={[line('ups_1500va', 1)]}
         catalog={cameras}
         formulas={new Map()}
         onChange={onChange}
@@ -547,11 +558,75 @@ describe('two active items on one role', () => {
       />,
     )
 
-    swapTo('Samsung 65in')
+    swapTo('UPS 3000 VA')
 
     expect(onChange.mock.calls[0][0][0]).toMatchObject({
-      roleKey: 'display', originRoleKey: 'replay_camera',
+      roleKey: 'ups_3000va', originRoleKey: 'ups_1500va',
     })
+  })
+})
+
+/**
+ * On a stock Pro venue roughly half the lines have exactly one active item in
+ * their role family — the Mac mini, the iPad, the Apple TV, the display, the
+ * Flic, the signage, the access point. A Select there opens a popup holding
+ * the item already shown, so the chevron promises a choice that does not
+ * exist. Rendering those as text is what makes the chevron mean something:
+ * "there is a real alternative here".
+ */
+describe('a row with nothing to choose', () => {
+  const swapPicker = () =>
+    screen.queryByRole('combobox', { name: /^Swap item/ })
+
+  it('renders the item name as text when the family has one active item', () => {
+    render(
+      <MaterialsTable lines={[line('display', 8)]} catalog={catalog} isAdmin
+        formulas={new Map()} onChange={vi.fn()} />,
+    )
+    // Scoped to the row: the Add-line <select> below the table carries an
+    // <option> with the same text, which a document-wide query also matches.
+    const row = screen.getAllByRole('row').at(-1)!
+    expect(within(row).getByText('Samsung 65in')).toBeInTheDocument()
+    expect(swapPicker()).toBeNull()
+  })
+
+  it('keeps the picker when the family holds a real alternative', () => {
+    render(
+      <MaterialsTable lines={[line('ups_1500va', 1)]} catalog={catalog} isAdmin
+        formulas={new Map()} onChange={vi.fn()} />,
+    )
+    expect(swapPicker()).toBeInTheDocument()
+    expect(swapOptionNames()).toEqual(
+      expect.arrayContaining(['UPS 1500 VA', 'UPS 3000 VA']))
+  })
+
+  // The current item counts even when it is deactivated: it is appended to the
+  // options as the "(inactive)" fallback, so a retired item plus one active
+  // replacement is a genuine choice and must keep its picker.
+  it('keeps the picker for a deactivated item that has a live replacement', () => {
+    const retired = catalog.map(i =>
+      i.roleKey === 'display' ? { ...i, isActive: false } : i)
+    const replacement = { ...item('display', 'court', 'LG 65in'), id: 'lg' }
+    render(
+      <MaterialsTable lines={[line('display', 8)]} catalog={[...retired, replacement]}
+        isAdmin formulas={new Map()} onChange={vi.fn()} />,
+    )
+    expect(swapPicker()).toBeInTheDocument()
+    expect(swapOptionNames()).toEqual(
+      expect.arrayContaining(['LG 65in', 'Samsung 65in (inactive)']))
+  })
+
+  // The phone affordance is a native <select> in the actions dialog rather
+  // than the Base UI popup, and it has to follow the same rule — an earlier
+  // divergence between these two controls is why they share one options array.
+  it('drops the select from the actions dialog too', () => {
+    render(
+      <MaterialsTable lines={[line('display', 8)]} catalog={catalog} isAdmin
+        formulas={new Map()} onChange={vi.fn()} />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /actions/i }))
+    expect(screen.queryByRole('combobox', { name: /^Swap item/ })).toBeNull()
+    expect(screen.getAllByText('Samsung 65in').length).toBeGreaterThan(0)
   })
 })
 

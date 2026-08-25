@@ -134,36 +134,85 @@ describe('empty sections', () => {
 })
 
 describe('swap options', () => {
-  // Swapping across sections would re-parent the row mid-edit, unmounting the
-  // control and losing focus — and for a user account, swapping into a cable
-  // role would make the row vanish outright.
-  it('offers only items in the line’s own section', () => {
-    const options = swapOptionsFor(line('display', 8), catalog)
-    expect(options.every(i => sectionForItem(i) === 'court')).toBe(true)
-    expect(options.map(i => i.roleKey)).toContain('ipad')
-    expect(options.map(i => i.roleKey)).not.toContain('ups_1500va')
-    expect(options.map(i => i.roleKey)).not.toContain('cat6_0m5')
+  // The shared catalog holds one item per role, so it cannot express a family.
+  // These extras give the four multi-role families a second member, plus the
+  // two-active-items-on-one-role case the replay camera actually is.
+  const extra: Item[] = [
+    item('ups_750va', 'power'), item('ups_3000va', 'power'),
+    item('gateway_udm_se', 'network'), item('switch_48_pro', 'network'),
+    item('rack_16u', 'rack'),
+    item('security_camera', 'camera'),
+    { ...item('replay_camera', 'camera'), id: 'id-replay_camera-2' },
+    { ...item('access_point', 'network'), id: 'id-access_point-2' },
+    { ...item('display', 'court'), id: 'id-display-2' },
+  ]
+  const fam = [...catalog, ...extra]
+  const roles = (opts: Item[]) => opts.map(i => i.roleKey)
+
+  // The complaint this filter exists for: every one of these used to be
+  // offered on the UPS line, because sections.ts folds power, network,
+  // compute, storage and rack into one Rack band.
+  it('offers a UPS line the other rungs and nothing else', () => {
+    const options = swapOptionsFor(line('ups_1500va', 1), fam)
+    expect(roles(options).sort()).toEqual(['ups_1500va', 'ups_3000va', 'ups_750va'])
+    expect(roles(options)).not.toContain('mac_mini')
+    expect(roles(options)).not.toContain('rack_12u')
+    expect(roles(options)).not.toContain('gateway_udm_pro')
+  })
+
+  // A gateway and a switch are both `network` items in the same section, and
+  // neither is a substitute for the other.
+  it('offers a gateway line the other gateway and no switches', () => {
+    const options = swapOptionsFor(line('gateway_udm_pro', 1), fam)
+    expect(roles(options).sort()).toEqual(['gateway_udm_pro', 'gateway_udm_se'])
+  })
+
+  // Two roles, one category. A replay camera is not swappable for the
+  // surveillance camera that only Autonomous+ carries — see CLAUDE.md on why
+  // those two tiers are not interchangeable.
+  it('keeps replay and security cameras in separate families', () => {
+    const options = swapOptionsFor(line('replay_camera', 8), fam)
+    expect(options.map(i => i.id).sort())
+      .toEqual(['id-replay_camera', 'id-replay_camera-2'])
+    expect(roles(options)).not.toContain('security_camera')
   })
 
   // A TBD line lives in `decide`, but its swap options come from its item's
-  // category — otherwise a TBD access point could only be swapped for the
-  // other TBD line.
-  it('constrains a TBD line by its item’s category, not by decide', () => {
-    const options = swapOptionsFor(line('access_point', 'TBD'), catalog)
-    expect(options.map(i => i.roleKey)).toContain('switch_24_pro')
-    expect(options.map(i => i.roleKey)).not.toContain('ipad')
+  // family — otherwise a TBD access point could only be swapped for the other
+  // TBD line.
+  it('constrains a TBD line by its item\u2019s family, not by decide', () => {
+    const options = swapOptionsFor(line('access_point', 'TBD'), fam)
+    expect(options.map(i => i.id).sort())
+      .toEqual(['id-access_point', 'id-access_point-2'])
   })
 
+  // Deactivating a family-mate, not an unrelated item: with the family filter
+  // an unrelated item is already excluded, so the old catalog-wide version of
+  // this test would have passed without isActive being consulted at all.
   it('excludes deactivated items', () => {
-    const withDead = catalog.map(i =>
-      i.roleKey === 'ipad' ? { ...i, isActive: false } : i)
+    const withDead = fam.map(i =>
+      i.id === 'id-display-2' ? { ...i, isActive: false } : i)
     const options = swapOptionsFor(line('display', 8), withDead)
-    expect(options.map(i => i.roleKey)).not.toContain('ipad')
+    expect(options.map(i => i.id)).toEqual(['id-display'])
   })
 
-  // Swapping is how "No active item mapped for …" gets repaired. Constraining
-  // an unresolvable line to its own section would offer it nothing at all and
-  // make the error permanent.
+  // The same rule as the no-family fallback below, and the case that is easy
+  // to miss: itemsByRole ignores isActive, so a role whose every item was
+  // deactivated still HAS a family — an empty one. Narrowing to it would leave
+  // the row saying "No active item mapped" with a picker holding nothing to
+  // repair it with.
+  it('offers the whole active catalog when the family has no active member', () => {
+    const allDead = fam.map(i =>
+      i.roleKey === 'replay_camera' ? { ...i, isActive: false } : i)
+    const options = swapOptionsFor(line('replay_camera', 8), allDead)
+    expect(options.length).toBe(fam.length - 2)
+    expect(roles(options)).toContain('display')
+  })
+
+  // Swapping is how "No active item mapped for \u2026" gets repaired. Constraining
+  // an unresolvable line to its own family would offer it nothing at all and
+  // make the error permanent. Uses the shared catalog, which has no
+  // security_camera item for the line to resolve to.
   it('offers the whole active catalog to a line with no resolvable item', () => {
     const options = swapOptionsFor(line('security_camera', 4), catalog)
     expect(options.length).toBe(catalog.length)

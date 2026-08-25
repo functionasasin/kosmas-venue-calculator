@@ -107,3 +107,76 @@ export const ROLE_LABELS: Record<RoleKey, string> = {
   flic: 'Flic button',
   signage: 'Signage',
 }
+
+/**
+ * The set of role keys a BOM line may be swapped between — the variants of one
+ * piece of hardware. Coarser than a role key (each UPS rung and each rack
+ * height is its own role, and they are obviously interchangeable) and finer
+ * than the section a line renders in (`sections.ts` folds rack, compute,
+ * storage, power and network into one `Rack` band, which is why the UDM line
+ * used to offer patch panels, an SSD and five UPS rungs).
+ *
+ * Families are named for the FUNCTION, never for the SKU that fills it today.
+ * `ipad` maps to `tablet` and `apple_tv` to `media_player` so that the day an
+ * Android tablet or a non-Apple player is stocked, it joins an accurately named
+ * group instead of one named after the thing it replaces. The string is a
+ * grouping key and is never rendered, so a functional name costs nothing now
+ * and saves a rename later.
+ *
+ * Two ways hardware gets added, and only the second one reaches this file:
+ *
+ *   1. Another SKU on an EXISTING role key — a second display, an M4 Pro Mac
+ *      mini. Nothing here changes. Activate the item and the swap picker, the
+ *      rail's HardwareChoices and venue_item_choices all pick it up, which is
+ *      the machinery 0011-0014 built for the two replay cameras.
+ *   2. A new KIND of thing, which needs its own role key because the formulas
+ *      have to size it — an Android tablet draws differently and takes a
+ *      different mount. That starts in podplay-ph-venue-sizing.md, not here.
+ *
+ * Record<RoleKey, string> is the enforcement: a role key added without a
+ * family fails the build, exactly as ROLE_LABELS above intends.
+ *
+ * Note that a swap BETWEEN two role keys in one family (a UPS rung to another
+ * rung, an iPad to a hypothetical Android tablet) is a manual per-line
+ * override, not a re-size — MaterialsTable.swap stamps originRoleKey and marks
+ * the line manual, which exempts it from recalculation. The rail's picker is
+ * the control that drives the formulas, and it stays keyed on the role.
+ */
+export const ROLE_FAMILY: Record<RoleKey, string> = {
+  replay_camera: 'replay_camera',
+  security_camera: 'security_camera',
+  ipad: 'tablet',
+  ipad_poe_adapter: 'poe_adapter',
+  ipad_wall_mount: 'tablet_mount',
+  apple_tv: 'media_player',
+  display: 'display',
+  switch_24_pro: 'switch',
+  switch_24_std: 'switch',
+  switch_48_pro: 'switch',
+  gateway_udm_se: 'gateway',
+  gateway_udm_pro: 'gateway',
+  access_point: 'access_point',
+  kisi_controller: 'access_controller',
+  kisi_reader: 'access_reader',
+  mac_mini: 'server',
+  mac_mini_shelf: 'rack_shelf',
+  replay_ssd_1tb: 'replay_storage',
+  replay_ssd_2tb: 'replay_storage',
+  replay_ssd_4tb: 'replay_storage',
+  patch_panel_24: 'patch_panel',
+  patch_panel_48: 'patch_panel',
+  cat6_0m5: 'patch_cable',
+  cat6_1m: 'patch_cable',
+  cat6_3m: 'patch_cable',
+  ups_750va: 'ups',
+  ups_1000va: 'ups',
+  ups_1500va: 'ups',
+  ups_2000va: 'ups',
+  ups_3000va: 'ups',
+  rack_12u: 'rack',
+  rack_16u: 'rack',
+  rack_21u: 'rack',
+  rack_27u: 'rack',
+  flic: 'button',
+  signage: 'signage',
+}
