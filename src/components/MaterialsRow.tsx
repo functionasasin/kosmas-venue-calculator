@@ -87,6 +87,11 @@ export function MaterialsRow({
   const options = inactiveFallback ? [...swapOptions, inactiveFallback] : swapOptions
   const swapLabel = `Swap item for ${item?.name ?? line.roleKey ?? 'unmapped line'}`
   const labelFor = (i: Item) => `${i.name}${i === inactiveFallback ? ' (inactive)' : ''}`
+  // Hoisted, not repeated in the two collapsed branches below: the inline
+  // picker and the phone dialog already diverged once over the "(inactive)"
+  // suffix, which is why they share one options array — the same reasoning
+  // applies to what they render when there is nothing to choose.
+  const currentLabel = item ? labelFor(item) : (line.roleKey ?? '')
 
   // swapOptionsFor narrows to the line's role family, and about half the roles
   // on a stock Pro venue have exactly one active item in theirs — the Mac mini,
@@ -122,7 +127,7 @@ export function MaterialsRow({
     // h-7 and text-sm mirror SelectTrigger size="sm" so a row does not jog
     // vertically depending on whether its family has an alternative.
     <span data-slot="item-name" className="flex h-7 items-center truncate text-sm">
-      {item ? labelFor(item) : (line.roleKey ?? '')}
+      {currentLabel}
     </span>
   ) : (
     <Select value={item?.id ?? ''} onValueChange={v => onSwap(v as string)}>
@@ -250,9 +255,7 @@ export function MaterialsRow({
                   ))}
                 </select>
               ) : (
-                <p className="text-sm">
-                  {item ? labelFor(item) : (line.roleKey ?? '')}
-                </p>
+                <p className="text-sm">{currentLabel}</p>
               )}
             </div>
             <Button

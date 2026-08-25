@@ -170,8 +170,12 @@ had a reason once: the same SKU was seeded twice, as `replay_camera` and as the
 `security_camera` a placeholder now holds. **`(Owlview)` deliberately stays** —
 it is Uniview's product-line name, the same kind of thing as `(U8000F)`,
 `(Gen 2)` or `(M4)`, and the half of the name a supplier recognises. The seed
-still carries both suffixes on purpose: `0016` asserts an exact-name match, so
-a from-scratch rebuild needs the pre-rename names to strip.
+still carries both suffixes on purpose — `0016` asserts it renamed exactly one
+row each, so a from-scratch rebuild needs a suffix to strip. **`0016` keys on
+`role_key` plus that suffix, never on the full display name**, which is the
+lesson of `0014`: its `like` predicate matched a different name in the seed than
+in production, each satisfied its own count-1 assertion, and the drift went
+unnoticed for weeks.
 
 ## There is no brand input
 

@@ -180,3 +180,16 @@ export const ROLE_FAMILY: Record<RoleKey, string> = {
   flic: 'button',
   signage: 'signage',
 }
+
+/**
+ * The family a role key belongs to, or null when there is none to speak of.
+ *
+ * Null covers both cases readRoleKey above already describes — no role key at
+ * all, and a key the database still holds but ROLE_KEYS no longer does. Callers
+ * read null as "no family", which is what routes a line to the whole-catalog
+ * fallback in swapOptionsFor rather than to an empty picker.
+ */
+export const familyOf = (roleKey: string | null | undefined): string | null => {
+  const role = readRoleKey(roleKey)
+  return role ? ROLE_FAMILY[role] : null
+}

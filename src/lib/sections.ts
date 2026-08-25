@@ -1,5 +1,5 @@
 import type { Item } from '@/calculator/types'
-import { ROLE_FAMILY, readRoleKey } from '@/calculator/roleKeys'
+import { familyOf } from '@/calculator/roleKeys'
 import type { StoredLine } from '@/data/venueLines'
 
 export type SectionId = 'rack' | 'court' | 'cabling' | 'decide'
@@ -176,20 +176,8 @@ export function swapOptionsFor(
 ): Item[] {
   const active = catalog.filter(i => i.isActive && i.roleKey)
   const item = line.roleKey ? itemsByRole(catalog, chosen).get(line.roleKey) : undefined
-  const target = familyOf(item)
+  const target = familyOf(item?.roleKey)
   if (!target) return active
-  const family = active.filter(i => familyOf(i) === target)
+  const family = active.filter(i => familyOf(i.roleKey) === target)
   return family.length > 0 ? family : active
-}
-
-/**
- * Null for an item with no role key, and for a role key the catalog holds but
- * ROLE_KEYS no longer does — `items.role_key` is plain text with no check
- * constraint, so a retired key (the junction boxes, the HDMI cable) still
- * comes back from the database. Both cases mean "no family", which routes to
- * the full-catalog fallback above rather than to an empty picker.
- */
-function familyOf(item: Item | undefined): string | null {
-  const role = readRoleKey(item?.roleKey)
-  return role ? ROLE_FAMILY[role] : null
 }

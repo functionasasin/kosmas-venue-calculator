@@ -135,12 +135,15 @@ describe('empty sections', () => {
 
 describe('swap options', () => {
   // The shared catalog holds one item per role, so it cannot express a family.
-  // These extras give the four multi-role families a second member, plus the
-  // two-active-items-on-one-role case the replay camera actually is.
+  // These extras give a second member to the two families the tests below
+  // actually assert on — ups and gateway — plus the two-active-items-on-one-role
+  // case the replay camera actually is. The rack and switch families stay at one
+  // member each on purpose: the shared catalog's rack_12u and switch_24_pro are
+  // what the exhaustive toEqual assertions below exclude, and a second SKU in
+  // either family would be a fixture row no assertion reaches.
   const extra: Item[] = [
     item('ups_750va', 'power'), item('ups_3000va', 'power'),
-    item('gateway_udm_se', 'network'), item('switch_48_pro', 'network'),
-    item('rack_16u', 'rack'),
+    item('gateway_udm_se', 'network'),
     item('security_camera', 'camera'),
     { ...item('replay_camera', 'camera'), id: 'id-replay_camera-2' },
     { ...item('access_point', 'network'), id: 'id-access_point-2' },
