@@ -35,7 +35,8 @@ export function Catalog() {
   const [items, setItems] = useState<Item[]>([])
   const [editing, setEditing] = useState<Item | 'new' | null>(null)
 
-  const reload = () => listItems(true).then(setItems).catch(e => toast.error(e.message))
+  const reload = () =>
+    listItems(true, true).then(setItems).catch(e => toast.error(e.message))
   useEffect(() => { reload() }, [])
 
   const save = async (item: Partial<Item> & { name: string }) => {

@@ -99,3 +99,18 @@ describe('Catalog with two items on one role', () => {
       .not.toBeInTheDocument()
   })
 })
+
+// Catalog is admin-only, so it must read the FULL `items` table — not the
+// narrowed `items_public` view 0017 added for anonymous readers. This screen
+// feeds ItemForm, which feeds upsertItem, and upsertItem writes supplier and
+// notes back unguarded (`item.supplier ?? null`). Reading the narrowed view
+// here would mean every item's supplier and notes arrive as null, and the
+// very next edit through ItemForm would write those nulls back — blanking
+// both columns for good, the same shape of bug as the mains_watts loss fixed
+// on 2026-08-24.
+describe('Catalog data source', () => {
+  it('reads the full items table, signed in, including inactive rows', async () => {
+    await renderCatalog()
+    expect(listItems).toHaveBeenCalledWith(true, true)
+  })
+})

@@ -1,14 +1,44 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+type Row = Record<string, unknown>
+
 const upsert = vi.fn(async (_row: unknown) => ({ error: null }))
 const rpc = vi.fn(async (_fn: string, _args: unknown) => ({ error: null }))
+
+/** Every table name `listItems` has queried, in order. */
+const tables: string[] = []
+/** Every `.eq()` applied, so a dropped filter is visible. */
+const filters: unknown[][] = []
+/** What the next awaited query resolves with. */
+let rows: Row[] = []
+
+const builder = {
+  select: () => builder,
+  order: () => builder,
+  eq: (...args: unknown[]) => { filters.push(args); return builder },
+  update: () => builder,
+  then: (resolve: (v: { data: Row[]; error: null }) => unknown) =>
+    resolve({ data: rows, error: null }),
+}
+
 vi.mock('@/lib/supabase', () => ({
-  supabase: { from: () => ({ upsert }), rpc },
+  supabase: {
+    from: (table: string) => {
+      tables.push(table)
+      return { ...builder, upsert }
+    },
+    rpc,
+  },
 }))
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  tables.length = 0
+  filters.length = 0
+  rows = []
+})
 
-const { upsertItem, setItemDefault } = await import('./items')
+const { listItems, upsertItem, setItemDefault } = await import('./items')
 
 describe('upsertItem', () => {
   // is_default has to reach the row when it is supplied. Without it the flag
@@ -75,5 +105,113 @@ describe('setItemDefault', () => {
     await setItemDefault('item-1')
     expect(rpc).toHaveBeenCalledWith('set_item_default', { p_item_id: 'item-1' })
     expect(upsert).not.toHaveBeenCalled()
+  })
+})
+
+describe('the anonymous catalog row mapper', () => {
+  /**
+   * supplier and notes are not columns of items_public, so an anonymous read
+   * cannot produce them. Pinning them as null here is not a formality: Item
+   * requires both fields, and the tempting shortcut — reusing fromRow and
+   * letting the missing keys arrive as undefined — puts `undefined` where
+   * `string | null` is declared, which type-checks in a test and reaches
+   * ItemForm as a value it will happily write back through upsertItem.
+   */
+  it('maps supplier and notes to null on the anonymous path', async () => {
+    rows = [{
+      id: 'i1', name: 'Uniview IPC3624LE-ADF28K-WP (Owlview)',
+      category: 'camera', role_key: 'replay_camera',
+      poe_watts: 2.8, mains_watts: null, rack_u: 0,
+      is_active: true, is_default: true, print_note: null,
+    }]
+    const items = await listItems(false)
+    expect(items[0].supplier).toBeNull()
+    expect(items[0].notes).toBeNull()
+  })
+
+  /**
+   * The columns the sizing engine actually consumes must survive the view.
+   * poeWatts and rackU feed checkPoeBudget and sumRackU directly, and roleKey
+   * is what every formula targets — a mapper that dropped one of them would
+   * size a venue wrong rather than fail.
+   */
+  it('carries the sizing columns through unchanged', async () => {
+    rows = [{
+      id: 'i1', name: 'Uniview IPC3624LE-ADF28K-WP (Owlview)',
+      category: 'camera', role_key: 'replay_camera',
+      poe_watts: 2.8, mains_watts: null, rack_u: 0,
+      is_active: true, is_default: true, print_note: null,
+    }]
+    const items = await listItems(false)
+    expect(items[0]).toMatchObject({
+      id: 'i1', roleKey: 'replay_camera', poeWatts: 2.8, rackU: 0,
+      isActive: true, isDefault: true,
+    })
+  })
+
+  /**
+   * The guard's real failure mode, and the reason its comparison is loose.
+   *
+   * Dropping a column from the view does not produce a null — PostgREST omits
+   * the key, so it arrives as `undefined`. With `=== null` this test fails:
+   * the guard waves the row through and `name: undefined` reaches
+   * MaterialsSection and the printed BOM as a blank, with strictNullChecks off
+   * and nothing raised anywhere.
+   */
+  it('throws rather than shipping an item with no name', async () => {
+    rows = [{
+      id: 'i1', category: 'camera', role_key: 'replay_camera',
+      poe_watts: 2.8, mains_watts: null, rack_u: 0,
+      is_active: true, is_default: true, print_note: null,
+    }]  // no `name` key at all
+    await expect(listItems(false)).rejects.toThrow(/view definition in 0017/)
+  })
+})
+
+describe('listItems chooses its relation from the session', () => {
+  /**
+   * The admin path must keep reading the base table. This is not a
+   * preference — upsertItem writes `supplier: item.supplier ?? null` and
+   * `notes: item.notes ?? null` unguarded (items.ts:41,74), so if the Catalog
+   * ever read the narrowed view, every item edit would blank both columns
+   * silently. That is character-for-character the mains_watts bug of
+   * 2026-08-24. The rule it establishes: a narrowed read never feeds a write.
+   */
+  it('reads the items table when signed in', async () => {
+    await listItems(true, true)
+    expect(tables).toEqual(['items'])
+  })
+
+  /**
+   * Requirement 9. items_public is the only relation an anonymous browser may
+   * read, because it is the only one that cannot return supplier or notes.
+   * Asserting the RELATION rather than the returned columns is what makes this
+   * test meaningful: a select list can be widened by anyone editing this file,
+   * where the view's shape is enforced by Postgres.
+   */
+  it('reads items_public when anonymous', async () => {
+    await listItems(false, true)
+    expect(tables).toEqual(['items_public'])
+  })
+
+  /**
+   * includeInactive has to work identically on both, or a saved line whose SKU
+   * was retired renders unnamed for anon and named for admin.
+   *
+   * Asserts the FILTER, not the table name. Asserting the table here would pass
+   * with the `.eq()` deleted from both branches — it would restate the two
+   * tests above and prove nothing about includeInactive at all.
+   */
+  it('applies the is_active filter only when includeInactive is false', async () => {
+    await listItems(false, true)
+    expect(filters).toEqual([])
+
+    filters.length = 0
+    await listItems(false, false)
+    expect(filters).toEqual([['is_active', true]])
+
+    filters.length = 0
+    await listItems(true, false)
+    expect(filters).toEqual([['is_active', true]])
   })
 })

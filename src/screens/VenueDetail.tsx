@@ -24,6 +24,7 @@ import { SaveStatus, UnsavedStrip } from '@/components/SaveStatus'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useRole } from '@/auth/useRole'
+import { useAuth } from '@/auth/AuthProvider'
 import { toast } from 'sonner'
 import { diffLines } from '@/lib/diffLines'
 
@@ -31,6 +32,7 @@ export function VenueDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const role = useRole()
+  const { session } = useAuth()
   const [venue, setVenue] = useState<Venue | null>(null)
   // ONE catalog in state, everything else derived. `catalogAll` includes
   // deactivated items so a saved line still renders its item's name; the
@@ -46,7 +48,7 @@ export function VenueDetail() {
 
   useEffect(() => {
     if (!id) return
-    Promise.all([getVenue(id), listItems(true), listLines(id), listChoices(id)])
+    Promise.all([getVenue(id), listItems(!!session, true), listLines(id), listChoices(id)])
       .then(([v, all, l, c]) => {
         setVenue(v); setCatalogAll(all); setLines(l); setChoices(c)
       })

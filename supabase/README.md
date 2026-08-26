@@ -4,6 +4,10 @@ Run everything in `supabase/` in **numeric order**, with the seed in its own
 position — `0001`, `0002`, then `seed/0003_catalog_seed.sql`, then `0004`
 onwards. Not all the migrations followed by the seed.
 
+`0017` creates `items_public`, the narrowed catalog view an anonymous browser
+reads. It is a definer view on purpose: that is what lets it return rows without
+a session. Do not add `security_invoker = true` — see the comment in the file.
+
 The seed is numbered `0003` because it has to land there. It runs under
 `0001`'s original `items_role_key_active` index, which is why it leaves the
 Dahua replay camera inactive; `0011` then relaxes that index and backfills

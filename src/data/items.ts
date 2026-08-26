@@ -24,12 +24,85 @@ const fromRow = (r: Tables<'items'>): Item => ({
   printNote: r.print_note,
 })
 
-export async function listItems(includeInactive = false): Promise<Item[]> {
-  let q = supabase.from('items').select('*').order('category').order('name')
+/**
+ * The same mapping for the narrowed anonymous read.
+ *
+ * Two things it does that fromRow does not, and both are the point:
+ *
+ *   - supplier and notes are hard-coded null. They are not columns of
+ *     items_public — 24 of 38 live items carry a supplier, and two notes carry
+ *     stock counts — so there is nothing to map. They must be `null` and not
+ *     `undefined`: Item declares both as `string | null`, and undefined leaking
+ *     into that shape would reach ItemForm as a writable value. It cannot today
+ *     (Catalog is admin-only and reads the full table) and this keeps it so.
+ *
+ *   - it narrows the row's nulls AT RUNTIME. A view does not carry NOT NULL
+ *     through to the generated types, so id/name/category/is_active/is_default
+ *     all arrive as `T | null` even though items constrains every one of them.
+ *     A null OR A MISSING KEY here means the VIEW has been redefined, not that
+ *     a row is unusual — hence `== null`, deliberately loose: dropping a column
+ *     from the view makes PostgREST omit the key, which arrives as `undefined`,
+ *     and `=== null` would wave it straight through.
+ *
+ *     The throw is not belt-and-braces: tsconfig.app.json sets no `strict`, so
+ *     strictNullChecks is OFF and assigning `string | null` to Item's `name:
+ *     string` compiles silently. This guard is the ONLY layer that would catch
+ *     a redefined view, and a blank name on a printed BOM is what it avoids.
+ */
+const fromPublicRow = (r: Tables<'items_public'>): Item => {
+  if (
+    r.id == null || r.name == null || r.category == null ||
+    r.is_active == null || r.is_default == null
+  ) {
+    throw new Error(
+      'items_public returned a null in a column items declares NOT NULL — ' +
+      'check the view definition in 0017',
+    )
+  }
+  return {
+    id: r.id,
+    name: r.name,
+    category: r.category,
+    roleKey: readRoleKey(r.role_key),
+    supplier: null,
+    poeWatts: r.poe_watts,
+    mainsWatts: r.mains_watts,
+    rackU: r.rack_u,
+    isActive: r.is_active,
+    isDefault: r.is_default,
+    notes: null,
+    printNote: r.print_note,
+  }
+}
+
+/**
+ * `signedIn` is required and comes first so that tsc names every call site.
+ * An optional flag would let a new caller default into the admin path, which
+ * reads supplier and notes — the two columns 0017 exists to withhold — from a
+ * page that may have no session at all.
+ *
+ * The two relations are not interchangeable in either direction: admin must
+ * read `items` because upsertItem writes back every column it is handed, and
+ * anon must read `items_public` because it is the only relation Postgres will
+ * not let return supplier or notes.
+ */
+export async function listItems(
+  signedIn: boolean,
+  includeInactive = false,
+): Promise<Item[]> {
+  if (signedIn) {
+    let q = supabase.from('items').select('*').order('category').order('name')
+    if (!includeInactive) q = q.eq('is_active', true)
+    const { data, error } = await q
+    if (error) throw error
+    return (data ?? []).map(fromRow)
+  }
+
+  let q = supabase.from('items_public').select('*').order('category').order('name')
   if (!includeInactive) q = q.eq('is_active', true)
   const { data, error } = await q
   if (error) throw error
-  return (data ?? []).map(fromRow)
+  return (data ?? []).map(fromPublicRow)
 }
 
 export async function upsertItem(item: Partial<Item> & { name: string }) {
