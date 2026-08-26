@@ -43,6 +43,9 @@ vi.mock('@/data/venueLines', async () => {
   }
 })
 vi.mock('@/auth/useRole', () => ({ useRole: () => 'admin' }))
+vi.mock('@/auth/AuthProvider', () => ({
+  useAuth: () => ({ session: { user: { id: 'u1' } } }),
+}))
 
 // Top-level, not just inside the describe below: without it the mocks
 // accumulate calls across the file's top-level tests, so any assertion on a

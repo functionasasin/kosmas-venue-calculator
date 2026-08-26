@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -87,6 +87,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "venue_item_choices_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items_public"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "venue_item_choices_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
@@ -138,6 +145,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items_public"
             referencedColumns: ["id"]
           },
           {
@@ -199,7 +213,45 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      items_public: {
+        Row: {
+          category: string | null
+          id: string | null
+          is_active: boolean | null
+          is_default: boolean | null
+          mains_watts: number | null
+          name: string | null
+          poe_watts: number | null
+          print_note: string | null
+          rack_u: number | null
+          role_key: string | null
+        }
+        Insert: {
+          category?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          is_default?: boolean | null
+          mains_watts?: number | null
+          name?: string | null
+          poe_watts?: number | null
+          print_note?: string | null
+          rack_u?: number | null
+          role_key?: string | null
+        }
+        Update: {
+          category?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          is_default?: boolean | null
+          mains_watts?: number | null
+          name?: string | null
+          poe_watts?: number | null
+          print_note?: string | null
+          rack_u?: number | null
+          role_key?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       save_venue: {
