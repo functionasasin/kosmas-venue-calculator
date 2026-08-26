@@ -16,7 +16,6 @@ const builder = {
   select: () => builder,
   order: () => builder,
   eq: (...args: unknown[]) => { filters.push(args); return builder },
-  update: () => builder,
   then: (resolve: (v: { data: Row[]; error: null }) => unknown) =>
     resolve({ data: rows, error: null }),
 }

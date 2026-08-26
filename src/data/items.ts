@@ -30,8 +30,8 @@ const fromRow = (r: Tables<'items'>): Item => ({
  * Two things it does that fromRow does not, and both are the point:
  *
  *   - supplier and notes are hard-coded null. They are not columns of
- *     items_public — 24 of 38 live items carry a supplier, and two notes carry
- *     stock counts — so there is nothing to map. They must be `null` and not
+ *     items_public — 0017 records which rows carry them and why they are
+ *     withheld — so there is nothing to map. They must be `null` and not
  *     `undefined`: Item declares both as `string | null`, and undefined leaking
  *     into that shape would reach ItemForm as a writable value. It cannot today
  *     (Catalog is admin-only and reads the full table) and this keeps it so.
@@ -98,7 +98,8 @@ export async function listItems(
     return (data ?? []).map(fromRow)
   }
 
-  let q = supabase.from('items_public').select('*').order('category').order('name')
+  let q = supabase
+    .from('items_public').select('*').order('category').order('name')
   if (!includeInactive) q = q.eq('is_active', true)
   const { data, error } = await q
   if (error) throw error
