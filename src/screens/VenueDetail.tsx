@@ -669,7 +669,19 @@ export function VenueDetail() {
             save this venue without admin access.
           </p>
           <pre className="max-h-56 overflow-auto rounded-md bg-muted p-3 text-xs">
-            {unresolved?.map(l => `${l.roleKey ?? 'unknown role'}: ${l.qty}`).join('\n')}
+            {/* The role's LABEL, the same string diffLines puts in the
+                recalculate and stale dialogs — this list is what the user reads
+                to decide whether losing these lines is acceptable, and
+                `ipad_poe_adapter: 8` does not tell them an iPad PoE adapter is
+                about to leave the venue.
+
+                A null role gets "Manual line" rather than the item name
+                diffLines would reach for: these lines are unresolved, which is
+                to say no item was found for them, so there is no name to
+                print. */}
+            {unresolved?.map(l =>
+              `${l.roleKey ? ROLE_LABELS[l.roleKey] : 'Manual line'}: ${l.qty}`,
+            ).join('\n')}
           </pre>
           <div className="flex gap-2">
             <Button onClick={async () => {
