@@ -34,6 +34,10 @@ vi.mock('@/data/venueStore', () => ({
     async (v: unknown, l: unknown, _catalog: unknown, ch: unknown) =>
       ({ venue: v, lines: l, choices: ch ?? [] }),
   ),
+  // Read by the session-loss watch and by SaveStatus's `local` prop. NOT by the
+  // conflict dialog — that reads VenueConflictError.local, so no screen has to
+  // ask where a venue lives just to word a sentence.
+  isLocalVenueId: vi.fn(() => false),
 }))
 vi.mock('@/data/items', () => ({
   listItems: vi.fn(async (): Promise<Item[]> => testCatalog),
@@ -43,14 +47,25 @@ vi.mock('@/data/items', () => ({
 // VITE_ env vars. No call below reaches it.
 vi.mock('@/lib/supabase', () => ({ supabase: {} }))
 vi.mock('@/auth/useRole', () => ({ useRole: () => 'admin' }))
-vi.mock('@/auth/AuthProvider', () => ({
-  useAuth: () => ({ session: { user: { id: 'u1' } } }),
-}))
+// Drivable, so a test can end the session mid-screen. Nothing on VenueDetail
+// reacted to it before, because App unmounted the whole tree on sign-out.
+const session = { current: { user: { id: 'u1' } } as unknown }
+vi.mock('@/auth/AuthProvider', () => ({ useAuth: () => ({ session: session.current }) }))
 
 // Top-level, not just inside the describe below: without it the mocks
 // accumulate calls across the file's top-level tests, so any assertion on a
 // call COUNT silently measures every earlier test too.
 beforeEach(() => vi.clearAllMocks())
+
+// clearAllMocks clears CALL HISTORY, not implementations, so a
+// mockReturnValue(true) set in one test would leak into every test after it —
+// and tests below assert opposite things about this one. Reset both here so no
+// case can pass by inheriting its neighbour's setup.
+beforeEach(async () => {
+  session.current = { user: { id: 'u1' } }
+  const storeMod = await import('@/data/venueStore')
+  vi.mocked(storeMod.isLocalVenueId).mockReturnValue(false)
+})
 
 // Returns the render result so a test that needs a second render in the same
 // body (comparing two catalog states) can unmount the first cleanly rather
@@ -69,6 +84,25 @@ const renderDetail = async () => {
       </Routes>
     </MemoryRouter>,
   )
+}
+
+// Re-renders the SAME tree so the component sees a changed session without
+// remounting. A fresh render() would run the loader again and hide the very
+// transition under test. initialEntries is initial-only and React reconciles
+// VenueDetail by type, so its state survives — which is the whole point.
+const rerenderDetail = async (rerender: (ui: React.ReactElement) => void) => {
+  const { VenueDetail } = await import('./VenueDetail')
+  rerender(
+    <MemoryRouter initialEntries={['/venues/v1']}>
+      <Routes>
+        <Route path="/venues/:id" element={<VenueDetail />} />
+        {/* The SAME sentinel renderDetail uses. A second, different one would
+            make two helpers disagree about what "left the screen" looks like. */}
+        <Route path="/" element={<div>venue list</div>} />
+      </Routes>
+    </MemoryRouter>,
+  )
+  await waitFor(() => {})
 }
 
 describe('a venue that already has saved lines', () => {
@@ -136,7 +170,7 @@ it('names who saved when the optimistic lock rejects the save', async () => {
   const { saveVenueAndLines } = await import('@/data/venueStore')
   const { VenueConflictError } = await import('@/data/venueLines')
   vi.mocked(saveVenueAndLines).mockRejectedValueOnce(
-    new VenueConflictError('other@kosmas.com', '2026-08-19T09:00:00.000001+00:00', false),
+    new VenueConflictError('other@kosmas.com', '2026-08-19T09:00:00.000001+00:00'),
   )
   await renderDetail()
   fireEvent.click(await screen.findByRole('button', { name: 'Save' }))
@@ -172,7 +206,7 @@ it('re-issues the save against the new baseline when overwriting a conflict', as
   const { saveVenueAndLines } = await import('@/data/venueStore')
   const { VenueConflictError } = await import('@/data/venueLines')
   vi.mocked(saveVenueAndLines).mockRejectedValueOnce(
-    new VenueConflictError('other@kosmas.com', '2026-08-19T09:00:00.000001+00:00', false),
+    new VenueConflictError('other@kosmas.com', '2026-08-19T09:00:00.000001+00:00'),
   )
   await renderDetail()
   fireEvent.click(await screen.findByRole('button', { name: 'Save' }))
@@ -291,7 +325,7 @@ it('stays put when Save and leave fails', async () => {
   const { saveVenueAndLines } = await import('@/data/venueStore')
   const { VenueConflictError } = await import('@/data/venueLines')
   vi.mocked(saveVenueAndLines).mockRejectedValueOnce(
-    new VenueConflictError('other@kosmas.com', '2026-08-19T09:00:00.000001+00:00', false),
+    new VenueConflictError('other@kosmas.com', '2026-08-19T09:00:00.000001+00:00'),
   )
   await renderDetail()
   fireEvent.change(await screen.findByLabelText(/courts/i), { target: { value: '12' } })
@@ -661,8 +695,9 @@ describe('per-venue hardware choice', () => {
 it('names the other TAB, not another account, when the venue is local', async () => {
   const storeMod = await import('@/data/venueStore')
   const { VenueConflictError } = await import('@/data/venueLines')
+  vi.mocked(storeMod.isLocalVenueId).mockReturnValue(true)
   vi.mocked(storeMod.saveVenueAndLines).mockRejectedValueOnce(
-    new VenueConflictError(null, '2026-08-26T10:00:00.001Z', true),
+    new VenueConflictError(null, '2026-08-26T10:00:00.001Z'),
   )
   await renderDetail()
   fireEvent.click(await screen.findByRole('button', { name: 'Save' }))
@@ -681,15 +716,151 @@ it('names the other TAB, not another account, when the venue is local', async ()
 // cannot: whose work is at stake.
 //
 // It overlaps the conflict test above, which also asserts the email is shown.
-// It earns its place by pinning the `local: false` branch EXPLICITLY, so the
-// local sentence cannot be made unconditional and left green.
 it('still names the account for a database venue', async () => {
   const storeMod = await import('@/data/venueStore')
   const { VenueConflictError } = await import('@/data/venueLines')
+  // Explicit, not inherited from the file's beforeEach: this test's whole job
+  // is to pin the isLocalVenueId -> false branch, so the local sentence cannot
+  // be made unconditional and left green.
+  vi.mocked(storeMod.isLocalVenueId).mockReturnValue(false)
   vi.mocked(storeMod.saveVenueAndLines).mockRejectedValueOnce(
-    new VenueConflictError('other@kosmas.com', '2026-08-19T09:00:00.000001+00:00', false),
+    new VenueConflictError('other@kosmas.com', '2026-08-19T09:00:00.000001+00:00'),
   )
   await renderDetail()
   fireEvent.click(await screen.findByRole('button', { name: 'Save' }))
   expect(await screen.findByText(/other@kosmas\.com/)).toBeInTheDocument()
+})
+
+describe('a venue this browser cannot load', () => {
+  // The concrete case: an anonymous visitor opens a link to a Kosmas venue.
+  // The venues RLS policy is `to authenticated`, so the read returns no rows,
+  // and until now that produced an auto-dismissing toast over a spinner that
+  // never resolved — no explanation and no way onward.
+  it('says so, instead of spinning forever', async () => {
+    const { getVenue } = await import('@/data/venueStore')
+    const { VenueMissingError } = await import('@/data/venueLines')
+    vi.mocked(getVenue).mockRejectedValueOnce(new VenueMissingError())
+    await renderDetail()
+    // `isn.t` so the typographic apostrophe the copy actually uses still matches.
+    expect(await screen.findByText(/isn.t here|is not here/i)).toBeInTheDocument()
+    expect(screen.queryByText('Loading…')).not.toBeInTheDocument()
+  })
+
+  // A dead end is the failure, not the message. The URL is bookmarkable, so
+  // the visitor may have arrived with no history to go back to.
+  it('offers the way back to the venue list', async () => {
+    const { getVenue } = await import('@/data/venueStore')
+    const { VenueMissingError } = await import('@/data/venueLines')
+    vi.mocked(getVenue).mockRejectedValueOnce(new VenueMissingError())
+    await renderDetail()
+    expect(await screen.findByRole('link', { name: /all venues/i })).toBeInTheDocument()
+  })
+
+  // Anything else keeps its own words. Telling someone their venue is missing
+  // when the network dropped sends them looking for the wrong thing.
+  it('reports an unrelated failure in its own terms', async () => {
+    const { getVenue } = await import('@/data/venueStore')
+    vi.mocked(getVenue).mockRejectedValueOnce(new Error('Failed to fetch'))
+    await renderDetail()
+    expect(await screen.findByText(/Failed to fetch/)).toBeInTheDocument()
+  })
+})
+
+describe('the session ending while a venue is open', () => {
+  // Nothing on this screen reacted to the session before, because App unmounted
+  // the whole tree on sign-out. With that gone, a signed-out admin is left
+  // looking at a database venue whose Save can no longer succeed — and a
+  // programmatic navigate bypasses both the back-link intercept and the leaving
+  // guard, so the edits would vanish behind a toast that clears itself.
+  it('says the edits are lost, in a dialog rather than a toast', async () => {
+    const storeMod = await import('@/data/venueStore')
+    vi.mocked(storeMod.isLocalVenueId).mockReturnValue(false)
+    session.current = { user: { id: 'u1' } }
+    const { rerender } = await renderDetail()
+    session.current = null
+    await rerenderDetail(rerender)
+    expect(await screen.findByText(/signed out/i)).toBeInTheDocument()
+    expect(screen.getByText(/unsaved/i)).toBeInTheDocument()
+  })
+
+  // Saving is impossible without a session, so an exit offering to save would
+  // offer something that cannot succeed. One way out, and it is honest.
+  it('offers no Save-and-leave, because there is nothing that could save', async () => {
+    const storeMod = await import('@/data/venueStore')
+    vi.mocked(storeMod.isLocalVenueId).mockReturnValue(false)
+    session.current = { user: { id: 'u1' } }
+    const { rerender } = await renderDetail()
+    session.current = null
+    await rerenderDetail(rerender)
+    expect(screen.queryByRole('button', { name: /save and leave/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /all venues/i })).toBeInTheDocument()
+  })
+
+  // §3.12, the mirror, and the answer is deliberately "nothing". A local venue
+  // keeps routing locally under id dispatch; the only stale thing is the
+  // catalog, and supplier and notes are not rendered on this screen at all.
+  // Re-keying the loader on the session would discard unsaved edits instead.
+  it('leaves a LOCAL venue alone when the session ends', async () => {
+    const storeMod = await import('@/data/venueStore')
+    vi.mocked(storeMod.isLocalVenueId).mockReturnValue(true)
+    session.current = { user: { id: 'u1' } }
+    const { rerender } = await renderDetail()
+    session.current = null
+    await rerenderDetail(rerender)
+    expect(screen.queryByText(/signed out/i)).not.toBeInTheDocument()
+  })
+
+  // A venue that never had a session cannot LOSE one. Without the "had a
+  // session" edge, every anonymous visitor would meet this dialog on arrival.
+  it('never fires for a visitor who was anonymous all along', async () => {
+    const storeMod = await import('@/data/venueStore')
+    // Explicit, not inherited: the previous test set this true.
+    vi.mocked(storeMod.isLocalVenueId).mockReturnValue(false)
+    session.current = null
+    await renderDetail()
+    // WAIT FOR THE VENUE TO LOAD FIRST. The watch is gated on `venue`, so
+    // asserting straight after render() checks an empty screen and passes
+    // whatever the condition says — verified by mutation: dropping the
+    // hadSession edge did not fail this test until it waited.
+    await screen.findByRole('button', { name: 'Save' })
+    expect(screen.queryByText(/signed out/i)).not.toBeInTheDocument()
+  })
+
+  // §1.6's other half. Typing PT404 without this leaves the save path showing a
+  // raw `venue_not_found` toast, which is what the clause exists to remove.
+  it('explains a save into a venue that is no longer there', async () => {
+    const storeMod = await import('@/data/venueStore')
+    const { VenueMissingError } = await import('@/data/venueLines')
+    vi.mocked(storeMod.isLocalVenueId).mockReturnValue(false)
+    vi.mocked(storeMod.saveVenueAndLines).mockRejectedValueOnce(new VenueMissingError())
+    await renderDetail()
+    fireEvent.click(await screen.findByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('button', { name: /all venues/i })).toBeInTheDocument()
+    expect(screen.queryByText('venue_not_found')).not.toBeInTheDocument()
+  })
+})
+
+describe('SaveStatus on a local venue', () => {
+  it('confirms the save in the toolbar rather than showing nothing', async () => {
+    const storeMod = await import('@/data/venueStore')
+    vi.mocked(storeMod.isLocalVenueId).mockReturnValue(true)
+    vi.mocked(storeMod.getVenue).mockResolvedValueOnce({
+      ...venue, createdByEmail: null, updatedByEmail: null,
+    })
+    await renderDetail()
+    expect(await screen.findByText(/Saved in this browser/)).toBeInTheDocument()
+  })
+
+  // Same rule as the database line, and the same reason: --muted-foreground on
+  // the navy band came out at 1.46:1.
+  it('keeps that line off the band whose grey it cannot use', async () => {
+    const storeMod = await import('@/data/venueStore')
+    vi.mocked(storeMod.isLocalVenueId).mockReturnValue(true)
+    vi.mocked(storeMod.getVenue).mockResolvedValueOnce({
+      ...venue, createdByEmail: null, updatedByEmail: null,
+    })
+    await renderDetail()
+    const line = await screen.findByText(/Saved in this browser/)
+    expect(line.closest('.bg-railhd')).toBeNull()
+  })
 })

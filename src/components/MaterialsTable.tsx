@@ -39,10 +39,23 @@ export function MaterialsTable({
   // choose between. See swap() for why a pin is written for these alone.
   const contested = multiOptionRoles(catalog)
 
-  // UI visibility only. The anon key ships in the bundle and the venue_lines
-  // RLS policy grants read to any authenticated user, so this is the same kind
-  // of gate as hiding the Catalog button — not a boundary. The requirement is
-  // that a length commitment does not appear in front of a client.
+  // UI visibility only — and now for a different reason than it was written
+  // for. The old note justified this with "the venue_lines RLS policy grants
+  // read to any authenticated user", which stopped meaning anything the moment
+  // there stopped being a login.
+  //
+  // What is true now: every cable item ships in the listItems payload to
+  // ANYONE, signed in or not. items_public (0017) carries every category on
+  // purpose — excluding the cabling ones would look like it made this a real
+  // boundary and would instead break the product, because cables.ts emits cable
+  // lines for every venue, they would resolve to no item, and the unresolved
+  // check would make every anonymous venue unsaveable.
+  //
+  // So this is not a boundary and never was. The requirement is narrower than
+  // that and unchanged: a length commitment must not appear on screen or on the
+  // sheet in front of a client. The printed half is safe on its own terms —
+  // buildPdfBody drops cabling unconditionally for everyone
+  // (exportMaterials.ts:102), not via isAdmin.
   const isCabling = (item: Item | undefined) =>
     item !== undefined && sectionForItem(item) === 'cabling'
 

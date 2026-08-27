@@ -5,7 +5,7 @@ import { getVenue, venueFromRow, type Venue } from './venues'
 import { choiceFromRow, type VenueItemChoice } from './venueItemChoices'
 import {
   itemIdByRole, lineFromRow, resolveLineItems, VenueConflictError,
-  type StoredLine,
+  VenueMissingError, type StoredLine,
 } from './venueTypes'
 
 /**
@@ -15,7 +15,9 @@ import {
  * the local backend errors that VenueDetail's `e instanceof …` checks do not
  * recognise, and both recovery dialogs would stop opening.
  */
-export { UnresolvedLinesError, VenueConflictError } from './venueTypes'
+export {
+  UnresolvedLinesError, VenueConflictError, VenueMissingError,
+} from './venueTypes'
 export type { StoredLine } from './venueTypes'
 
 /**
@@ -174,6 +176,9 @@ export async function saveVenueAndLines(
   })
 
   if (error) {
+    // The venue is gone, or was never visible to this caller. Typed here so
+    // VenueDetail can give it a sentence rather than a raw code.
+    if (error.code === 'PT404') throw new VenueMissingError()
     if (error.code === 'PT409') {
       // The RPC rolled back before returning anything, so who-and-when comes
       // from a fresh read. Only on the conflict path.
@@ -190,7 +195,7 @@ export async function saveVenueAndLines(
         savedByEmail = current.updatedByEmail
         savedAt = current.updatedAt
       } catch { /* attribution unavailable — the conflict still stands */ }
-      throw new VenueConflictError(savedByEmail, savedAt, false)
+      throw new VenueConflictError(savedByEmail, savedAt)
     }
     throw error
   }

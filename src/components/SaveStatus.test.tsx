@@ -143,3 +143,48 @@ describe('UnsavedStrip — the mobile warning', () => {
     expect(cls).not.toMatch(/bg-\S+\/\d/)
   })
 })
+
+describe('SaveStatus — a venue stored in this browser', () => {
+  // The gap this closes. A local venue has no account behind it, so
+  // updatedByEmail is null and the original guard returned null — a venue that
+  // had just been saved successfully showed nothing whatsoever.
+  it('confirms the save instead of rendering nothing', () => {
+    render(<SaveStatus dirty={false} updatedByEmail={null} updatedAt={AT} local />)
+    expect(screen.getByText(/Saved in this browser/)).toBeInTheDocument()
+  })
+
+  // Not decoration. localStorage is per browser PROFILE: clearing site data,
+  // a different browser, or a colleague's laptop all mean the venue is not
+  // there. Nothing else on this screen says so, and the alternative is a user
+  // discovering it after a fortnight.
+  it('says the venue lives only here, where a hover can find it', () => {
+    render(<SaveStatus dirty={false} updatedByEmail={null} updatedAt={AT} local />)
+    expect(screen.getByTitle(/clearing this browser/i)).toBeInTheDocument()
+  })
+
+  // The two facts do not stack, exactly as on the database path: mid-edit, the
+  // last-saved claim describes a version that is no longer on screen.
+  it('yields to the unsaved warning while there are edits', () => {
+    render(<SaveStatus dirty updatedByEmail={null} updatedAt={AT} local />)
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument()
+    expect(screen.queryByText(/Saved in this browser/)).not.toBeInTheDocument()
+  })
+
+  // The guard still has a job: a venue from before 0006 has no author and no
+  // local storage either, and "Saved by unknown" would state something the row
+  // does not.
+  it('still renders nothing for a clean database venue with no recorded author', () => {
+    const { container } = render(
+      <SaveStatus dirty={false} updatedByEmail={null} updatedAt={AT} />,
+    )
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  // A local venue must never claim an account. localPart() would throw on null
+  // and the non-null assertion beside it is what makes the ordering of these
+  // branches load-bearing.
+  it('names no account', () => {
+    render(<SaveStatus dirty={false} updatedByEmail={null} updatedAt={AT} local />)
+    expect(screen.queryByText(/Saved by/)).not.toBeInTheDocument()
+  })
+})

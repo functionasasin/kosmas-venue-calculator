@@ -27,14 +27,23 @@ export function SaveStatus({
   dirty,
   updatedByEmail,
   updatedAt,
+  local = false,
 }: {
   dirty: boolean
   updatedByEmail: string | null
   updatedAt: string
+  /**
+   * The venue lives in this browser's localStorage rather than the database.
+   * Optional and defaulting false so the database path — every caller before
+   * this one — needs no change.
+   */
+  local?: boolean
 }) {
   // Nothing to say: an unedited venue from before migration 0006, which has no
   // recorded author. "Saved by unknown" would state something the row does not.
-  if (!dirty && !updatedByEmail) return null
+  // A local venue is NOT that case — it has no author by design, and saying
+  // nothing after a successful save is exactly the wrong answer there.
+  if (!dirty && !updatedByEmail && !local) return null
 
   return (
     // max-sm:hidden, not a second component: the bar carries a theme toggle and
@@ -49,6 +58,20 @@ export function SaveStatus({
         // Replaces rather than joins the saved-by line: while you are mid-edit
         // the last-saved fact describes a version no longer on screen.
         <span className="font-medium text-foreground">Unsaved changes</span>
+      ) : local ? (
+        // BEFORE the saved-by branch, and that order is load-bearing: a local
+        // venue's updatedByEmail is null, and the branch below asserts it
+        // non-null and hands it to localPart(), which would throw on null.
+        //
+        // The title is the disclosure. localStorage is per browser PROFILE, so
+        // this venue is not on the user's phone, not on a colleague's laptop,
+        // and gone the moment site data is cleared — none of which is guessable
+        // from a line that just says "Saved".
+        <span title={`Stored only in this browser, ${longStamp(updatedAt)}. Clearing this browser's site data deletes it.`}>
+          Saved in this browser
+          {' · '}
+          {shortDate(updatedAt)}
+        </span>
       ) : (
         <span title={`Last saved by ${updatedByEmail} on ${longStamp(updatedAt)}`}>
           Saved by <span className="font-medium">{localPart(updatedByEmail!)}</span>

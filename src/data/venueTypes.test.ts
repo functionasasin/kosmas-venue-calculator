@@ -29,7 +29,7 @@ describe('the declarations both backends share', () => {
   // backends have to agree on them or a failure reads differently depending on
   // where the venue happens to live.
   it('keeps the wire-level messages the RPC also raises', () => {
-    expect(new VenueConflictError(null, 'x', true).message).toBe('venue_conflict')
+    expect(new VenueConflictError(null, 'x').message).toBe('venue_conflict')
     expect(new UnresolvedLinesError([]).message).toBe('unresolved_lines')
   })
 })

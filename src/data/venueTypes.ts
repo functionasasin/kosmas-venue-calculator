@@ -38,35 +38,30 @@ export interface StoredLine {
  * The venue was saved by someone else since this one was loaded. Carries who
  * and when so the dialog can say whose work the two exits would destroy.
  *
- * `savedAt` must NEVER be empty on either backend — "Overwrite theirs" rebases
- * on it, and thrown with an empty one that button conflicts forever.
+ * `savedByEmail` is null for a local venue: there are no accounts in
+ * localStorage and the other writer is another tab. `savedAt` must NEVER be
+ * empty on either backend — "Overwrite theirs" rebases on it, and thrown with
+ * an empty one that button conflicts forever.
  *
- * `local` says which store raised it, and it is set HERE rather than re-derived
- * by the screen from the venue's id. Each backend knows for free at the moment
- * it throws, and the dialog needs it: a local conflict is another TAB in this
- * browser, not another account, and telling the user "another account" names
- * something that does not exist. Having the screen ask isLocalVenueId instead
- * would put storage-location knowledge back into the one place this seam exists
- * to keep it out of.
- *
- * It is a field of its own and NOT inferred from `savedByEmail === null`, which
- * looks like it would work and does not: 0006 stamps every UPDATE with
- * `coalesce(auth.jwt() ->> 'email', 'unknown')`, but the database path also
- * yields null when the post-conflict re-read itself fails (venueLines.ts's
- * `catch`), and that conflict is not local.
+ * It carries NO local/remote flag, deliberately. One was added and removed
+ * again: the dialog does need to know, but VenueDetail already asks
+ * isLocalVenueId(venue.id) for the session-loss watch and for SaveStatus, so a
+ * flag here is a second way to answer a question the screen answers anyway —
+ * and dispatch is on the venue's id, so the two could never even disagree.
+ * (Do not infer it from `savedByEmail === null` either: 0006 stamps every
+ * UPDATE with `coalesce(auth.jwt() ->> 'email', 'unknown')`, but the database
+ * path also yields null when the post-conflict re-read itself fails, and that
+ * conflict is not local.)
  */
 export class VenueConflictError extends Error {
   savedByEmail: string | null
   savedAt: string
-  /** True when localStorage raised it — the other writer is another tab. */
-  local: boolean
 
-  constructor(savedByEmail: string | null, savedAt: string, local: boolean) {
+  constructor(savedByEmail: string | null, savedAt: string) {
     super('venue_conflict')
     this.name = 'VenueConflictError'
     this.savedByEmail = savedByEmail
     this.savedAt = savedAt
-    this.local = local
   }
 }
 
@@ -171,3 +166,27 @@ export const lineFromRow = (r: Record<string, unknown>): StoredLine => ({
   suppressed: r.suppressed as boolean,
   note: (r.note as string | null) ?? null,
 })
+
+/**
+ * The venue is not in the store this id points at.
+ *
+ * Three shapes mean this and arrive differently: a localStorage key that is not
+ * there, a PostgREST `.single()` that matched no row (PGRST116 — which is what
+ * an anonymous read of a database venue returns, because the RLS policies are
+ * scoped `to authenticated` and match nothing rather than erroring), and the
+ * RPC's `raise exception 'venue_not_found' using errcode = 'PT404'` (0013:50).
+ *
+ * The message is the wire-level string all three already use, so a caller that
+ * falls back to `e.message` reads the same thing it always did.
+ *
+ * Deliberately NOT raised for anything else. Matching more broadly would tell a
+ * user their venue is missing when the real fault was a constraint violation or
+ * a dropped connection, and the retry they would then not attempt is the one
+ * that would have worked.
+ */
+export class VenueMissingError extends Error {
+  constructor() {
+    super('venue_not_found')
+    this.name = 'VenueMissingError'
+  }
+}
