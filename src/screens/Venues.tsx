@@ -3,8 +3,9 @@ import { Link, useNavigate } from 'react-router-dom'
 import { listVenues, saveVenue, deleteVenue, isLocalVenueId } from '@/data/venueStore'
 import { storageAvailable, type UnreadableVenue } from '@/data/localVenues'
 import type { Venue } from '@/data/venues'
+import type { Tier } from '@/calculator/types'
 import { useRole } from '@/auth/useRole'
-import { tierLabel } from '@/lib/tierLabel'
+import { tierLabel, TIERS } from '@/lib/tierLabel'
 import { useAuth } from '@/auth/AuthProvider'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -24,6 +25,10 @@ export function Venues() {
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
   const [courts, setCourts] = useState('8')
+  // Pro, because nearly every PH deployment is one — and because 'pro' is what
+  // this dialog wrote as a literal before the picker existed, so leaving the
+  // field alone creates the venue it always created.
+  const [tier, setTier] = useState<Tier>('pro')
   // Holds the venue awaiting confirmation. Deleting cascades to its materials
   // list and cannot be undone, so it never fires straight off the row button.
   const [deleting, setDeleting] = useState<Venue | null>(null)
@@ -79,7 +84,7 @@ export function Venues() {
   const create = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const v = await saveVenue({ name, courts: Number(courts), tier: 'pro' }, !!userId)
+      const v = await saveVenue({ name, courts: Number(courts), tier }, !!userId)
       navigate(`/venues/${v.id}`)
     } catch (err) {
       toast.error((err as Error).message)
@@ -273,6 +278,29 @@ export function Venues() {
               <Label htmlFor="venueCourts">Courts</Label>
               <Input id="venueCourts" type="number" min="1" value={courts}
                 onChange={e => setCourts(e.target.value)} />
+            </div>
+            {/* The same five tiers the venue rail offers, from the one shared
+                list — including the two that block the calculation. The tier is
+                chosen and never inferred, so a Basic venue has to be recordable
+                as one; what it gets on the next screen is the block message,
+                which is the right answer rather than a dead end.
+
+                Cameras and doors are deliberately NOT asked for here. They
+                default to 0 on create, so no tier picked in this dialog can
+                trip a gate, and they belong beside the counts they interact
+                with in the rail. Sized to ItemForm's role-key <select>, not the
+                rail's — this is a dialog form, and it sits level with the two
+                Inputs above it. */}
+            <div className="space-y-2">
+              <Label htmlFor="venueTier">Tier</Label>
+              <select id="venueTier"
+                className="w-full rounded-md border bg-card p-2 text-sm"
+                value={tier}
+                onChange={e => setTier(e.target.value as Tier)}>
+                {TIERS.map(t => (
+                  <option key={t} value={t}>{tierLabel(t)}</option>
+                ))}
+              </select>
             </div>
             <Button type="submit">Create</Button>
           </form>

@@ -3,11 +3,7 @@ import { allowsSecurityCameras, allowsKisiDoors } from '@/calculator/gates'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { tierLabel } from '@/lib/tierLabel'
-
-const TIERS: Tier[] = [
-  'basic', 'basic_plus', 'pro', 'autonomous', 'autonomous_plus',
-]
+import { tierLabel, TIERS } from '@/lib/tierLabel'
 
 /**
  * Inputs only. A "Hardware" group used to sit under them — one picker per role
