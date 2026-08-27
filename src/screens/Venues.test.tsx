@@ -12,13 +12,18 @@ const venues = [
 
 const deleteVenue = vi.fn(async (_id: string) => undefined)
 
-vi.mock('@/data/venues', () => ({
-  listVenues: vi.fn(async () => venues),
+vi.mock('@/data/venueStore', () => ({
+  listVenues: vi.fn(async () => ({ venues, unreadable: [] })),
   saveVenue: vi.fn(async (v: unknown) => v),
   deleteVenue: (...args: [string]) => deleteVenue(...args),
 }))
 vi.mock('@/auth/useRole', () => ({ useRole: () => 'admin' }))
-vi.mock('@/auth/AuthProvider', () => ({ useAuth: () => ({ signOut: vi.fn() }) }))
+vi.mock('@/auth/AuthProvider', () => ({
+  // Venues now reads session?.user.id for the effect key and the signedIn flag.
+  // Without a session here the screen would list only local venues and the
+  // fixture would never render.
+  useAuth: () => ({ signOut: vi.fn(), session: { user: { id: 'u1' } } }),
+}))
 
 const renderVenues = async () => {
   const { Venues } = await import('./Venues')

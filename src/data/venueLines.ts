@@ -1,44 +1,22 @@
 import { supabase } from '@/lib/supabase'
-import type { CalculatedLine, Item, Qty } from '@/calculator/types'
+import type { CalculatedLine, Item } from '@/calculator/types'
 import { readRoleKey, type RoleKey } from '@/calculator/roleKeys'
 import { getVenue, venueFromRow, type Venue } from './venues'
 import { choiceFromRow, type VenueItemChoice } from './venueItemChoices'
-
-export interface StoredLine {
-  id: string
-  venueId: string
-  /** The authoritative pointer to the catalog row. Survives deactivation. */
-  itemId: string
-  roleKey: RoleKey | null
-  qty: Qty
-  /** The role this line replaced, if the user swapped its SKU. */
-  originRoleKey: RoleKey | null
-  sortOrder: number
-  source: 'formula' | 'manual'
-  suppressed: boolean
-  note: string | null
-}
+import {
+  itemIdByRole, lineFromRow, resolveLineItems, VenueConflictError,
+  type StoredLine,
+} from './venueTypes'
 
 /**
- * role -> the id of the ACTIVE item holding it, for a catalog that has already
- * been through resolveCatalog — so exactly one item holds each role and this
- * Map cannot be last-wins over two candidates.
- *
- * NOT itemsByRole from src/lib/sections: that one deliberately does not filter
- * on isActive, because it feeds the screen, where a saved line whose item was
- * deactivated must still render its name. Here a deactivated item must never
- * be minted onto a fresh line, so the filter is the point.
- *
- * One helper because mergeRecalculation and saveVenueAndLines both need it and
- * both used to build it inline — the isActive term was added to one of the two
- * long after the other, which is exactly the drift this prevents.
+ * Re-exported, not re-declared. VenueDetail.tsx, venueLines.test.ts and
+ * merge.test.ts all import these three from here, and more importantly
+ * `instanceof` is identity on the class object — two declarations would give
+ * the local backend errors that VenueDetail's `e instanceof …` checks do not
+ * recognise, and both recovery dialogs would stop opening.
  */
-const itemIdByRole = (catalog: Item[]): Map<RoleKey, string> =>
-  new Map(
-    catalog
-      .filter(i => i.isActive && i.roleKey)
-      .map(i => [i.roleKey as RoleKey, i.id]),
-  )
+export { UnresolvedLinesError, VenueConflictError } from './venueTypes'
+export type { StoredLine } from './venueTypes'
 
 /**
  * Recalculation contract:
@@ -143,52 +121,6 @@ export async function listLines(venueId: string): Promise<StoredLine[]> {
 }
 
 /**
- * The venue was saved by someone else since this one was loaded. Carries who
- * and when so the dialog can say whose work the two exits would destroy.
- */
-export class VenueConflictError extends Error {
-  savedByEmail: string | null
-  savedAt: string
-
-  constructor(savedByEmail: string | null, savedAt: string) {
-    super('venue_conflict')
-    this.name = 'VenueConflictError'
-    this.savedByEmail = savedByEmail
-    this.savedAt = savedAt
-  }
-}
-
-/**
- * One or more lines point at no catalog item. The old saveLines filtered these
- * away silently and reported success; raising is the fix, and `lines` is what
- * lets the screen name them rather than showing a dead end.
- */
-export class UnresolvedLinesError extends Error {
-  lines: StoredLine[]
-
-  constructor(lines: StoredLine[]) {
-    super('unresolved_lines')
-    this.name = 'UnresolvedLinesError'
-    this.lines = lines
-  }
-}
-
-const lineFromRpc = (r: Record<string, unknown>): StoredLine => ({
-  id: r.id as string,
-  venueId: r.venue_id as string,
-  itemId: r.item_id as string,
-  // Supplied by the RPC's join against items — venue_lines has no role_key
-  // column. See 0007_save_venue_rpc.sql.
-  roleKey: readRoleKey(r.role_key as string | null),
-  qty: r.qty_tbd ? ('TBD' as const) : (r.qty as number),
-  originRoleKey: readRoleKey(r.origin_role_key as string | null),
-  sortOrder: r.sort_order as number,
-  source: r.source as StoredLine['source'],
-  suppressed: r.suppressed as boolean,
-  note: (r.note as string | null) ?? null,
-})
-
-/**
  * Saves the venue, its whole materials list AND its hardware choices in ONE
  * transaction, with an optimistic-lock check against the `updatedAt` this
  * venue was loaded with.
@@ -208,35 +140,21 @@ export async function saveVenueAndLines(
   catalog: Item[],
   choices: VenueItemChoice[],
 ): Promise<{ venue: Venue; lines: StoredLine[]; choices: VenueItemChoice[] }> {
-  const itemIdFor = itemIdByRole(catalog)
-
-  // itemId is authoritative — it survives the item being deactivated or its
-  // role key being reassigned. Only lines minted by mergeRecalculation have an
-  // empty itemId, and those resolve through the role map.
-  const unresolved: StoredLine[] = []
-  const payload = lines.flatMap(l => {
-    const itemId = l.itemId || (l.roleKey ? itemIdFor.get(l.roleKey) : undefined)
-    if (!itemId) { unresolved.push(l); return [] }
-    return [{
-      item_id: itemId,
-      // The RPC casts with ::int, so the TBD sentinel must not reach it.
-      qty: typeof l.qty === 'number' ? l.qty : 0,
-      qty_tbd: l.qty === 'TBD',
-      origin_role_key: l.originRoleKey,
-      source: l.source,
-      suppressed: l.suppressed,
-      note: l.note,
-    }]
-  }).map((row, index) => ({
-    ...row,
+  // Raises UnresolvedLinesError before the RPC, so nothing is written and the
+  // failure is total rather than partial.
+  const payload = resolveLineItems(lines, catalog).map(({ line, itemId }, index) => ({
+    item_id: itemId,
+    // The RPC casts with ::int, so the TBD sentinel must not reach it.
+    qty: typeof line.qty === 'number' ? line.qty : 0,
+    qty_tbd: line.qty === 'TBD',
+    origin_role_key: line.originRoleKey,
     // Print order is the on-screen order, so this is the array index and not
     // the stored sortOrder.
     sort_order: index,
+    source: line.source,
+    suppressed: line.suppressed,
+    note: line.note,
   }))
-
-  // Raised BEFORE the RPC: nothing is written, so the failure is total rather
-  // than partial.
-  if (unresolved.length > 0) throw new UnresolvedLinesError(unresolved)
 
   const { data, error } = await supabase.rpc('save_venue', {
     p_venue: {
@@ -272,7 +190,7 @@ export async function saveVenueAndLines(
         savedByEmail = current.updatedByEmail
         savedAt = current.updatedAt
       } catch { /* attribution unavailable — the conflict still stands */ }
-      throw new VenueConflictError(savedByEmail, savedAt)
+      throw new VenueConflictError(savedByEmail, savedAt, false)
     }
     throw error
   }
@@ -286,7 +204,7 @@ export async function saveVenueAndLines(
   }
   return {
     venue: venueFromRow(payloadOut.venue),
-    lines: payloadOut.lines.map(lineFromRpc),
+    lines: payloadOut.lines.map(lineFromRow),
     // Same narrowing as listChoices: role_key is unconstrained text, so a
     // choice for a role the app has retired is dropped rather than typed as a
     // RoleKey.

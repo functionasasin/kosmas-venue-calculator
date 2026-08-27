@@ -21,27 +21,27 @@ const savedLines: StoredLine[] = [{
   suppressed: false, note: null,
 }]
 
-vi.mock('@/data/venues', () => ({
+// One mock for every storage call, matching the screen's one storage import.
+// The error classes are NOT mocked — they come from the real venueLines, which
+// re-exports venueTypes', so `instanceof` in the screen still matches what the
+// tests throw. Mocking them here would silently disable both recovery dialogs
+// and the tests below would then be asserting on a toast.
+vi.mock('@/data/venueStore', () => ({
   getVenue: vi.fn(async () => venue),
-  saveVenue: vi.fn(async (v: unknown) => v),
+  listLines: vi.fn(async () => savedLines),
+  listChoices: vi.fn(async () => []),
+  saveVenueAndLines: vi.fn(
+    async (v: unknown, l: unknown, _catalog: unknown, ch: unknown) =>
+      ({ venue: v, lines: l, choices: ch ?? [] }),
+  ),
 }))
 vi.mock('@/data/items', () => ({
   listItems: vi.fn(async (): Promise<Item[]> => testCatalog),
 }))
-vi.mock('@/data/venueItemChoices', () => ({ listChoices: vi.fn(async () => []) }))
-vi.mock('@/data/venueLines', async () => {
-  const real = await vi.importActual<typeof import('@/data/venueLines')>(
-    '@/data/venueLines',
-  )
-  return {
-    ...real,
-    listLines: vi.fn(async () => savedLines),
-    saveVenueAndLines: vi.fn(
-      async (v: unknown, l: unknown, _catalog: unknown, ch: unknown) =>
-        ({ venue: v, lines: l, choices: ch ?? [] }),
-    ),
-  }
-})
+// venueLines still loads for real (mergeRecalculation and the two error
+// classes), and it imports the client at module load, which throws without the
+// VITE_ env vars. No call below reaches it.
+vi.mock('@/lib/supabase', () => ({ supabase: {} }))
 vi.mock('@/auth/useRole', () => ({ useRole: () => 'admin' }))
 vi.mock('@/auth/AuthProvider', () => ({
   useAuth: () => ({ session: { user: { id: 'u1' } } }),
@@ -133,9 +133,10 @@ it('puts the theme toggle first among the toolbar controls', async () => {
 // A conflict must not be reported as a generic failure: the two ways out both
 // destroy someone's work, so the dialog has to say whose before offering them.
 it('names who saved when the optimistic lock rejects the save', async () => {
-  const { saveVenueAndLines, VenueConflictError } = await import('@/data/venueLines')
+  const { saveVenueAndLines } = await import('@/data/venueStore')
+  const { VenueConflictError } = await import('@/data/venueLines')
   vi.mocked(saveVenueAndLines).mockRejectedValueOnce(
-    new VenueConflictError('other@kosmas.com', '2026-08-19T09:00:00.000001+00:00'),
+    new VenueConflictError('other@kosmas.com', '2026-08-19T09:00:00.000001+00:00', false),
   )
   await renderDetail()
   fireEvent.click(await screen.findByRole('button', { name: 'Save' }))
@@ -147,7 +148,8 @@ it('names who saved when the optimistic lock rejects the save', async () => {
 // deactivating the only item for a role, and the `user` account has no catalog
 // access to undo that. The dialog is the way out.
 it('offers to remove lines that point at no item, rather than dead-ending', async () => {
-  const { saveVenueAndLines, UnresolvedLinesError } = await import('@/data/venueLines')
+  const { saveVenueAndLines } = await import('@/data/venueStore')
+  const { UnresolvedLinesError } = await import('@/data/venueLines')
   vi.mocked(saveVenueAndLines).mockRejectedValueOnce(
     new UnresolvedLinesError([{
       id: 'x', venueId: 'v1', itemId: '', roleKey: 'flic', qty: 4,
@@ -167,9 +169,10 @@ it('offers to remove lines that point at no item, rather than dead-ending', asyn
 // is asynchronous, so the retry would have re-sent the stale baseline and
 // conflicted again — the button appearing to do nothing, twice.
 it('re-issues the save against the new baseline when overwriting a conflict', async () => {
-  const { saveVenueAndLines, VenueConflictError } = await import('@/data/venueLines')
+  const { saveVenueAndLines } = await import('@/data/venueStore')
+  const { VenueConflictError } = await import('@/data/venueLines')
   vi.mocked(saveVenueAndLines).mockRejectedValueOnce(
-    new VenueConflictError('other@kosmas.com', '2026-08-19T09:00:00.000001+00:00'),
+    new VenueConflictError('other@kosmas.com', '2026-08-19T09:00:00.000001+00:00', false),
   )
   await renderDetail()
   fireEvent.click(await screen.findByRole('button', { name: 'Save' }))
@@ -211,7 +214,7 @@ it('does not warn on a freshly created venue nobody has edited', async () => {
 // snapshot is not replaced on save, every subsequent exit warns about edits
 // that are already persisted.
 it('stops warning once saved', async () => {
-  const { saveVenueAndLines } = await import('@/data/venueLines')
+  const { saveVenueAndLines } = await import('@/data/venueStore')
   await renderDetail()
   const courts = await screen.findByLabelText(/courts/i)
   fireEvent.change(courts, { target: { value: '12' } })
@@ -229,7 +232,7 @@ it('stops warning once saved', async () => {
 // ends in a navigation, and a test that continues past one is asserting
 // against a torn-down tree.
 it('warns again on an edit made after a save', async () => {
-  const { saveVenueAndLines } = await import('@/data/venueLines')
+  const { saveVenueAndLines } = await import('@/data/venueStore')
   await renderDetail()
   const courts = await screen.findByLabelText(/courts/i)
   fireEvent.change(courts, { target: { value: '12' } })
@@ -256,7 +259,7 @@ it('keeps the edit on Cancel', async () => {
 })
 
 it('leaves without saving on Discard', async () => {
-  const { saveVenueAndLines } = await import('@/data/venueLines')
+  const { saveVenueAndLines } = await import('@/data/venueStore')
   await renderDetail()
   fireEvent.change(await screen.findByLabelText(/courts/i), { target: { value: '12' } })
 
@@ -285,9 +288,10 @@ it('shows who last saved the venue and when, in the rail', async () => {
 // this whole guard exists to protect, on the one path the user chose in order
 // to keep them.
 it('stays put when Save and leave fails', async () => {
-  const { saveVenueAndLines, VenueConflictError } = await import('@/data/venueLines')
+  const { saveVenueAndLines } = await import('@/data/venueStore')
+  const { VenueConflictError } = await import('@/data/venueLines')
   vi.mocked(saveVenueAndLines).mockRejectedValueOnce(
-    new VenueConflictError('other@kosmas.com', '2026-08-19T09:00:00.000001+00:00'),
+    new VenueConflictError('other@kosmas.com', '2026-08-19T09:00:00.000001+00:00', false),
   )
   await renderDetail()
   fireEvent.change(await screen.findByLabelText(/courts/i), { target: { value: '12' } })
@@ -307,8 +311,8 @@ it('stays put when Save and leave fails', async () => {
 // Opening a Basic venue to upgrade it is the realistic case, and it is the one
 // where the guard silently did nothing.
 it('guards a venue whose tier produces no lines at all', async () => {
-  const { getVenue } = await import('@/data/venues')
-  const { listLines } = await import('@/data/venueLines')
+  const { getVenue } = await import('@/data/venueStore')
+  const { listLines } = await import('@/data/venueStore')
   vi.mocked(getVenue).mockResolvedValueOnce({ ...venue, tier: 'basic' })
   // A blocked tier sizes nothing, so such a venue has no saved lines either —
   // the file's default listLines mock returns one, which masks the bug.
@@ -333,10 +337,10 @@ describe('per-venue hardware choice', () => {
   // Criterion 2, first half. A 14-court Pro venue is 1000 VA on the Uniview
   // and 1500 VA on the Dahua; if the picker stops moving the rung, this fails.
   it('sizes the venue against the chosen camera', async () => {
-    const { getVenue } = await import('@/data/venues')
+    const { getVenue } = await import('@/data/venueStore')
     const { listItems } = await import('@/data/items')
-    const { listLines } = await import('@/data/venueLines')
-    const { listChoices } = await import('@/data/venueItemChoices')
+    const { listLines } = await import('@/data/venueStore')
+    const { listChoices } = await import('@/data/venueStore')
 
     vi.mocked(getVenue).mockResolvedValueOnce({ ...venue, courts: 14 })
     vi.mocked(listItems).mockResolvedValueOnce(twoCameras)
@@ -370,8 +374,8 @@ describe('per-venue hardware choice', () => {
   // carry the right id either way.
   it('saves the chosen camera as the line\'s item_id', async () => {
     const { listItems } = await import('@/data/items')
-    const { listLines, saveVenueAndLines } = await import('@/data/venueLines')
-    const { listChoices } = await import('@/data/venueItemChoices')
+    const { listLines, saveVenueAndLines } = await import('@/data/venueStore')
+    const { listChoices } = await import('@/data/venueStore')
 
     vi.mocked(listItems).mockResolvedValueOnce(twoCameras)
     vi.mocked(listLines).mockResolvedValueOnce([{
@@ -400,7 +404,7 @@ describe('per-venue hardware choice', () => {
   // later default flip cannot move it.
   it('sends a choice for every multi-option role, even when the venue never picked', async () => {
     const { listItems } = await import('@/data/items')
-    const { saveVenueAndLines } = await import('@/data/venueLines')
+    const { saveVenueAndLines } = await import('@/data/venueStore')
 
     vi.mocked(listItems).mockResolvedValueOnce(twoCameras)
     // listChoices is left at the file's default (resolves to []).
@@ -419,8 +423,8 @@ describe('per-venue hardware choice', () => {
   // Reactivating the alternate later would then silently follow the default.
   it('keeps a stored choice after the alternate is deactivated', async () => {
     const { listItems } = await import('@/data/items')
-    const { saveVenueAndLines } = await import('@/data/venueLines')
-    const { listChoices } = await import('@/data/venueItemChoices')
+    const { saveVenueAndLines } = await import('@/data/venueStore')
+    const { listChoices } = await import('@/data/venueStore')
 
     vi.mocked(listItems).mockResolvedValueOnce(
       [uniview, { ...dahua, isActive: false }],
@@ -444,8 +448,8 @@ describe('per-venue hardware choice', () => {
   // fallback and silently delete the venue's pin on the next unrelated save.
   it('keeps a stored choice after the chosen item itself is deactivated', async () => {
     const { listItems } = await import('@/data/items')
-    const { saveVenueAndLines } = await import('@/data/venueLines')
-    const { listChoices } = await import('@/data/venueItemChoices')
+    const { saveVenueAndLines } = await import('@/data/venueStore')
+    const { listChoices } = await import('@/data/venueStore')
 
     vi.mocked(listItems).mockResolvedValueOnce(
       [uniview, { ...dahua, isActive: false }],
@@ -468,7 +472,7 @@ describe('per-venue hardware choice', () => {
   // 7030054 and 4223ab3 were about.
   it('marks the venue dirty when a picker changes', async () => {
     const { listItems } = await import('@/data/items')
-    const { listLines } = await import('@/data/venueLines')
+    const { listLines } = await import('@/data/venueStore')
     vi.mocked(listItems).mockResolvedValueOnce(twoCameras)
     // The file's default saved venue is one UPS line, so the table would hold
     // no camera row to pick from. An empty venue populates from the formulas.
@@ -504,7 +508,7 @@ describe('per-venue hardware choice', () => {
   // silently is the failure this feature exists to remove.
   it('warns when the venue\'s chosen item was deactivated', async () => {
     const { listItems } = await import('@/data/items')
-    const { listChoices } = await import('@/data/venueItemChoices')
+    const { listChoices } = await import('@/data/venueStore')
 
     vi.mocked(listItems).mockResolvedValueOnce(
       [uniview, { ...dahua, isActive: false }],
@@ -530,7 +534,7 @@ describe('per-venue hardware choice', () => {
   // what reaches this state is a line swapped before that delegation existed.
   it('warns when a hand-edited line names an item the venue is not sized on', async () => {
     const { listItems } = await import('@/data/items')
-    const { listLines } = await import('@/data/venueLines')
+    const { listLines } = await import('@/data/venueStore')
 
     vi.mocked(listItems).mockResolvedValueOnce(twoCameras)
     vi.mocked(listLines).mockResolvedValueOnce([{
@@ -555,7 +559,7 @@ describe('per-venue hardware choice', () => {
   // corrected a count.
   it('says nothing when a hand-edited line names the item it is sized on', async () => {
     const { listItems } = await import('@/data/items')
-    const { listLines } = await import('@/data/venueLines')
+    const { listLines } = await import('@/data/venueStore')
 
     vi.mocked(listItems).mockResolvedValueOnce(twoCameras)
     vi.mocked(listLines).mockResolvedValueOnce([{
@@ -578,8 +582,8 @@ describe('per-venue hardware choice', () => {
   // in the one state where the user is already being told their pick is gone.
   it('says nothing when a hand-edited line names the fallback its dead pin resolved to', async () => {
     const { listItems } = await import('@/data/items')
-    const { listLines } = await import('@/data/venueLines')
-    const { listChoices } = await import('@/data/venueItemChoices')
+    const { listLines } = await import('@/data/venueStore')
+    const { listChoices } = await import('@/data/venueStore')
 
     vi.mocked(listItems).mockResolvedValueOnce(
       [...testCatalog.filter(i => i.roleKey !== 'replay_camera'),
@@ -608,7 +612,7 @@ describe('per-venue hardware choice', () => {
   // the venue is not sized on. Reporting the first and stopping hides it.
   it('names the drifted line when another line on the same role agrees', async () => {
     const { listItems } = await import('@/data/items')
-    const { listLines } = await import('@/data/venueLines')
+    const { listLines } = await import('@/data/venueStore')
 
     vi.mocked(listItems).mockResolvedValueOnce(twoCameras)
     vi.mocked(listLines).mockResolvedValueOnce([
@@ -636,7 +640,7 @@ describe('per-venue hardware choice', () => {
   // screen actually reads from it — the warning has to catch this case too.
   it('warns when the chosen role\'s line was hand-swapped to a different role', async () => {
     const { listItems } = await import('@/data/items')
-    const { listLines } = await import('@/data/venueLines')
+    const { listLines } = await import('@/data/venueStore')
 
     vi.mocked(listItems).mockResolvedValueOnce(twoCameras)
     vi.mocked(listLines).mockResolvedValueOnce([{
@@ -648,4 +652,44 @@ describe('per-venue hardware choice', () => {
     await renderDetail()
     expect(await screen.findByText(/hand-swapped/i)).toBeInTheDocument()
   })
+})
+
+// A conflict on a local venue has no account behind it — the other writer is a
+// second tab in this browser, which is how anyone compares two configurations.
+// Telling the user "another account" names a thing that does not exist and
+// points them at nothing they can check.
+it('names the other TAB, not another account, when the venue is local', async () => {
+  const storeMod = await import('@/data/venueStore')
+  const { VenueConflictError } = await import('@/data/venueLines')
+  vi.mocked(storeMod.saveVenueAndLines).mockRejectedValueOnce(
+    new VenueConflictError(null, '2026-08-26T10:00:00.001Z', true),
+  )
+  await renderDetail()
+  fireEvent.click(await screen.findByRole('button', { name: 'Save' }))
+  // Both halves, separately: the plan's copy puts "another tab" in the title
+  // AND the body, so a single findByText matches two nodes and throws.
+  expect(await screen.findByRole('heading', { name: /another tab/i }))
+    .toBeInTheDocument()
+  expect(screen.getByText(/another tab in this browser saved it/i))
+    .toBeInTheDocument()
+  expect(screen.queryByText(/another account/i)).not.toBeInTheDocument()
+})
+
+// The database case is unchanged, and the reason it needs its own assertion is
+// that a single shared sentence would be the cheap way to "fix" the above —
+// and it would drop the one thing the database dialog can say and this one
+// cannot: whose work is at stake.
+//
+// It overlaps the conflict test above, which also asserts the email is shown.
+// It earns its place by pinning the `local: false` branch EXPLICITLY, so the
+// local sentence cannot be made unconditional and left green.
+it('still names the account for a database venue', async () => {
+  const storeMod = await import('@/data/venueStore')
+  const { VenueConflictError } = await import('@/data/venueLines')
+  vi.mocked(storeMod.saveVenueAndLines).mockRejectedValueOnce(
+    new VenueConflictError('other@kosmas.com', '2026-08-19T09:00:00.000001+00:00', false),
+  )
+  await renderDetail()
+  fireEvent.click(await screen.findByRole('button', { name: 'Save' }))
+  expect(await screen.findByText(/other@kosmas\.com/)).toBeInTheDocument()
 })
