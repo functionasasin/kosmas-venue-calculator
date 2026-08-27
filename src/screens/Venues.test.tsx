@@ -27,7 +27,7 @@ vi.mock('@/data/localVenues', () => ({ storageAvailable: () => storageOk.current
 // effect key and the signedIn flag, so without one the screen would list only
 // local venues and the fixture would never render.
 const session = { current: { user: { id: 'u1' } } as unknown }
-const role = { current: 'admin' as 'admin' | 'user' | null }
+const role = { current: 'admin' as 'admin' | null }
 vi.mock('@/auth/useRole', () => ({ useRole: () => role.current }))
 vi.mock('@/auth/AuthProvider', () => ({
   useAuth: () => ({ signOut: vi.fn(), session: session.current }),

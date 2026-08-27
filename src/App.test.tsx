@@ -6,7 +6,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 // Driven per test. The factories below run when App is first imported, which is
 // inside each test body, so these are initialised by then.
 const auth = { session: null as Session | null, loading: false }
-const role = { current: null as 'admin' | 'user' | null }
+const role = { current: null as 'admin' | null }
 const signIn = vi.fn(async (_e: string, _p: string): Promise<string | null> => null)
 
 vi.mock('@/auth/AuthProvider', () => ({
@@ -95,11 +95,15 @@ describe('/catalog stays admin-only', () => {
     expect(screen.getByText('venues screen')).toBeInTheDocument()
   })
 
-  // The `user` account still exists — requirement 10 keeps it as the rollback
-  // path — and it must still be kept out of the Catalog.
-  it('redirects the non-admin account away from /catalog', async () => {
+  // A SIGNED-IN account that carries no admin claim in app_metadata. This was
+  // the `user` account until the anon work shipped; useRole now returns null
+  // for it rather than a second role, so the case it guards is an account
+  // created without the claim — which is what a future limited account, or a
+  // mis-provisioned one, looks like. Having a session is not having the
+  // Catalog.
+  it('redirects a signed-in account with no admin claim away from /catalog', async () => {
     auth.session = SIGNED_IN
-    role.current = 'user'
+    role.current = null
     await renderAt('/catalog')
     expect(screen.getByText('venues screen')).toBeInTheDocument()
   })
