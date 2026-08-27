@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type { VenueInputs, Tier } from '@/calculator/types'
+import { TIERS } from '@/lib/tierLabel'
 import { VenueMissingError } from './venueTypes'
 
 export interface Venue extends VenueInputs {
@@ -27,12 +28,13 @@ export interface Venue extends VenueInputs {
 // meant Pro. It only guarantees a renderable value. If such a row carries doors
 // or cameras, Pro's gates block the calculation — which is the point, since the
 // tier then has to be re-picked deliberately rather than assumed.
-const LIVE: readonly Tier[] = [
-  'basic', 'basic_plus', 'pro', 'autonomous', 'autonomous_plus',
-]
-
+//
+// The list itself is TIERS — the same one the two tier pickers are built from,
+// not a third copy typed out beside them. What is offered and what is accepted
+// back have to be the same set, and a hand-copied list makes that a convention
+// rather than a fact.
 export const readTier = (v: unknown): Tier =>
-  LIVE.includes(v as Tier) ? (v as Tier) : 'pro'
+  TIERS.includes(v as Tier) ? (v as Tier) : 'pro'
 
 // One mapper, so a venue returned by the RPC and one returned by a SELECT can
 // never disagree about how a row becomes a Venue.
