@@ -223,4 +223,18 @@ describe('the login screen as a route', () => {
     const back = screen.getByRole('link', { name: /all venues/i })
     expect(back.getAttribute('href')).toBe('/')
   })
+
+  // Leaving is not a form action. Inside the Card the link was the shared
+  // BackToVenues row — a full-bleed bar with its own rule, built for a screen
+  // that has a header block and content under it. The login card is not that
+  // shape, so it stacked as a second header under the brand band and put a way
+  // out above the title. Below the card it is page navigation, which is what it
+  // actually is. Asserting the DOM relationship rather than the classes: the
+  // styling can be tuned, but the link belonging to the sign-in panel is the
+  // regression.
+  it('keeps the way out below the card, not inside the sign-in panel', async () => {
+    await renderLogin()
+    const back = screen.getByRole('link', { name: /all venues/i })
+    expect(back.closest('[data-slot="card"]')).toBeNull()
+  })
 })
