@@ -147,9 +147,11 @@ export function saveVenue(
   return signedIn ? dbSaveVenue(v) : localSaveVenue(v)
 }
 
-// The store's public prefix predicate. NOT for the conflict dialog — that reads
-// `VenueConflictError.local`, because a screen should not have to ask where a
-// venue lives. This is for a surface that legitimately wants to SAY where it
-// lives: Plan 3's "This browser" badge on the Venues list (spec §2.4), which is
-// its only intended consumer.
+// The store's public prefix predicate, for the surfaces that legitimately have
+// to know where a venue lives: the Venues list's "This browser" badge, and
+// VenueDetail's session-loss watch, SaveStatus prop and conflict-dialog copy.
+//
+// Those are disclosures and behaviour, not routing. Routing never asks — the
+// five dispatched functions above resolve the prefix themselves, so no caller
+// can pick a backend by hand and get it wrong.
 export { isLocalVenueId } from './localVenues'

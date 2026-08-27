@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { listVenues, saveVenue, deleteVenue } from '@/data/venueStore'
+import { listVenues, saveVenue, deleteVenue, isLocalVenueId } from '@/data/venueStore'
+import { storageAvailable, type UnreadableVenue } from '@/data/localVenues'
 import type { Venue } from '@/data/venues'
 import { useRole } from '@/auth/useRole'
 import { tierLabel } from '@/lib/tierLabel'
@@ -15,6 +16,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { BrandBlock } from '@/components/BrandBlock'
+import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 
 export function Venues() {
@@ -26,24 +28,35 @@ export function Venues() {
   // list and cannot be undone, so it never fires straight off the row button.
   const [deleting, setDeleting] = useState<Venue | null>(null)
   const [busy, setBusy] = useState(false)
+  // Starts true: the first paint of this screen is always mid-fetch.
+  const [loadingVenues, setLoadingVenues] = useState(true)
+  const [unreadable, setUnreadable] = useState<UnreadableVenue[]>([])
+  // Once per mount, not per render: the probe writes.
+  const [storageOk] = useState(storageAvailable)
   const role = useRole()
   const { session, signOut } = useAuth()
   const navigate = useNavigate()
   const userId = session?.user.id ?? null
+  // Only a visitor with no database to fall back on is actually blocked.
+  const blocked = !storageOk && !userId
 
   useEffect(() => {
     // A STABLE SCALAR, never the session object: onAuthStateChange hands back a
     // new object on every TOKEN_REFRESHED, so keying on the session itself
-    // refetches this list on an hourly timer for no reason. Inert while
-    // App.tsx still gates the tree on a session; live the moment Plan 3
-    // removes that gate.
+    // refetches this list on an hourly timer for no reason.
+    //
+    // Re-set on every run, not only at mount — the effect re-fires when the
+    // signed-in user changes, and a stale `false` would show the empty state
+    // over the previous account's list while the new one loads.
+    setLoadingVenues(true)
     listVenues(!!userId)
-      // `r.unreadable` is dropped on purpose. Local blobs that will not parse
-      // are surfaced and never auto-deleted — each is the user's only copy —
-      // but rendering them is Plan 3's "This browser" work, and a banner here
-      // would be the one user-visible change this plan is not allowed to make.
-      .then(r => setVenues(r.venues))
+      // Both halves. Local blobs that will not parse are surfaced and never
+      // auto-deleted — each is the user's only copy — so carrying them out of
+      // the data layer only pays off if something renders them, which is the
+      // notice below.
+      .then(r => { setVenues(r.venues); setUnreadable(r.unreadable) })
       .catch(e => toast.error(e.message))
+      .finally(() => setLoadingVenues(false))
   }, [userId])
 
   const confirmDelete = async () => {
@@ -85,6 +98,23 @@ export function Venues() {
           sticky — the brand scrolls away and the bar under it does not, so a
           long list never puts New venue out of reach. */}
       <BrandBlock />
+      {blocked && (
+        // Persistent, above everything, and not a toast: a toast for a
+        // condition that does not go away is a condition the user meets again
+        // on every action.
+        <div className="border-b bg-decide px-4 py-2 text-[11px] font-medium text-attention-foreground">
+          This browser cannot save venues — it is blocking site storage, which is
+          usually private/incognito mode. Sizing still works, but nothing will be
+          kept. Sign in to save to the database instead.
+        </div>
+      )}
+      {unreadable.length > 0 && (
+        <div className="border-b bg-decide px-4 py-2 text-[11px] text-attention-foreground">
+          {unreadable.some(u => u.reason === 'newer_schema')
+            ? `${unreadable.length} venue(s) saved in this browser were written by a newer version of this tool and cannot be opened here. They have not been deleted.`
+            : `${unreadable.length} venue(s) saved in this browser could not be read. They have not been deleted.`}
+        </div>
+      )}
       <div className="sticky top-0 z-10 flex h-13 shrink-0 flex-wrap items-center
                       justify-between gap-3 border-b bg-card px-4">
         <h1 className="text-lg font-semibold tracking-tight">Venues</h1>
@@ -107,13 +137,36 @@ export function Venues() {
             </Link>
           )}
           <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+            disabled={blocked}
+            title={blocked ? 'This browser is blocking site storage' : undefined}
             onClick={() => setCreating(true)}>
             New venue
           </Button>
-          <Button variant="ghost" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
-            onClick={signOut}>
-            Sign out
-          </Button>
+          {/* ONE slot, never both and never neither. This was an unconditional
+              Sign out, which is what it could be while App unmounted the tree
+              for anyone without a session.
+
+              A Link wearing button styling, not a Button rendering a link —
+              the same rule as the Catalog link above, and for the same reason:
+              Base UI's Button insists on button semantics either way, and an
+              anchor announced as a button loses open-in-new-tab, copy-address
+              and middle-click. Venues.test.tsx pins both ways it gets there.
+
+              Sign in / Sign out lives on THIS toolbar only. VenueDetail and
+              Catalog have no such control; an anon on a venue page navigates
+              back here. */}
+          {session ? (
+            <Button variant="ghost" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+              onClick={signOut}>
+              Sign out
+            </Button>
+          ) : (
+            <Link to="/login" state={{ from: '/' }}
+              className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }),
+                'h-auto px-[.55rem] py-[.25rem] text-[11px]')}>
+              Sign in
+            </Link>
+          )}
         </div>
       </div>
 
@@ -142,6 +195,13 @@ export function Venues() {
               >
                 <TableCell className="py-1.5 pl-4 font-medium group-hover/row:shadow-[inset_2px_0_0_var(--brand)]">
                   {v.name}
+                  {/* Same pattern as the Catalog's inactive/default badges.
+                      What it discloses is not cosmetic: this venue has no audit
+                      stamp, is not on another device, is invisible to a
+                      colleague, and goes with the browser's site data. */}
+                  {isLocalVenueId(v.id) && (
+                    <Badge variant="outline" className="ml-2">This browser</Badge>
+                  )}
                 </TableCell>
                 <TableCell className="py-1.5 text-right tabular-nums">{v.courts}</TableCell>
                 <TableCell className="py-1.5">{tierLabel(v.tier)}</TableCell>
@@ -158,7 +218,18 @@ export function Venues() {
                 </TableCell>
               </TableRow>
             ))}
-            {venues.length === 0 && (
+            {loadingVenues && (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
+                  Loading venues…
+                </TableCell>
+              </TableRow>
+            )}
+            {/* Only once the fetch has actually finished. This copy is an
+                instruction to create something, and shown mid-fetch to a
+                signed-in admin it invites a duplicate of a venue they already
+                have. */}
+            {!loadingVenues && venues.length === 0 && (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
                   No venues yet. Click “New venue” to create one.

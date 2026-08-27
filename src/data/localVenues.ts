@@ -1,7 +1,8 @@
 import { venueFromRow, type Venue } from './venues'
 import { choiceFromRow, type VenueItemChoice } from './venueItemChoices'
 import {
-  lineFromRow, resolveLineItems, VenueConflictError, type StoredLine,
+  lineFromRow, resolveLineItems, VenueConflictError, VenueMissingError,
+  type StoredLine,
 } from './venueTypes'
 import type { Item, VenueInputs } from '@/calculator/types'
 
@@ -138,7 +139,7 @@ const load = (id: string): VenueBlob => {
     // theme-init.ts:18-23 already knows this.
     throw new Error('local_storage_unavailable')
   }
-  if (raw === null) throw new Error('venue_not_found')
+  if (raw === null) throw new VenueMissingError()
   return parseBlob(raw)
 }
 
@@ -362,10 +363,10 @@ export async function localSaveVenueAndLines(
   if (storedAt !== venue.updatedAt) {
     // The CURRENT stored value, not an empty string: "Overwrite theirs" rebases
     // on it and re-issues the save, and an empty one makes that button conflict
-    // forever. savedByEmail is null because there are no accounts here, and
-    // local:true is what lets the dialog say so — the other writer is another
-    // tab in this browser.
-    throw new VenueConflictError(null, storedAt, true)
+    // forever. savedByEmail is null because there are no accounts here — the
+    // other writer is another tab in this browser, which is what the dialog
+    // says once it has asked isLocalVenueId about the venue.
+    throw new VenueConflictError(null, storedAt)
   }
 
   // venue_lines has no role_key column: 0013:92 joins items to supply it, and
@@ -438,5 +439,35 @@ export async function localSaveVenueAndLines(
     choices: choiceRows
       .map(choiceFromRow)
       .filter((c): c is VenueItemChoice => c !== null),
+  }
+}
+
+/**
+ * Whether this browser will actually store a venue.
+ *
+ * A WRITE probe, not a read: the failure modes differ. Safari in private mode
+ * throws on access outright (theme-init.ts:18-23 already knows this), while a
+ * quota-full or permission-restricted profile reads fine and throws on
+ * setItem — which is the one that matters, because it is the state in which
+ * everything looks normal until the first save.
+ *
+ * Lives here because localVenues.ts is the only module in src/ allowed to touch
+ * localStorage at all, and a probe in lib/ would break the grep that enforces
+ * it for no gain.
+ *
+ * This does NOT replace the try/catch on every write. A quota fills, and a
+ * permission changes, mid-session — long after any startup check.
+ */
+export function storageAvailable(): boolean {
+  // Outside the venue namespace on purpose. `pvc:v1:venue:probe` would sit
+  // inside the range localListVenues enumerates — harmless, since it is removed
+  // synchronously, but a coupling with nothing to gain from it.
+  const probe = 'pvc:v1:probe'
+  try {
+    localStorage.setItem(probe, '1')
+    localStorage.removeItem(probe)
+    return true
+  } catch {
+    return false
   }
 }

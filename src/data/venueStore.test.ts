@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Item } from '@/calculator/types'
-import { UnresolvedLinesError, VenueConflictError } from './venueTypes'
+import {
+  UnresolvedLinesError, VenueConflictError, VenueMissingError,
+} from './venueTypes'
 
 // Every Supabase call in this file is a spy. A test that let one through would
 // hit production, and the point of these tests is precisely that some of them
@@ -467,5 +469,48 @@ describe.each([
     } catch (e) {
       expect((e as VenueConflictError).savedAt).toBe(BASELINE)
     }
+  })
+})
+
+describe('a venue that is not there', () => {
+  // One type for three shapes: a missing localStorage key, a PostgREST
+  // .single() that matched no row under RLS (PGRST116), and the RPC's PT404.
+  // Without it VenueDetail would string-match error text across two backends
+  // and a Postgres error code.
+  it('raises VenueMissingError for a local id with no blob', async () => {
+    await expect(store.getVenue('local_11111111-1111-4111-8111-111111111111'))
+      .rejects.toBeInstanceOf(VenueMissingError)
+  })
+
+  // THE case this exists for: every venue URL is bookmarkable by anyone now,
+  // and an anonymous visit to a database venue's URL returns zero rows under
+  // RLS rather than an error. Left untyped it is an auto-dismissing toast over
+  // a permanent spinner.
+  it('raises it for a database read that RLS turned into no rows', async () => {
+    from.mockImplementationOnce(() => ({
+      select: () => ({ eq: () => ({ single: async () => ({
+        data: null, error: { code: 'PGRST116', message: 'no rows returned' },
+      }) }) }),
+    }) as never)
+    await expect(store.getVenue(DB_ID)).rejects.toBeInstanceOf(VenueMissingError)
+  })
+
+  it('raises it when the RPC reports PT404', async () => {
+    rpc.mockResolvedValueOnce({
+      data: null, error: { code: 'PT404', message: 'venue_not_found' },
+    } as never)
+    await expect(store.saveVenueAndLines(venue(DB_ID), [], [], []))
+      .rejects.toBeInstanceOf(VenueMissingError)
+  })
+
+  // Anything else keeps its own identity. Matching too broadly would show
+  // "this venue isn't here" for a network failure or a constraint violation,
+  // and the retry would look pointless.
+  it('leaves an unrelated PostgREST error alone', async () => {
+    rpc.mockResolvedValueOnce({
+      data: null, error: { code: '23502', message: 'null value in column "qty"' },
+    } as never)
+    await expect(store.saveVenueAndLines(venue(DB_ID), [], [], []))
+      .rejects.not.toBeInstanceOf(VenueMissingError)
   })
 })

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type { VenueInputs, Tier } from '@/calculator/types'
+import { VenueMissingError } from './venueTypes'
 
 export interface Venue extends VenueInputs {
   id: string
@@ -59,6 +60,11 @@ export async function listVenues(): Promise<Venue[]> {
 export async function getVenue(id: string): Promise<Venue> {
   const { data, error } = await supabase
     .from('venues').select('*').eq('id', id).single()
+  // PGRST116 is `.single()` matching no row. That is not an exceptional
+  // condition here: the venues policy is `to authenticated`, so an anonymous
+  // read of any venue returns zero rows rather than 42501, and every venue URL
+  // is now bookmarkable by anyone.
+  if (error?.code === 'PGRST116') throw new VenueMissingError()
   if (error) throw error
   return venueFromRow(data)
 }

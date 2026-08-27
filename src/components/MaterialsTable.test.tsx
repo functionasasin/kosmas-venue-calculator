@@ -315,7 +315,7 @@ describe('quantity commits on blur, not on every keystroke', () => {
   })
 })
 
-describe('cabling is admin-only', () => {
+describe('cabling stays off a non-admin screen', () => {
   const sectioned: Item[] = [
     item('ups_1500va', 'power', 'UPS 1500 VA'),
     item('cat6_0m5', 'cable', 'Vention Cat6 0.5M'),
@@ -335,7 +335,7 @@ describe('cabling is admin-only', () => {
     expect(screen.getByTestId('section-header-cabling')).toBeInTheDocument()
   })
 
-  it('hides it from a user', () => {
+  it('hides it from anyone who is not an admin', () => {
     render(
       <MaterialsTable lines={withCable} catalog={sectioned} isAdmin={false}
         formulas={new Map()} onChange={vi.fn()} onPick={vi.fn()}
@@ -346,7 +346,7 @@ describe('cabling is admin-only', () => {
   })
 
   // Otherwise a user sees "Vention Cat6 0.5M — Restore" in the removed list.
-  it('keeps a suppressed cable line out of the removed-lines list for a user', () => {
+  it('keeps a suppressed cable line out of the removed-lines list for a non-admin', () => {
     const suppressed = [line('ups_1500va', 1), line('cat6_0m5', 26, { suppressed: true })]
     render(
       <MaterialsTable lines={suppressed} catalog={sectioned} isAdmin={false}
@@ -357,7 +357,7 @@ describe('cabling is admin-only', () => {
   })
 
   // Otherwise a user can add a cable line that then vanishes with no feedback.
-  it('keeps cable items out of the Add-line picker for a user', () => {
+  it('keeps cable items out of the Add-line picker for a non-admin', () => {
     render(
       <MaterialsTable lines={[line('ups_1500va', 1)]} catalog={sectioned} isAdmin={false}
         formulas={new Map()} onChange={vi.fn()} onPick={vi.fn()}
@@ -374,7 +374,7 @@ describe('cabling is admin-only', () => {
   // re-inserts only what it is given, in one transaction, so a filtered array
   // reaching onChange permanently deletes the hidden cable rows — silently,
   // and only on venues a non-admin happened to edit.
-  it('returns hidden cable lines in onChange when a user edits another line', () => {
+  it('returns hidden cable lines in onChange when a non-admin edits another line', () => {
     const onChange = vi.fn()
     render(
       <MaterialsTable lines={withCable} catalog={sectioned} isAdmin={false}
@@ -396,7 +396,7 @@ describe('cabling is admin-only', () => {
   // that fallback is correct and must keep the row itself visible. But the
   // fallback combined with no filtering would print cable item names into the
   // swap picker for a user, on a line that isn't even hidden.
-  it('keeps cable items out of the swap picker for an unresolvable line as a user', () => {
+  it('keeps cable items out of the swap picker for an unresolvable line, for a non-admin', () => {
     const unresolved = [line('display', 8)]
     render(
       <MaterialsTable lines={unresolved} catalog={sectioned} isAdmin={false}

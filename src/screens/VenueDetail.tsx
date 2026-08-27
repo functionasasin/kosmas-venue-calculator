@@ -8,11 +8,15 @@ import type { VenueItemChoice } from '@/data/venueItemChoices'
 import { resolveCatalog, multiOptionRoles } from '@/lib/resolveCatalog'
 import { itemsById } from '@/lib/sections'
 import { ROLE_LABELS, type RoleKey } from '@/calculator/roleKeys'
-import { mergeRecalculation, VenueConflictError, UnresolvedLinesError } from '@/data/venueLines'
+import {
+  mergeRecalculation, VenueConflictError, UnresolvedLinesError, VenueMissingError,
+} from '@/data/venueLines'
 import type { StoredLine } from '@/data/venueLines'
 // Storage, and only storage. Dispatch is on the venue's id, so which store a
 // venue lives in is not this screen's business — it never asks.
-import { getVenue, listLines, listChoices, saveVenueAndLines } from '@/data/venueStore'
+import {
+  getVenue, listLines, listChoices, saveVenueAndLines, isLocalVenueId,
+} from '@/data/venueStore'
 import { VenueInputsForm } from '@/components/VenueInputsForm'
 import { MaterialsTable } from '@/components/MaterialsTable'
 import { WarningsPanel } from '@/components/WarningsPanel'
@@ -46,6 +50,25 @@ export function VenueDetail() {
   // set on load: re-resolving against the stored value is what keeps
   // CHOICE_UNAVAILABLE on screen until someone actually picks.
   const [choices, setChoices] = useState<VenueItemChoice[]>([])
+  // Distinct from `venue === null`, which means "still loading". Conflating the
+  // two is what produced a permanent spinner for every failed load.
+  const [loadError, setLoadError] = useState<Error | null>(null)
+
+  /**
+   * Whether this screen has EVER had a session. A visitor who was anonymous
+   * from the start has lost nothing and must not meet the dialog below.
+   */
+  const hadSession = useRef(!!session)
+  const [signedOut, setSignedOut] = useState(false)
+
+  useEffect(() => {
+    // Only a DATABASE venue is affected. A local one keeps routing to
+    // localStorage under id dispatch and saves exactly as before — spec §3.12.
+    if (hadSession.current && !session && venue && !isLocalVenueId(venue.id)) {
+      setSignedOut(true)
+    }
+    hadSession.current = hadSession.current || !!session
+  }, [session, venue])
 
   useEffect(() => {
     if (!id) return
@@ -53,7 +76,7 @@ export function VenueDetail() {
       .then(([v, all, l, c]) => {
         setVenue(v); setCatalogAll(all); setLines(l); setChoices(c)
       })
-      .catch(e => toast.error(e.message))
+      .catch(e => setLoadError(e as Error))
     // KEYED ON [id] AND NOTHING ELSE. Adding `session` re-runs setVenue,
     // setLines and setChoices and DESTROYS UNSAVED EDITS on every hourly token
     // refresh and on a sign-in in another tab. listItems' argument is
@@ -393,8 +416,35 @@ export function VenueDetail() {
     } catch (e) {
       if (e instanceof VenueConflictError) { setConflict(e); return }
       if (e instanceof UnresolvedLinesError) { setUnresolved(e.lines); return }
+      // The venue is not there to save into — the RPC's row lock found nothing
+      // under RLS (PT404), or the blob was deleted in another tab. Same dialog
+      // as a lost session, because the user's position is identical: this page
+      // cannot be saved, and the honest thing is to say so and offer the way
+      // out rather than let a toast clear itself over a screen that still looks
+      // editable.
+      if (e instanceof VenueMissingError) { setSignedOut(true); return }
       toast.error((e as Error).message)
     }
+  }
+
+  if (loadError) {
+    const missing = loadError instanceof VenueMissingError
+    return (
+      // The same shell as the rest of the app rather than a bare <p>: this is
+      // now a page an anonymous visitor can land on directly from a shared
+      // link, so it is a destination, not an error state inside a session.
+      <div className="flex min-h-svh flex-col bg-card">
+        <BrandBlock />
+        <BackToVenues />
+        <div className="p-8 text-sm text-muted-foreground">
+          {missing
+            ? 'This venue isn’t here. It may have been deleted, or it belongs ' +
+              'to an account you are not signed in to — venues saved without ' +
+              'signing in live only in the browser that made them.'
+            : loadError.message}
+        </div>
+      </div>
+    )
   }
 
   if (!venue) return <div className="p-8">Loading…</div>
@@ -453,7 +503,7 @@ export function VenueDetail() {
           {/* First, so a justify-end bar leaves it leftmost in the cluster —
               a few pixels from Save, which is the control that clears it. */}
           <SaveStatus dirty={dirty} updatedByEmail={venue.updatedByEmail}
-            updatedAt={venue.updatedAt} />
+            updatedAt={venue.updatedAt} local={isLocalVenueId(venue.id)} />
           <ThemeToggle />
           <Button variant="outline" size="sm" className="h-auto bg-card px-[.55rem] py-[.25rem] text-[11px]"
             onClick={recalculate}>
@@ -530,11 +580,38 @@ export function VenueDetail() {
         </DialogContent>
       </Dialog>
 
+      {/* Not dismissible: behind it is a venue whose Save cannot succeed, so
+          closing this would return the user to a screen that looks fine and is
+          not. onOpenChange is deliberately absent — Dialog then has no path to
+          close itself.
+
+          A toast was the alternative and is wrong twice over: it auto-dismisses,
+          and a programmatic navigate('/') bypasses BackToVenues' onIntercept and
+          the `leaving` guard, so the edits would disappear with nothing on
+          screen having said they were at risk. */}
+      <Dialog open={signedOut}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>You have been signed out</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This venue is stored in the database, so saving it needs a signed-in
+            account. Any unsaved edits on this page are lost — there is no way to
+            keep them without signing in again first.
+          </p>
+          <div className="flex gap-2">
+            {/* The only exit. "Save and leave" would offer something that
+                cannot succeed: the RPC's row lock finds nothing under RLS. */}
+            <Button onClick={() => { discarding.current = true; navigate('/') }}>
+              Back to all venues
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={conflict !== null} onOpenChange={o => !o && setConflict(null)}>
         <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {conflict?.local
+              {venue && isLocalVenueId(venue.id)
                 ? 'This venue changed in another tab'
                 : 'Someone else saved this venue'}
             </DialogTitle>
@@ -545,9 +622,12 @@ export function VenueDetail() {
                 a second tab — which is how anyone compares two configurations.
                 Falling through to "Another account" would name something that
                 does not exist and point the user at nothing they can check.
-                The error says which store it came from; this screen does not
-                ask where the venue lives. */}
-            {conflict?.local
+
+                Asked the same way the session watch and SaveStatus ask it.
+                VenueConflictError briefly carried its own `local` flag; it was
+                removed because this screen has to call isLocalVenueId anyway,
+                and one fact with two sources is worse than one. */}
+            {venue && isLocalVenueId(venue.id)
               ? 'Another tab in this browser saved it after you opened it.'
               : `${conflict?.savedByEmail ?? 'Another account'} saved it after you opened it.`}
             {' '}Both ways out lose someone's work, so pick deliberately.
