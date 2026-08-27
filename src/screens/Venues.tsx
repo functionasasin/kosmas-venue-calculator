@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { listVenues, saveVenue, deleteVenue, type Venue } from '@/data/venues'
+import { listVenues, saveVenue, deleteVenue } from '@/data/venueStore'
+import type { Venue } from '@/data/venues'
 import { useRole } from '@/auth/useRole'
 import { tierLabel } from '@/lib/tierLabel'
 import { useAuth } from '@/auth/AuthProvider'
@@ -26,12 +27,24 @@ export function Venues() {
   const [deleting, setDeleting] = useState<Venue | null>(null)
   const [busy, setBusy] = useState(false)
   const role = useRole()
-  const { signOut } = useAuth()
+  const { session, signOut } = useAuth()
   const navigate = useNavigate()
+  const userId = session?.user.id ?? null
 
   useEffect(() => {
-    listVenues().then(setVenues).catch(e => toast.error(e.message))
-  }, [])
+    // A STABLE SCALAR, never the session object: onAuthStateChange hands back a
+    // new object on every TOKEN_REFRESHED, so keying on the session itself
+    // refetches this list on an hourly timer for no reason. Inert while
+    // App.tsx still gates the tree on a session; live the moment Plan 3
+    // removes that gate.
+    listVenues(!!userId)
+      // `r.unreadable` is dropped on purpose. Local blobs that will not parse
+      // are surfaced and never auto-deleted — each is the user's only copy —
+      // but rendering them is Plan 3's "This browser" work, and a banner here
+      // would be the one user-visible change this plan is not allowed to make.
+      .then(r => setVenues(r.venues))
+      .catch(e => toast.error(e.message))
+  }, [userId])
 
   const confirmDelete = async () => {
     if (!deleting) return
@@ -53,7 +66,7 @@ export function Venues() {
   const create = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const v = await saveVenue({ name, courts: Number(courts), tier: 'pro' })
+      const v = await saveVenue({ name, courts: Number(courts), tier: 'pro' }, !!userId)
       navigate(`/venues/${v.id}`)
     } catch (err) {
       toast.error((err as Error).message)

@@ -2,16 +2,17 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { calculateBOM } from '@/calculator'
 import type { Item, VenueInputs, Warning } from '@/calculator/types'
-import { getVenue, type Venue } from '@/data/venues'
+import type { Venue } from '@/data/venues'
 import { listItems } from '@/data/items'
-import { listChoices, type VenueItemChoice } from '@/data/venueItemChoices'
+import type { VenueItemChoice } from '@/data/venueItemChoices'
 import { resolveCatalog, multiOptionRoles } from '@/lib/resolveCatalog'
 import { itemsById } from '@/lib/sections'
 import { ROLE_LABELS, type RoleKey } from '@/calculator/roleKeys'
-import {
-  listLines, saveVenueAndLines, mergeRecalculation,
-  VenueConflictError, UnresolvedLinesError, type StoredLine,
-} from '@/data/venueLines'
+import { mergeRecalculation, VenueConflictError, UnresolvedLinesError } from '@/data/venueLines'
+import type { StoredLine } from '@/data/venueLines'
+// Storage, and only storage. Dispatch is on the venue's id, so which store a
+// venue lives in is not this screen's business — it never asks.
+import { getVenue, listLines, listChoices, saveVenueAndLines } from '@/data/venueStore'
 import { VenueInputsForm } from '@/components/VenueInputsForm'
 import { MaterialsTable } from '@/components/MaterialsTable'
 import { WarningsPanel } from '@/components/WarningsPanel'
@@ -53,6 +54,11 @@ export function VenueDetail() {
         setVenue(v); setCatalogAll(all); setLines(l); setChoices(c)
       })
       .catch(e => toast.error(e.message))
+    // KEYED ON [id] AND NOTHING ELSE. Adding `session` re-runs setVenue,
+    // setLines and setChoices and DESTROYS UNSAVED EDITS on every hourly token
+    // refresh and on a sign-in in another tab. listItems' argument is
+    // deliberately allowed to go stale: the only thing a session changes about
+    // it is supplier and notes, neither of which this screen renders.
   }, [id])
 
   const resolved = useMemo(
@@ -526,10 +532,25 @@ export function VenueDetail() {
 
       <Dialog open={conflict !== null} onOpenChange={o => !o && setConflict(null)}>
         <DialogContent className="max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Someone else saved this venue</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>
+              {conflict?.local
+                ? 'This venue changed in another tab'
+                : 'Someone else saved this venue'}
+            </DialogTitle>
+          </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            {conflict?.savedByEmail ?? 'Another account'} saved it after you opened
-            it. Both ways out lose someone's work, so pick deliberately.
+            {/* A local venue has no accounts behind it and no other people:
+                localStorage is per browser profile, so the only other writer is
+                a second tab — which is how anyone compares two configurations.
+                Falling through to "Another account" would name something that
+                does not exist and point the user at nothing they can check.
+                The error says which store it came from; this screen does not
+                ask where the venue lives. */}
+            {conflict?.local
+              ? 'Another tab in this browser saved it after you opened it.'
+              : `${conflict?.savedByEmail ?? 'Another account'} saved it after you opened it.`}
+            {' '}Both ways out lose someone's work, so pick deliberately.
           </p>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => {
