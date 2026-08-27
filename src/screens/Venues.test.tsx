@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import type { Tier } from '@/calculator/types'
 
 const venues = [
   {
@@ -11,10 +12,16 @@ const venues = [
 ]
 
 const deleteVenue = vi.fn(async (_id: string) => undefined)
+// Hoisted the same way as deleteVenue, because the create dialog's whole job is
+// what it hands this function — asserting on the rendered list would not see it.
+const saveVenue = vi.fn(
+  async (v: { name: string; courts?: number; tier?: Tier }, _signedIn?: boolean) =>
+    ({ id: 'new1', ...v }),
+)
 
 vi.mock('@/data/venueStore', () => ({
   listVenues: vi.fn(async () => ({ venues, unreadable: [] })),
-  saveVenue: vi.fn(async (v: unknown) => v),
+  saveVenue: (...args: Parameters<typeof saveVenue>) => saveVenue(...args),
   deleteVenue: (...args: [string]) => deleteVenue(...args),
   isLocalVenueId: (id: string) => id.startsWith('local_'),
 }))
@@ -281,5 +288,54 @@ describe('when this browser will not store anything', () => {
     await renderVenues()
     expect(screen.queryByText(/cannot save venues/i)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'New venue' })).not.toBeDisabled()
+  })
+})
+
+// The tier used to be a literal 'pro' passed straight to saveVenue, so every
+// venue was born Pro and had to be corrected in the rail afterwards — silently
+// wrong for the Autonomous tiers, whose cameras and doors are the reason the
+// tier was picked in the first place.
+describe('Venues create', () => {
+  beforeEach(() => { saveVenue.mockClear() })
+
+  const openCreate = async () => {
+    await renderVenues()
+    fireEvent.click(screen.getByRole('button', { name: 'New venue' }))
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Helios Beta' } })
+  }
+
+  it('creates the venue at the tier picked in the dialog', async () => {
+    await openCreate()
+    fireEvent.change(screen.getByLabelText('Tier'), { target: { value: 'autonomous_plus' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+
+    await waitFor(() => expect(saveVenue).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Helios Beta', tier: 'autonomous_plus' }),
+      true,
+    ))
+  })
+
+  // Nearly every PH deployment is Pro, and Pro is what this dialog wrote before
+  // the field existed. Anyone who ignores the picker must get the same venue
+  // they got yesterday.
+  it('still creates a Pro venue when the picker is left alone', async () => {
+    await openCreate()
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+
+    await waitFor(() => expect(saveVenue).toHaveBeenCalledWith(
+      expect.objectContaining({ tier: 'pro' }), true,
+    ))
+  })
+
+  // Spelled out rather than compared against the shared TIERS list: this is the
+  // assertion that catches the create dialog being narrowed to the sizable
+  // tiers on its own. Basic and Basic+ block the calculation, which is a real
+  // answer for a venue that is genuinely one of them, not a reason to hide them.
+  it('offers all five tiers, the same list the venue rail offers', async () => {
+    await openCreate()
+    const options = within(screen.getByLabelText('Tier')).getAllByRole('option')
+    expect(options.map(o => o.textContent)).toEqual(
+      ['Basic', 'Basic+', 'Pro', 'Autonomous', 'Autonomous+'],
+    )
   })
 })
