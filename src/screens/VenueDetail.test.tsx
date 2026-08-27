@@ -197,6 +197,50 @@ it('offers to remove lines that point at no item, rather than dead-ending', asyn
     .toBeInTheDocument()
 })
 
+// The list in that dialog is what the user reads to decide whether dropping
+// these lines is acceptable, and `flic: 4` does not tell them a Flic button is
+// about to leave the venue. diffLines already speaks ROLE_LABELS in the
+// recalculate and stale dialogs; this was the one surface left printing the
+// engine's internal key at a person.
+it('names the roles in that dialog rather than printing role keys', async () => {
+  const { saveVenueAndLines } = await import('@/data/venueStore')
+  const { UnresolvedLinesError } = await import('@/data/venueLines')
+  vi.mocked(saveVenueAndLines).mockRejectedValueOnce(
+    new UnresolvedLinesError([{
+      id: 'x', venueId: 'v1', itemId: '', roleKey: 'ipad_poe_adapter', qty: 8,
+      originRoleKey: null, sortOrder: 0, source: 'formula',
+      suppressed: false, note: null,
+    }]),
+  )
+  await renderDetail()
+  fireEvent.click(await screen.findByRole('button', { name: 'Save' }))
+
+  // Scoped to the dialog: MaterialsTable's add-line picker lists raw role keys
+  // in its <option>s, which is a different surface and legitimately so.
+  const dialog = await screen.findByRole('dialog')
+  expect(within(dialog).getByText(/iPad PoE adapter: 8/)).toBeInTheDocument()
+  expect(within(dialog).queryByText(/ipad_poe_adapter/)).toBeNull()
+})
+
+// A manual line carries roleKey null AND, being unresolved, has no item to name
+// either — so there is no lookup that would produce a better string. It must
+// still not read as a missing value.
+it('calls an unresolved manual line a manual line, not an unknown role', async () => {
+  const { saveVenueAndLines } = await import('@/data/venueStore')
+  const { UnresolvedLinesError } = await import('@/data/venueLines')
+  vi.mocked(saveVenueAndLines).mockRejectedValueOnce(
+    new UnresolvedLinesError([{
+      id: 'x', venueId: 'v1', itemId: '', roleKey: null, qty: 2,
+      originRoleKey: null, sortOrder: 0, source: 'manual',
+      suppressed: false, note: null,
+    }]),
+  )
+  await renderDetail()
+  fireEvent.click(await screen.findByRole('button', { name: 'Save' }))
+
+  expect(await screen.findByText(/Manual line: 2/)).toBeInTheDocument()
+})
+
 // "Overwrite theirs" must actually overwrite. The first version set the baseline
 // and closed the dialog WITHOUT re-issuing, so the button saved neither version
 // and said nothing. Calling save() there would not have fixed it either: setVenue
