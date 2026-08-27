@@ -138,26 +138,30 @@ describe('Venues theme', () => {
   })
 })
 
-describe('the Venues toolbar carries exactly one session control', () => {
-  it('offers Sign in as a LINK when nobody is signed in', async () => {
+describe('the Venues toolbar and the session', () => {
+  // /login is an EMPLOYEE door. There is one account, the Kosmas admin's, and
+  // the anonymous path deliberately cannot reach the database at all — the
+  // venues RLS policies are `to authenticated`. A Sign in button in the action
+  // cluster, beside New venue, invited a prospect to make an account that does
+  // not exist. The route stays; nothing in the UI points at it.
+  //
+  // Asserted by href as well as by name, so a re-worded link — "Log in",
+  // "Admin", an icon with a label — cannot slip past a name query.
+  it('offers an anonymous visitor no way in', async () => {
     session.current = null
     role.current = null
     await renderVenues()
-    const link = screen.getByRole('link', { name: 'Sign in' })
-    expect(link.getAttribute('href')).toBe('/login')
-    // The same regression Catalog's link was fixed for: an anchor announced as
-    // a button loses open-in-new-tab, copy-address and middle-click. Base UI
-    // reaches that state two ways, so both are pinned.
-    expect(link.tagName).toBe('A')
-    expect(link.hasAttribute('type')).toBe(false)
-    expect(link.getAttribute('role')).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /sign in/i })).not.toBeInTheDocument()
+    expect(document.querySelector('a[href="/login"]')).toBeNull()
   })
 
-  it('offers Sign out as a BUTTON when someone is, and never both', async () => {
+  // The slot is Sign out or nothing now — it used to be "never both and never
+  // NEITHER". Sign out cannot go with it: without it a signed-in admin has no
+  // way out, and this toolbar is the only place it has ever lived.
+  it('offers Sign out as a BUTTON when someone is signed in', async () => {
     await renderVenues()
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Sign in' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /sign in/i })).not.toBeInTheDocument()
   })
 
   // Requirement 3's nav half. The gate was already right; this pins it against
@@ -252,6 +256,22 @@ describe('when this browser will not store anything', () => {
     await renderVenues()
     expect(screen.getByText(/cannot save venues/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'New venue' })).toBeDisabled()
+  })
+
+  // `blocked` is `!storageOk && !userId`, so this banner is shown ONLY to
+  // visitors with no session — which is exactly the group that must never write
+  // to the database. It used to close with "Sign in to save to the database
+  // instead", advice addressed to the one audience it is wrong for, and with
+  // nothing in the UI pointing at /login it is not even actionable. The screen
+  // states the consequence and stops there.
+  it('does not send an anonymous visitor to a database they cannot use', async () => {
+    session.current = null
+    role.current = null
+    storageOk.current = false
+    await renderVenues()
+    const banner = screen.getByText(/cannot save venues/i)
+    expect(banner.textContent).not.toMatch(/sign in/i)
+    expect(banner.textContent).not.toMatch(/database/i)
   })
 
   // A signed-in admin's venues go to the database. Blocking them because a

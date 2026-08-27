@@ -103,9 +103,15 @@ export function Venues() {
         // condition that does not go away is a condition the user meets again
         // on every action.
         <div className="border-b bg-decide px-4 py-2 text-[11px] font-medium text-attention-foreground">
+          {/* No "sign in to save to the database instead" here. `blocked` is
+              `!storageOk && !userId`, so this banner reaches ONLY visitors with
+              no session — the one audience for whom that is the wrong advice.
+              The database is for Kosmas employees; the venues RLS policies are
+              `to authenticated` and nothing in the UI points at /login. State
+              the consequence, offer no door. */}
           This browser cannot save venues — it is blocking site storage, which is
           usually private/incognito mode. Sizing still works, but nothing will be
-          kept. Sign in to save to the database instead.
+          kept.
         </div>
       )}
       {unreadable.length > 0 && (
@@ -142,30 +148,26 @@ export function Venues() {
             onClick={() => setCreating(true)}>
             New venue
           </Button>
-          {/* ONE slot, never both and never neither. This was an unconditional
-              Sign out, which is what it could be while App unmounted the tree
-              for anyone without a session.
+          {/* Sign out or NOTHING. This slot was "never both and never neither",
+              a Sign out paired with a Sign in link — which was right while every
+              account holder was the only kind of visitor there was.
 
-              A Link wearing button styling, not a Button rendering a link —
-              the same rule as the Catalog link above, and for the same reason:
-              Base UI's Button insists on button semantics either way, and an
-              anchor announced as a button loses open-in-new-tab, copy-address
-              and middle-click. Venues.test.tsx pins both ways it gets there.
+              On a public tool it is not. /login is an employee door: one account
+              exists, and the anonymous path deliberately cannot reach the
+              database (the venues policies are `to authenticated`). Advertising
+              it beside New venue invited a prospect to make an account that does
+              not exist. The route is still there and still works when typed —
+              anon-venue.mjs checks that, since nothing links to it any more.
 
-              Sign in / Sign out lives on THIS toolbar only. VenueDetail and
-              Catalog have no such control; an anon on a venue page navigates
-              back here. */}
-          {session ? (
+              Sign out cannot go the same way: without it a signed-in admin has
+              no way out, and this toolbar is the only place it has ever lived —
+              VenueDetail and Catalog have no session control, and an admin on
+              either navigates back here. */}
+          {session && (
             <Button variant="ghost" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
               onClick={signOut}>
               Sign out
             </Button>
-          ) : (
-            <Link to="/login" state={{ from: '/' }}
-              className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }),
-                'h-auto px-[.55rem] py-[.25rem] text-[11px]')}>
-              Sign in
-            </Link>
           )}
         </div>
       </div>
