@@ -86,3 +86,56 @@ describe('planKisi — where the readers land', () => {
     expect(plan.readersOnSwitch).toBe(0)
   })
 })
+
+// venue-sizing.md § Firewall / gateway SKU — at one court `Cost Analysis!F7`
+// is zero, so there is no switch and the court gear hangs off the UDM-SE
+// alongside the Mac mini. Every free-port figure above is transcribed from
+// § Kisi port accounting, which is written for a SWITCHED venue and so counts
+// only the Mac mini; applied unchanged at one court it reports three gateway
+// ports that are already occupied.
+describe('planKisi — the single-court venue, which has no switch', () => {
+  const oneCourt = (kisiDoors: number, over: Partial<VenueInputs> = {}) =>
+    planKisi({ ...base, courts: 1, kisiDoors, ...over })
+
+  // The failure this catches: a venue whose BOM says "fits" for a rack that
+  // cannot physically be wired. 8 ports, and the Mac mini plus the iPad,
+  // replay camera and Apple TV take four of them before a door is counted.
+  it('counts the court gear against the gateway, leaving 3 free at 1 door', () => {
+    expect(oneCourt(1).freeUdmPorts).toBe(3)
+  })
+
+  // A 1-court venue runs 1-2 doors in practice (Kisi bills per door), and the
+  // whole point of the arithmetic is that those genuinely fit — backup uplink
+  // included. If this ever fails, the tool has started refusing a venue we
+  // actually build.
+  it('still seats 2 doors and a backup uplink, the real ceiling', () => {
+    const plan = oneCourt(2, { backupInternet: true })
+    expect(plan.readersOnUdm).toBe(2)
+    expect(plan.readersUnplaced).toBe(0)
+  })
+
+  // Overflow at one court is NOT overflow onto a switch — there is no switch
+  // to overflow onto. Reporting it as `readersOnSwitch` is what fed phantom
+  // ports into totalPorts and the cat6 count.
+  it('reports overflow as unplaced rather than as switch ports', () => {
+    const plan = oneCourt(4)
+    expect(plan.readersOnUdm).toBe(3)
+    expect(plan.readersUnplaced).toBe(1)
+    expect(plan.readersOnSwitch).toBe(0)
+  })
+
+  // Autonomous+ at one court: the cameras are PoE and land on the gateway
+  // too, because there is still no switch to put them on.
+  it('counts security cameras against the gateway as well', () => {
+    expect(oneCourt(1, { tier: 'autonomous_plus', securityCameras: 1 })
+      .freeUdmPorts).toBe(2)
+  })
+
+  // The mirror of the above: from two courts up a switch exists, the court
+  // gear is on it, and the doc's "normally 6" must be unchanged. Without this
+  // the fix could be written as an unconditional subtraction and every
+  // multi-court Autonomous venue would silently lose three reader ports.
+  it('leaves the court gear off the gateway from two courts up', () => {
+    expect(planKisi({ ...base, courts: 2, kisiDoors: 4 }).freeUdmPorts).toBe(6)
+  })
+})

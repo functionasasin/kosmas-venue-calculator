@@ -242,12 +242,16 @@ describe('gateway panel', () => {
     expect(plan.reason).toMatch(/no switch/i)
   })
 
-  // At courts === 1 planSwitches returns zero switches unconditionally while
-  // planKisi still overflows, so the engine leaves readers with nowhere to go.
-  it('names the orphaned readers when a switchless venue overflows', () => {
+  // The gateway, not a phantom switch. Before the arithmetic was fixed this
+  // read "N readers are sized onto a switch this venue does not have", which
+  // described planKisi's bug rather than the venue: nothing is sized onto a
+  // switch here, the gateway is simply full. 1 + 3 court + 2 controllers + 8
+  // readers = 14 on an 8-port device.
+  it('names the gateway shortfall when a switchless venue overflows', () => {
     const plan = buildPortPlan(auto(1, 8), [])
     expect(plan.outcome).toBe('explained')
-    expect(plan.reason).toMatch(/3 reader/i)
+    expect(plan.reason).toMatch(/14 gateway ports/i)
+    expect(plan.reason).not.toMatch(/onto a switch/i)
   })
 })
 

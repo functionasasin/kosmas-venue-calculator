@@ -6,7 +6,7 @@ import type { KisiPlan } from './kisi'
 
 const noKisi: KisiPlan = {
   controllers: 0, readers: 0, freeUdmPorts: 7,
-  readersOnUdm: 0, readersOnSwitch: 0,
+  readersOnUdm: 0, readersOnSwitch: 0, readersUnplaced: 0,
 }
 
 const item = (roleKey: string, poeWatts: number | null): Item => ({
@@ -100,7 +100,7 @@ describe('checkPoeBudget', () => {
     ]
     const allOnUdm: KisiPlan = {
       controllers: 1, readers: 4, freeUdmPorts: 6,
-      readersOnUdm: 4, readersOnSwitch: 0,
+      readersOnUdm: 4, readersOnSwitch: 0, readersUnplaced: 0,
     }
     // 14*17.5 = 245 on the switch; the 4 readers' 28W sits on the gateway.
     const w = checkPoeBudget(withReaders, catalog, plan48, allOnUdm)
@@ -116,7 +116,7 @@ describe('checkPoeBudget', () => {
     ]
     const split: KisiPlan = {
       controllers: 2, readers: 6, freeUdmPorts: 5,
-      readersOnUdm: 5, readersOnSwitch: 1,
+      readersOnUdm: 5, readersOnSwitch: 1, readersUnplaced: 0,
     }
     // 245 + one reader's 7W on the switch; the other five on the gateway.
     expect(checkPoeBudget(withReaders, catalog, plan48, split)[0].message)
@@ -130,9 +130,12 @@ describe('checkPoeBudget', () => {
     const none: SwitchPlan = {
       count24: 0, count48: 0, roleKey24: 'switch_24_pro', overCapacity: false,
     }
+    // 3 free, not 6: this is the switchless venue, so the court gear is on
+    // the gateway too. checkPoeBudget does not read the field, but a fixture
+    // planKisi could never produce is a trap for the next reader.
     const onUdm: KisiPlan = {
-      controllers: 1, readers: 2, freeUdmPorts: 6,
-      readersOnUdm: 2, readersOnSwitch: 0,
+      controllers: 1, readers: 2, freeUdmPorts: 3,
+      readersOnUdm: 2, readersOnSwitch: 0, readersUnplaced: 0,
     }
     const w = checkPoeBudget(
       [{ roleKey: 'kisi_reader', qty: 2, formula: '' }], catalog, none, onUdm,

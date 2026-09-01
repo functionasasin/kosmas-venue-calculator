@@ -7,7 +7,7 @@ import { planSsd } from './storage'
 import { planUps } from './power'
 import { planPerCourt } from './perCourt'
 import { checkPoeBudget } from './poe'
-import { planKisi } from './kisi'
+import { planKisi, gatewayPortDemand, UDM_RJ45_PORTS } from './kisi'
 import type { RoleKey } from './roleKeys'
 
 // Roles that draw PoE. Used only to decide whether a missing wattage is worth
@@ -80,6 +80,32 @@ export function calculateBOM(inputs: VenueInputs, catalog: Item[]): BomResult {
       roleKey: 'kisi_reader',
       qty: kisi.readers,
       formula: `1 per door (${kisi.readers})`,
+    })
+  }
+
+  // A single-court venue is the one configuration with no switch, so the Mac
+  // mini, the court gear, the controllers and every reader share the gateway's
+  // 8 RJ45 ports. Past that there is nowhere left to plug in.
+  //
+  // This warns rather than sizing a switch. The smallest switch the tool can
+  // spec is a 24-port, and at the real domain of this venue — 1-2 doors,
+  // because Kisi bills per door — the overflow would be one or two ports, so
+  // that branch would spend ~$699 plus a patch panel, 1U and 50 W to land a
+  // single reader. It also never fires on a venue we actually build: 2 doors
+  // and a backup uplink is 8 of 8. It is a guard on a mistyped door count.
+  if (kisi.readersUnplaced > 0) {
+    const demand = gatewayPortDemand(inputs)
+    warnings.push({
+      code: 'GATEWAY_OVERSUBSCRIBED',
+      level: 'critical',
+      message:
+        `This venue needs ${demand} gateway ports and the UDM-SE has ` +
+        `${UDM_RJ45_PORTS}. A single-court venue is sized with no switch, so ` +
+        'the court gear shares the gateway with the Mac mini and the Kisi ' +
+        `hardware, leaving ${kisi.readersUnplaced} reader(s) with nowhere to ` +
+        'land. Drop a door or the backup uplink, or add the switch by hand — ' +
+        'the smallest this tool sizes is a 24-port, which is far more than ' +
+        'this venue needs.',
     })
   }
 
