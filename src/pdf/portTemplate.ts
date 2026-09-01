@@ -171,7 +171,11 @@ function gatewayColumns(g: GatewayPlanned) {
     top: {
       num: 'SFP',
       lines: sfp?.label ? [{ t: 'SFP DAC' }, { t: 'to Switch 1' }] : [],
-      colour: 'sfp',
+      // Read from the port, never hardcoded: a single-court venue buys no
+      // switch and marks its SFP+ 'empty', and painting it the SFP grey anyway
+      // makes an unused socket look like a populated one. No unit test can see
+      // this — only the rendered PDF can.
+      colour: sfp?.colour ?? 'sfp',
     },
     bottom: cellFor(wan?.label ?? null, null, null, 'gateway', 'WAN'),
   })

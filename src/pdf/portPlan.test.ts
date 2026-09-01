@@ -27,11 +27,13 @@ describe('buildPortPlan outcomes', () => {
   })
 
   // A 1-court venue is spec'd with no switch — the gateway powers the court —
-  // so there is no switch to make a port template for.
-  it('explains a 1-court venue rather than drawing an empty switch', () => {
+  // so it draws a gateway and an EMPTY switch list, never an empty switch
+  // panel. It explained here until 2026-09-01, which left the one venue whose
+  // whole rack fits on a single panel as the only one with no page at all.
+  it('draws a 1-court venue as a gateway with no switch panel', () => {
     const plan = buildPortPlan(pro(1), [])
-    expect(plan.outcome).toBe('explained')
-    expect(plan.reason).toMatch(/no switch/i)
+    expect(plan.outcome).toBe('drawn')
+    expect(plan.switches).toEqual([])
   })
 
   it('draws an ordinary Pro venue', () => {
@@ -240,14 +242,6 @@ describe('gateway panel', () => {
     const plan = buildPortPlan(auto(8, 25, { backupInternet: true }), [])
     expect(plan.outcome).toBe('explained')
     expect(plan.reason).toMatch(/gateway/i)
-  })
-
-  // 1 court + 2 doors is 7 of 8 — NOT oversubscribed. The 1-court reason wins,
-  // and it is the missing switch, not capacity.
-  it('explains a 1-court Kisi venue for the missing switch, not capacity', () => {
-    const plan = buildPortPlan(auto(1, 2), [])
-    expect(plan.outcome).toBe('explained')
-    expect(plan.reason).toMatch(/no switch/i)
   })
 
   // The gateway, not a phantom switch. Before the arithmetic was fixed this
@@ -535,5 +529,82 @@ describe('the addressing ceiling', () => {
     const plan = buildPortPlan(pro(33), [])
     expect(plan.outcome).toBe('explained')
     expect(plan.reason).toMatch(/addressing/i)
+  })
+})
+
+// A single-court venue's ENTIRE network is the gateway — Mac mini, court gear
+// and, on Autonomous, the Kisi hardware. It used to be 'explained' on the
+// grounds that there was no switch to draw, which left the one venue whose
+// whole rack fits on a single page as the one venue with no page at all.
+// port-template.js refuses these outright, so nothing has ever drawn one.
+describe('the single-court venue draws its gateway', () => {
+  it('draws rather than explaining, with no switch panel', () => {
+    const plan = buildPortPlan(auto(1, 1), [])
+    expect(plan.outcome).toBe('drawn')
+    expect(plan.switches).toEqual([])
+    expect(plan.gateway).not.toBeNull()
+  })
+
+  // Rack-side first, then court, so the gateway's opening slots mean the same
+  // thing here as on every multi-court venue — which is also PodPlay's own UDM
+  // label order (Mac Mini, Kisi Controller, Backup Internet).
+  it('orders the slots rack-side first, then the court gear', () => {
+    expect(slotLabels(buildPortPlan(auto(1, 1), []))).toEqual([
+      'Mac Mini', 'Kisi Controller 1', 'Kisi Reader 1',
+      'iPad C1', 'Replay Cam C1', 'Apple TV C1',
+    ])
+  })
+
+  // A Pro venue has no Kisi hardware, so the court gear follows the Mac mini
+  // directly. The gateway is a UDM-SE here for the PoE, not for doors.
+  it('draws a 1-court Pro venue as Mac mini plus the court', () => {
+    const plan = buildPortPlan(pro(1), [])
+    expect(plan.outcome).toBe('drawn')
+    expect(slotLabels(plan)).toEqual([
+      'Mac Mini', 'iPad C1', 'Replay Cam C1', 'Apple TV C1',
+    ])
+    expect(plan.gateway!.roleKey).toBe('gateway_udm_se')
+  })
+
+  // The backup uplink keeps the LAST slot on a drawn venue, so the court gear
+  // must not run into it. 1 + 2 controllers... no: 2 doors is one controller,
+  // giving 1 + 1 + 2 + 3 = 7 sequential slots, and the WAN takes slot 8.
+  it('keeps the backup uplink on the last slot, clear of the court gear', () => {
+    const ports = buildPortPlan(auto(1, 2, { backupInternet: true }), [])
+      .gateway!.ports
+    expect(ports.find(p => p.label === 'Backup Internet')!.slot).toBe(8)
+    expect(ports.filter(p => typeof p.slot === 'number').map(p => p.slot))
+      .toEqual([1, 2, 3, 4, 5, 6, 7, 8])
+  })
+
+  // The SFP+ socket has nothing to uplink TO. Labelling it "SFP DAC to
+  // Switch 1" would send an installer looking for a switch the BOM does not
+  // buy — the single most misleading thing this page could say.
+  it('does not claim an SFP uplink to a switch that is not bought', () => {
+    const sfp = buildPortPlan(auto(1, 1), []).gateway!.ports
+      .find(p => p.slot === 'sfp')!
+    expect(sfp.label).toBeNull()
+    expect(sfp.colour).toBe('empty')
+  })
+
+  it('says on the page that the venue has no switch', () => {
+    expect(buildPortPlan(auto(1, 1), []).notes.join(' '))
+      .toMatch(/no switch/i)
+  })
+
+  // switchLinesDisagree treats "a saved list with no switch row" as a
+  // contradiction, because a suppressed switch row must never yield a drawn
+  // switch panel. With no panel drawn there is nothing to contradict, and
+  // without this every 1-court venue that had ever been saved would flip to
+  // "Recalculate before issuing this document".
+  it('does not report a disagreement when no switch panel is drawn', () => {
+    const lines = [line({ roleKey: 'gateway_udm_se' })]
+    expect(buildPortPlan(auto(1, 1), lines).outcome).toBe('drawn')
+  })
+
+  // Past the gateway's 8 ports there is nowhere to put a 9th box, so this
+  // still explains — the drawing must never show a port the device lacks.
+  it('still explains once the gateway is oversubscribed', () => {
+    expect(buildPortPlan(auto(1, 4), []).outcome).toBe('explained')
   })
 })
