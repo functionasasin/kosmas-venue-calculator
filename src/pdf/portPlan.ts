@@ -1,7 +1,7 @@
 import type { VenueInputs } from '@/calculator/types'
 import type { StoredLine } from '@/data/venueLines'
 import { evaluateGates } from '@/calculator/gates'
-import { planKisi } from '@/calculator/kisi'
+import { planKisi, gatewayPortDemand, UDM_RJ45_PORTS } from '@/calculator/kisi'
 import { pickGateway, planSwitches, totalPorts } from '@/calculator/network'
 
 /**
@@ -108,6 +108,7 @@ export const ACCESS_NET = `192.168.${SUBNET + 1}`
  * left to collide the way the 10-wide REPLAY blocks were.
  */
 export const MAX_SECURITY_CAMERAS = 79
+
 
 /** Courts 1-8 keep the deployed plan; 9+ use the wide blocks. */
 const WIDE_FROM = 9
@@ -395,14 +396,20 @@ export function buildPortPlan(
   const switches = planSwitches(inputs, ports)
 
   if (inputs.courts === 1) {
-    const orphans = planKisi(inputs).readersOnSwitch
+    // The court gear is on the gateway here, so an overflow is the GATEWAY
+    // being full — there is no switch for anything to be sized onto, and
+    // saying there was described planKisi's old arithmetic rather than the
+    // venue. Unreachable at the 1-2 doors such a venue runs; see
+    // GATEWAY_OVERSUBSCRIBED in calculator/index.ts.
+    const unplaced = planKisi(inputs).readersUnplaced
     return explained(
       inputs,
       'This venue is sized with no switch — the gateway powers the single '
       + 'court directly — so there is no switch port assignment to draw.'
-      + (orphans > 0
-        ? ` Note also that ${orphans} reader(s) are sized onto a switch this `
-          + 'venue does not have.'
+      + (unplaced > 0
+        ? ` It also needs ${gatewayPortDemand(inputs)} gateway ports and the `
+          + `gateway has ${UDM_RJ45_PORTS}, leaving ${unplaced} reader(s) `
+          + 'with nowhere to land. Resolve the hardware list first.'
         : ''),
     )
   }

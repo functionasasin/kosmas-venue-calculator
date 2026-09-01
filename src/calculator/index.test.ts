@@ -267,3 +267,64 @@ describe('the replay camera drives the UPS rung', () => {
     }
   })
 })
+
+// A single-court venue has no switch (`Cost Analysis!F7` is `IF(Z12=1,0,…)`),
+// so the Mac mini, the court gear, the controllers and every reader share the
+// UDM-SE's 8 RJ45 ports. Past that there is nowhere left to plug in, and the
+// tool says so rather than sizing a 24-port switch to land one reader — the
+// smallest switch it can spec, at ~$699 plus a panel, 1U and 50 W.
+describe('the single-court gateway ceiling', () => {
+  const auto = (kisiDoors: number, over: Partial<VenueInputs> = {}) =>
+    run({ ...pro(1), tier: 'autonomous', kisiDoors, ...over })
+
+  // 1-2 doors is what a 1-court venue actually runs — Kisi bills per door —
+  // and it fits with the backup uplink on. This test is the one that would
+  // catch the fix over-reaching and blocking a venue we build.
+  it('stays silent on the 1-2 door venues that are the real domain', () => {
+    expect(auto(1).codes).not.toContain('GATEWAY_OVERSUBSCRIBED')
+    expect(auto(2).codes).not.toContain('GATEWAY_OVERSUBSCRIBED')
+    expect(auto(2, { backupInternet: true }).codes)
+      .not.toContain('GATEWAY_OVERSUBSCRIBED')
+  })
+
+  // 1 + 3 court + 1 controller + 3 readers = 8 exactly. One more device of
+  // any kind is one too many, and the backup uplink is the cheapest way to
+  // get there — which is why it is the case worth pinning.
+  it('fits 3 doors exactly, and breaks when a backup uplink joins them', () => {
+    expect(auto(3).codes).not.toContain('GATEWAY_OVERSUBSCRIBED')
+    expect(auto(3, { backupInternet: true }).codes)
+      .toContain('GATEWAY_OVERSUBSCRIBED')
+  })
+
+  // The number in the message is the whole value of the warning: it has to
+  // name the real demand so a reader can see how far over they are. Counting
+  // unplaced readers alone would understate it whenever the CONTROLLERS are
+  // what overflowed — at 12 doors there are 3 of them and the gear is 19 deep.
+  it('reports total gateway demand, not just the readers left over', () => {
+    const w = auto(12).warnings.find(x => x.code === 'GATEWAY_OVERSUBSCRIBED')!
+    expect(w.message).toContain('19')
+    expect(w.message).toContain('8')
+  })
+
+  it('raises it as critical, not as a passing remark', () => {
+    expect(auto(12).warnings.find(x => x.code === 'GATEWAY_OVERSUBSCRIBED')!.level)
+      .toBe('critical')
+  })
+
+  // Warn, do not block. Every other line — controller, readers, court gear,
+  // UPS, rack — is still correct, and throwing the list away over a topology
+  // question the buyer can answer would lose all of it.
+  it('still emits the full materials list', () => {
+    const r = auto(12)
+    expect(r.qty('kisi_reader')).toBe(12)
+    expect(r.qty('kisi_controller')).toBe(3)
+    expect(r.lines.map(l => l.roleKey)).toContain('gateway_udm_se')
+  })
+
+  // A switched venue overflows onto its switch, which is a solved problem and
+  // not this warning's business.
+  it('never fires on a multi-court venue, however many doors', () => {
+    expect(run({ ...pro(8), tier: 'autonomous', kisiDoors: 12 }).codes)
+      .not.toContain('GATEWAY_OVERSUBSCRIBED')
+  })
+})
