@@ -1,7 +1,9 @@
 import type { VenueInputs } from '@/calculator/types'
 import type { StoredLine } from '@/data/venueLines'
 import { evaluateGates } from '@/calculator/gates'
-import { planKisi, gatewayPortDemand, UDM_RJ45_PORTS } from '@/calculator/kisi'
+import {
+  planKisi, gatewayPortDemand, courtLoadOnGateway, UDM_RJ45_PORTS,
+} from '@/calculator/kisi'
 import { pickGateway, planSwitches, totalPorts } from '@/calculator/network'
 
 /**
@@ -152,11 +154,17 @@ export function ipFor(kind: AddressKind, n: number, courts: number): string {
 const GATEWAY_RJ45 = 8
 
 /**
- * Slot 1 Mac mini, then controllers, then the readers that fit, with the
- * backup WAN on the last slot. planKisi's own arithmetic already subtracts the
- * Mac mini, the controllers and the backup WAN, so the readers it says fit do
- * fit — but `controllers` is uncapped (ceil(doors/4), and kisiDoors has no
- * maximum on the form), so the total is checked rather than assumed.
+ * Slot 1 Mac mini, then controllers, then the readers that fit, then — on a
+ * single-court venue, which has no switch — the court gear, with the backup
+ * WAN on the last slot. planKisi's own arithmetic already subtracts the Mac
+ * mini, the court gear, the controllers and the backup WAN, so the readers it
+ * says fit do fit — but `controllers` is uncapped (ceil(doors/4), and
+ * kisiDoors has no maximum on the form), so the total is checked rather than
+ * assumed.
+ *
+ * Rack-side before court-side is deliberate: the gateway's opening slots then
+ * mean the same thing on every venue in the fleet, and it is PodPlay's own UDM
+ * label order (Mac Mini, Kisi Controller, Backup Internet).
  */
 function buildGateway(inputs: VenueInputs): GatewayPlanned {
   const kisi = planKisi(inputs)
@@ -182,6 +190,17 @@ function buildGateway(inputs: VenueInputs): GatewayPlanned {
       vlan: 'ACCESS CONTROL', colour: 'kisi',
     })
   }
+  // Only ever non-empty at one court: everywhere else this gear is on the
+  // switch. Same order the switch panels use, so a court block reads the same
+  // wherever it lands.
+  if (courtLoadOnGateway(inputs) > 0) {
+    for (const d of courtDevices(inputs)) {
+      ports.push({
+        slot: slot++, label: d.label, ip: d.ip, vlan: d.vlan, colour: d.colour,
+      })
+    }
+  }
+
   if (inputs.backupInternet) {
     ports.push({
       slot: GATEWAY_RJ45, label: 'Backup Internet', ip: null,
@@ -192,11 +211,15 @@ function buildGateway(inputs: VenueInputs): GatewayPlanned {
   ports.push({
     slot: 'wan', label: 'Main Internet', ip: null, vlan: null, colour: 'gateway',
   })
-  // Always present: a venue with no switch returns 'explained' before this
-  // runs, so there is no switchless gateway panel to draw.
+  // A single-court venue buys no switch, so its SFP+ socket uplinks to
+  // nothing. Labelling it anyway would send an installer hunting for hardware
+  // the BOM does not contain — the most misleading thing this page could say.
+  const switchless = courtLoadOnGateway(inputs) > 0
   ports.push({
-    slot: 'sfp', label: 'SFP DAC to Switch 1', ip: null, vlan: null,
-    colour: 'sfp',
+    slot: 'sfp',
+    label: switchless ? null : 'SFP DAC to Switch 1',
+    ip: null, vlan: null,
+    colour: switchless ? 'empty' : 'sfp',
   })
   // pickGateway is typed `(inputs) => RoleKey`, the full 40-member union, but
   // the only two values it can return are the gateway keys. Without the cast
@@ -207,7 +230,7 @@ function buildGateway(inputs: VenueInputs): GatewayPlanned {
 /** Devices the gateway must physically hold, whether or not they are drawn. */
 function gatewayDemand(inputs: VenueInputs): number {
   const kisi = planKisi(inputs)
-  return 1 + kisi.controllers + kisi.readersOnUdm
+  return 1 + courtLoadOnGateway(inputs) + kisi.controllers + kisi.readersOnUdm
     + (inputs.backupInternet ? 1 : 0)
 }
 
@@ -224,7 +247,7 @@ interface Device {
  * switch when one is full. A group may split across two switches — every box
  * is labelled, so the sheet stays unambiguous.
  */
-function devicesFor(inputs: VenueInputs): Device[] {
+function courtDevices(inputs: VenueInputs): Device[] {
   const c = inputs.courts
   const out: Device[] = []
   for (let n = 1; n <= c; n++) {
@@ -242,6 +265,12 @@ function devicesFor(inputs: VenueInputs): Device[] {
       vlan: 'SURVEILLANCE', colour: 'security',
     })
   }
+  return out
+}
+
+function devicesFor(inputs: VenueInputs): Device[] {
+  const c = inputs.courts
+  const out: Device[] = courtDevices(inputs)
   // Readers are numbered across the venue — the ones on the gateway took the
   // first `readersOnUdm` numbers, so these continue rather than restart.
   const kisi = planKisi(inputs)
@@ -337,9 +366,13 @@ function switchLinesDisagree(
   // must NOT fall through to the empty-table case: "Remove" on the switch row
   // only sets suppressed, so drawing a switch panel here would put a 48-port
   // switch on page 2 that page 1 does not list — the exact contradiction this
-  // guard exists to prevent. Every drawable venue has at least one switch;
-  // the 1-court venue that legitimately has none returned 'explained' above.
-  if (onVenue.length === 0) return true
+  // guard exists to prevent.
+  //
+  // It is a contradiction only when a switch panel is actually drawn. The
+  // 1-court venue legitimately has neither, and it used to return 'explained'
+  // before ever reaching here; now that it draws its gateway, an unqualified
+  // `true` would flip every saved one to "Recalculate before issuing".
+  if (onVenue.length === 0) return planned.length > 0
 
   // NEVER allocate from user data. `Array(-1)` and `Array(1.5)` both throw
   // RangeError, and this runs inside exportMaterialsPdf BEFORE doc.save()
@@ -370,6 +403,14 @@ function notesFor(inputs: VenueInputs): string[] {
     'Unassigned ports are not all spare — access-point count is not sized by '
     + 'this tool.',
   ]
+  // The SFP+ socket is drawn empty on this venue; say why, so it reads as
+  // "nothing goes here" rather than as an omission.
+  if (courtLoadOnGateway(inputs) > 0) {
+    notes.push(
+      'This venue is sized with no switch — the gateway powers the single '
+      + 'court directly, and its SFP+ uplink is unused.',
+    )
+  }
   if (inputs.courts >= WIDE_FROM) {
     notes.push(
       'Replay camera and Apple TV addresses use the 9+ court plan (.121+ / '
@@ -407,22 +448,25 @@ export function buildPortPlan(
   const ports = totalPorts(inputs)
   const switches = planSwitches(inputs, ports)
 
-  if (inputs.courts === 1) {
-    // The court gear is on the gateway here, so an overflow is the GATEWAY
-    // being full — there is no switch for anything to be sized onto, and
-    // saying there was described planKisi's old arithmetic rather than the
-    // venue. Unreachable at the 1-2 doors such a venue runs; see
-    // GATEWAY_OVERSUBSCRIBED in calculator/index.ts.
-    const unplaced = planKisi(inputs).readersUnplaced
+  // A single-court venue has no switch, but it is NOT undrawable: its entire
+  // network sits on the gateway, which is the one venue whose whole rack fits
+  // on a single panel. It used to explain here, leaving that venue as the only
+  // one with no page at all. It falls through to the ordinary checks below and
+  // draws a gateway with an empty switch list.
+  //
+  // The exception is an overflow. The court gear is on the gateway here, so
+  // that is the GATEWAY being full — there is no switch for anything to be
+  // sized onto, and saying there was described planKisi's old arithmetic
+  // rather than the venue. Unreachable at the 1-2 doors such a venue runs; see
+  // GATEWAY_OVERSUBSCRIBED in calculator/index.ts.
+  const unplaced = planKisi(inputs).readersUnplaced
+  if (unplaced > 0) {
     return explained(
       inputs,
       'This venue is sized with no switch — the gateway powers the single '
-      + 'court directly — so there is no switch port assignment to draw.'
-      + (unplaced > 0
-        ? ` It also needs ${gatewayPortDemand(inputs)} gateway ports and the `
-          + `gateway has ${UDM_RJ45_PORTS}, leaving ${unplaced} reader(s) `
-          + 'with nowhere to land. Resolve the hardware list first.'
-        : ''),
+      + `court directly — and it needs ${gatewayPortDemand(inputs)} gateway `
+      + `ports where the gateway has ${UDM_RJ45_PORTS}, leaving ${unplaced} `
+      + 'reader(s) with nowhere to land. Resolve the hardware list first.',
     )
   }
 

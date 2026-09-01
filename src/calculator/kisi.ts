@@ -34,7 +34,7 @@ const PORTS_PER_COURT = 3
  * "normally 6 free ports" is written for the switched case and is three ports
  * too generous applied here. venue-sizing.md § Firewall / gateway SKU.
  */
-function courtLoadOnGateway(inputs: VenueInputs): number {
+export function courtLoadOnGateway(inputs: VenueInputs): number {
   return inputs.courts === 1
     ? PORTS_PER_COURT * inputs.courts + inputs.securityCameras
     : 0
