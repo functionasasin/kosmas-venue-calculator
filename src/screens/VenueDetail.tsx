@@ -284,7 +284,12 @@ export function VenueDetail() {
   const doExport = () => {
     if (!venue) return
     setStaleExport(false)
-    exportMaterialsPdf(venue.name, tierLabel(venue.tier), lines, catalogAll)
+    // `Venue extends VenueInputs`, so the venue satisfies the parameter with
+    // no adapter — and the port plan is then sized from the same object the
+    // inputs form edits.
+    exportMaterialsPdf(
+      venue.name, tierLabel(venue.tier), lines, catalogAll, venue,
+    )
   }
 
   const onInputs = (inputs: VenueInputs) =>

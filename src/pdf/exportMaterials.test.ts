@@ -4,7 +4,15 @@ import type { RoleKey } from '@/calculator/roleKeys'
 import type { StoredLine } from '@/data/venueLines'
 import { groupIntoSections } from '@/lib/sections'
 import { FOOTER_BAND, FOOTER_PNG, HEADER_PNG } from './letterhead'
-import { buildPdfBody, exportMaterialsPdf } from './exportMaterials'
+import jsPDF from 'jspdf'
+import { buildPdfBody, exportMaterialsPdf, stampLetterhead } from './exportMaterials'
+
+// Hoisted to file top level: every describe below passes it to
+// exportMaterialsPdf, which now sizes the port page from the venue's inputs.
+const inputs = {
+  courts: 8, tier: 'pro' as const, securityCameras: 0, kisiDoors: 0,
+  extendedRetention: false, backupInternet: false,
+}
 
 // exportMaterialsPdf is exercised (rather than only buildPdfBody) for the
 // footer test below, since the footer sentence is drawn directly with
@@ -27,6 +35,16 @@ vi.mock('jspdf', () => {
     getNumberOfPages() { return this.pages }
     setPage(n: number) { this.page = n; return this }
     addImage(data: string) { imageCalls.push({ data, page: this.page }); return this }
+    // appendPortTemplate draws vector primitives, so the fake needs the seven
+    // methods the hardware list never called. Without them every test in this
+    // file throws the moment a venue reaches a drawn or explained outcome.
+    setFont() { return this }
+    setFillColor() { return this }
+    setDrawColor() { return this }
+    setLineWidth() { return this }
+    rect() { return this }
+    getTextWidth() { return 5 }
+    splitTextToSize(t: string) { return [t] }
     save() { /* no-op: no real download in a unit test */ }
   }
   return { default: FakeJsPDF }
@@ -283,7 +301,7 @@ describe('how a note row is drawn', () => {
     i.roleKey === 'ups_1500va' ? { ...i, printNote: 'Rack-mount kit required' } : i)
 
   const styleOf = (index: number) => {
-    exportMaterialsPdf('Tela Park', 'Pro', [line('ups_1500va', 1)], noted)
+    exportMaterialsPdf('Tela Park', 'Pro', [line('ups_1500va', 1)], noted, inputs)
     const didParseCell = lastOptions.current?.didParseCell as (d: HookData) => void
     const cell = { styles: {} as Record<string, unknown> }
     didParseCell({ section: 'body', row: { index }, cell })
@@ -318,7 +336,7 @@ describe('the exported PDF footer', () => {
   // would have no way to know the list is not a complete order.
   it('states that cabling and unconfirmed quantities are excluded', () => {
     textCalls.length = 0
-    exportMaterialsPdf('Test Venue', 'Pro', lines, catalog)
+    exportMaterialsPdf('Test Venue', 'Pro', lines, catalog, inputs)
     const note = textCalls.find(t => t.startsWith('Cabling'))
     expect(note).toBeDefined()
     expect(note).toContain('quantities still to be confirmed')
@@ -332,7 +350,7 @@ describe('the exported PDF header', () => {
   // describing the contents, or the document promises something it lacks.
   it('is titled for the hardware it lists, never for pricing it does not carry', () => {
     textCalls.length = 0
-    exportMaterialsPdf('Test Venue', 'Pro', lines, catalog)
+    exportMaterialsPdf('Test Venue', 'Pro', lines, catalog, inputs)
     expect(textCalls.some(t => t.includes('HARDWARE ITEMS'))).toBe(true)
     expect(textCalls.some(t => /pricing|price|cost|₱/i.test(t))).toBe(false)
   })
@@ -342,7 +360,7 @@ describe('the exported PDF header', () => {
   // customer-facing document.
   it('prints the display name it was given, not a stored tier key', () => {
     textCalls.length = 0
-    exportMaterialsPdf('Test Venue', 'Autonomous+', lines, catalog)
+    exportMaterialsPdf('Test Venue', 'Autonomous+', lines, catalog, inputs)
     expect(textCalls.some(t => t === 'Tier: Autonomous+')).toBe(true)
     expect(textCalls.some(t => /basic_plus|autonomous_plus/.test(t))).toBe(false)
   })
@@ -364,7 +382,7 @@ describe('the Kosmas letterhead', () => {
   // reaches Kosmas about what is on it.
   it('puts the logo band and the contact strip on the page', () => {
     reset()
-    exportMaterialsPdf('Test Venue', 'Pro', lines, catalog)
+    exportMaterialsPdf('Test Venue', 'Pro', lines, catalog, inputs)
     expect(bandsOn(1)).toEqual([HEADER_PNG, FOOTER_PNG])
   })
 
@@ -375,7 +393,7 @@ describe('the Kosmas letterhead', () => {
     reset()
     // Forces the second page: the note no longer fits above the contact strip.
     tableEnd.finalY = FOOTER_BAND.y - 10
-    exportMaterialsPdf('Test Venue', 'Pro', lines, catalog)
+    exportMaterialsPdf('Test Venue', 'Pro', lines, catalog, inputs)
     expect(bandsOn(1)).toEqual([HEADER_PNG, FOOTER_PNG])
     expect(bandsOn(2)).toEqual([HEADER_PNG, FOOTER_PNG])
   })
@@ -387,7 +405,7 @@ describe('the Kosmas letterhead', () => {
   it('never lets the cabling note print under the contact strip', () => {
     reset()
     tableEnd.finalY = FOOTER_BAND.y - 10
-    exportMaterialsPdf('Test Venue', 'Pro', lines, catalog)
+    exportMaterialsPdf('Test Venue', 'Pro', lines, catalog, inputs)
     expect(textCalls.some(t => t.startsWith('Cabling'))).toBe(true)
     expect(imageCalls.some(c => c.page === 2)).toBe(true)
   })
@@ -397,7 +415,40 @@ describe('the Kosmas letterhead', () => {
   it('stays on one page when the note fits', () => {
     reset()
     tableEnd.finalY = 120
-    exportMaterialsPdf('Test Venue', 'Pro', lines, catalog)
+    exportMaterialsPdf('Test Venue', 'Pro', lines, catalog, inputs)
     expect(imageCalls.every(c => c.page === 1)).toBe(true)
+  })
+})
+
+describe('port template pages', () => {
+
+  // The letterhead crops are 210mm full-bleed artwork sized for A4 portrait.
+  // Stretching either onto a 420mm A3 page distorts the mark, which the brand
+  // book forbids outright — so stampLetterhead must stop at the last hardware
+  // page rather than looping every page in the document.
+  it('stamps the letterhead on the hardware pages only', () => {
+    const doc = new jsPDF()
+    doc.addPage()                       // a second hardware page
+    doc.addPage('a3', 'landscape')      // the port page
+    imageCalls.length = 0
+    stampLetterhead(doc, 2)
+    // Two bands per page, over two pages — and nothing on page 3.
+    expect(imageCalls).toHaveLength(4)
+    expect(imageCalls.some(c => c.page === 3)).toBe(false)
+  })
+
+  // The claim is that the venue's inputs reach the port plan. A no-op
+  // appendPortTemplate would pass a "does not throw" test identically, so
+  // assert the page is actually there — and absent for a tier with no hardware.
+  it('draws a port page for a Pro venue', () => {
+    textCalls.length = 0
+    exportMaterialsPdf('V', 'Pro', [], [], inputs)
+    expect(textCalls).toContain('PORT TEMPLATE')
+  })
+
+  it('draws none for a tier the gates block', () => {
+    textCalls.length = 0
+    exportMaterialsPdf('V', 'Basic', [], [], { ...inputs, tier: 'basic' as const })
+    expect(textCalls).not.toContain('PORT TEMPLATE')
   })
 })
