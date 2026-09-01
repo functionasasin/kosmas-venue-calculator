@@ -165,10 +165,12 @@ const NOTE_MAX_Y = FOOTER_BAND.y - 5
  * bands, and drawing last means a stray overlap covers the band, never the
  * hardware list.
  *
- * `lastPage` is the page count captured BEFORE the port template was appended.
- * Both crops are 210mm full-bleed artwork sized for A4 portrait; painting them
- * onto an A3 landscape page would stretch the mark, which the brand book
- * forbids. The port pages carry a navy title instead.
+ * Both crops are 210mm full-bleed artwork sized for A4 portrait, so `lastPage`
+ * may only reach a page that IS A4 portrait — painting them onto another size
+ * stretches the mark, which the brand book forbids. That once excluded the
+ * port pages, which were A3 landscape; they are A4 portrait now and are
+ * stamped like any other. Any future page with a format of its own has to be
+ * excluded again.
  */
 export function stampLetterhead(doc: jsPDF, lastPage: number): void {
   for (let page = 1; page <= lastPage; page++) {
@@ -271,10 +273,13 @@ export function exportMaterialsPdf(
     14, noteY,
   )
 
-  // Captured before the A3 pages exist, so the bands stop at the hardware list.
-  const hardwarePages = doc.getNumberOfPages()
+  // Every page, port pages included. They used to be excluded because they
+  // were A3 landscape and the letterhead artwork is A4-portrait full-bleed —
+  // painting it there would have stretched the mark. They are the same A4
+  // portrait sheet now, so the document carries the brand throughout and
+  // prints from one tray at 100%.
   appendPortTemplate(doc, venueName, tierLabel, buildPortPlan(inputs, lines))
-  stampLetterhead(doc, hardwarePages)
+  stampLetterhead(doc, doc.getNumberOfPages())
 
   // Named for the court count, not the venue: "6-court-venue-hardware.pdf".
   // NOTE this drops the venue name, so two venues of the same size export to
