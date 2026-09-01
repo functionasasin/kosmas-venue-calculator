@@ -38,10 +38,18 @@ describe('buildPortPlan outcomes', () => {
     expect(buildPortPlan(pro(8), []).outcome).toBe('drawn')
   })
 
-  // 33 courts is 99 ports, which lands in the 3-switch band. The sizing is
-  // correct; the sheet just cannot render three switches.
+  // 32 courts + 32 security cameras is 128 ports, which lands in the 3-switch
+  // band. The sizing is correct; the sheet just cannot render three switches.
+  //
+  // Reached with cameras rather than with 33 courts because the addressing
+  // ceiling now claims 33 first, and it must: a court count past 32 is a
+  // WRONG drawing, while three switches is merely one this sheet cannot lay
+  // out. Ordering them the other way would print colliding IPs.
   it('explains a venue that sizes to more than two switches', () => {
-    const plan = buildPortPlan(pro(33), [])
+    const plan = buildPortPlan(
+      pro(32, { tier: 'autonomous_plus', securityCameras: 32, kisiDoors: 1 }),
+      [],
+    )
     expect(plan.outcome).toBe('explained')
     expect(plan.reason).toMatch(/three|3 /i)
   })
@@ -506,5 +514,26 @@ describe('reconciliation with the saved lines', () => {
   it('treats a TBD switch quantity as a disagreement, not a match', () => {
     const plan = buildPortPlan(pro(8), [line({ qty: 'TBD' })])
     expect(plan.outcome).toBe('explained')
+  })
+})
+
+// port-template.js:67 has carried this bound since the CLI was written; the
+// app relied on the two-switch limit stopping at 96 ports / 3 per court = 32
+// courts by coincidence. Stating it means moving the render limit can no
+// longer silently move the addressing past where the doc defines it.
+describe('the addressing ceiling', () => {
+  // 32 courts is 96 ports — two switches, and the last court count the § IP
+  // addressing table covers. It must still draw.
+  it('still draws at 32 courts, the last count the doc addresses', () => {
+    expect(buildPortPlan(pro(32), []).outcome).toBe('drawn')
+  })
+
+  // At 33 courts the wide blocks are 40 apart but the venue is not: replay
+  // C41 and Apple TV C1 would both be .161. Unreachable today only because
+  // three switches bail out first — a coincidence, not a guarantee.
+  it('explains above 32 rather than emitting colliding addresses', () => {
+    const plan = buildPortPlan(pro(33), [])
+    expect(plan.outcome).toBe('explained')
+    expect(plan.reason).toMatch(/addressing/i)
   })
 })

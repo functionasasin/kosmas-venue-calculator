@@ -109,6 +109,18 @@ export const ACCESS_NET = `192.168.${SUBNET + 1}`
  */
 export const MAX_SECURITY_CAMERAS = 79
 
+/**
+ * port-template.js § MAX_COURTS_ADDRESSED, mirrored here.
+ *
+ * The wide blocks are 40 apart (replay .120+N, Apple TV .160+N), so they hold
+ * to 40 courts — at 41 replay C41 and Apple TV C1 are both .161, which is the
+ * § Rules that make the blocks safe collision all over again one block up. The
+ * doc's table stops at 32 courts, and the two-switch limit below happens to
+ * stop there too (96 ports / 3 per court). This bound is stated rather than
+ * left to that coincidence: if the render limit ever moves, the addressing
+ * must be extended first.
+ */
+export const MAX_COURTS_ADDRESSED = 32
 
 /** Courts 1-8 keep the deployed plan; 9+ use the wide blocks. */
 const WIDE_FROM = 9
@@ -419,6 +431,15 @@ export function buildPortPlan(
       inputs,
       `${ports} ports exceeds the largest sizing band. The hardware list is `
       + 'still correct; this venue\'s port assignment is specified separately.',
+    )
+  }
+
+  if (inputs.courts > MAX_COURTS_ADDRESSED) {
+    return explained(
+      inputs,
+      `The addressing plan is defined to ${MAX_COURTS_ADDRESSED} courts; above `
+      + 'that the replay camera and Apple TV blocks collide. This venue\'s '
+      + 'port assignment is specified separately.',
     )
   }
 
