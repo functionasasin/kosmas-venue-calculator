@@ -276,5 +276,9 @@ export function exportMaterialsPdf(
   appendPortTemplate(doc, venueName, tierLabel, buildPortPlan(inputs, lines))
   stampLetterhead(doc, hardwarePages)
 
-  doc.save(`hardware-items-${venueName.toLowerCase().replace(/\s+/g, '-')}.pdf`)
+  // Named for the court count, not the venue: "6-court-venue-hardware.pdf".
+  // NOTE this drops the venue name, so two venues of the same size export to
+  // the same filename and the second download is what the browser does with a
+  // collision (a " (1)" suffix, typically) rather than a distinct file.
+  doc.save(`${inputs.courts}-court-venue-hardware.pdf`)
 }

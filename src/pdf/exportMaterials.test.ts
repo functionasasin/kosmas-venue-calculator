@@ -20,9 +20,10 @@ const inputs = {
 // jspdf-autotable are stubbed because they draw vector graphics that jsdom
 // has no reason to be exercised by in a unit test — only the calls to
 // `text` matter here.
-const { textCalls, imageCalls } = vi.hoisted(() => ({
+const { textCalls, imageCalls, saveCalls } = vi.hoisted(() => ({
   textCalls: [] as string[],
   imageCalls: [] as { data: string; page: number }[],
+  saveCalls: [] as string[],
 }))
 vi.mock('jspdf', () => {
   class FakeJsPDF {
@@ -45,7 +46,9 @@ vi.mock('jspdf', () => {
     rect() { return this }
     getTextWidth() { return 5 }
     splitTextToSize(t: string) { return [t] }
-    save() { /* no-op: no real download in a unit test */ }
+    // The filename is the only thing save() is asserted on; no real download
+    // happens in a unit test.
+    save(name: string) { saveCalls.push(name) }
   }
   return { default: FakeJsPDF }
 })
@@ -444,6 +447,18 @@ describe('port template pages', () => {
     textCalls.length = 0
     exportMaterialsPdf('V', 'Pro', [], [], inputs)
     expect(textCalls).toContain('PORT TEMPLATE')
+  })
+
+  // The venue NAME is deliberately gone from the filename. Two venues of the
+  // same court count therefore export to the same name — asserted here so that
+  // is a recorded decision rather than something noticed at a download prompt.
+  it('names the file for the court count, not the venue', () => {
+    saveCalls.length = 0
+    exportMaterialsPdf('Tela Park', 'Pro', [], [], { ...inputs, courts: 6 })
+    expect(saveCalls).toEqual(['6-court-venue-hardware.pdf'])
+
+    exportMaterialsPdf('Helios Beta', 'Pro', [], [], { ...inputs, courts: 6 })
+    expect(saveCalls[1]).toBe('6-court-venue-hardware.pdf')
   })
 
   it('draws none for a tier the gates block', () => {
