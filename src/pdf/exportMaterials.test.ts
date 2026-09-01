@@ -4,8 +4,7 @@ import type { RoleKey } from '@/calculator/roleKeys'
 import type { StoredLine } from '@/data/venueLines'
 import { groupIntoSections } from '@/lib/sections'
 import { FOOTER_BAND, FOOTER_PNG, HEADER_PNG } from './letterhead'
-import jsPDF from 'jspdf'
-import { buildPdfBody, exportMaterialsPdf, stampLetterhead } from './exportMaterials'
+import { buildPdfBody, exportMaterialsPdf } from './exportMaterials'
 
 // Hoisted to file top level: every describe below passes it to
 // exportMaterialsPdf, which now sizes the port page from the venue's inputs.
@@ -20,10 +19,14 @@ const inputs = {
 // jspdf-autotable are stubbed because they draw vector graphics that jsdom
 // has no reason to be exercised by in a unit test — only the calls to
 // `text` matter here.
-const { textCalls, imageCalls, saveCalls } = vi.hoisted(() => ({
+const { textCalls, imageCalls, saveCalls, addPageArgs } = vi.hoisted(() => ({
   textCalls: [] as string[],
   imageCalls: [] as { data: string; page: number }[],
   saveCalls: [] as string[],
+  // Every argument addPage was called with. A format here means a page that
+  // is not the letterhead's A4 portrait, which is what makes stamping the
+  // bands on every page legal.
+  addPageArgs: [] as unknown[][],
 }))
 vi.mock('jspdf', () => {
   class FakeJsPDF {
@@ -32,7 +35,10 @@ vi.mock('jspdf', () => {
     setFontSize() { return this }
     setTextColor() { return this }
     text(str: string) { textCalls.push(str); return this }
-    addPage() { this.pages++; this.page = this.pages; return this }
+    addPage(...args: unknown[]) {
+      addPageArgs.push(args)
+      this.pages++; this.page = this.pages; return this
+    }
     getNumberOfPages() { return this.pages }
     setPage(n: number) { this.page = n; return this }
     addImage(data: string) { imageCalls.push({ data, page: this.page }); return this }
@@ -415,29 +421,53 @@ describe('the Kosmas letterhead', () => {
 
   // The counterpart to the test above: a short list must not be padded with an
   // empty second page just because the overflow branch exists.
+  //
+  // The tier is Basic so the port outcome is 'absent' and no port page is
+  // appended. Every page is stamped now, so on any other tier a port page
+  // would put bands on page 2 and this assertion would fail for a reason that
+  // has nothing to do with the cabling note it is about.
   it('stays on one page when the note fits', () => {
     reset()
     tableEnd.finalY = 120
-    exportMaterialsPdf('Test Venue', 'Pro', lines, catalog, inputs)
+    exportMaterialsPdf('Test Venue', 'Basic', lines, catalog,
+      { ...inputs, tier: 'basic' })
     expect(imageCalls.every(c => c.page === 1)).toBe(true)
   })
 })
 
 describe('port template pages', () => {
 
-  // The letterhead crops are 210mm full-bleed artwork sized for A4 portrait.
-  // Stretching either onto a 420mm A3 page distorts the mark, which the brand
-  // book forbids outright — so stampLetterhead must stop at the last hardware
-  // page rather than looping every page in the document.
-  it('stamps the letterhead on the hardware pages only', () => {
-    const doc = new jsPDF()
-    doc.addPage()                       // a second hardware page
-    doc.addPage('a3', 'landscape')      // the port page
+  // The letterhead crops are 210mm full-bleed artwork sized for A4 portrait,
+  // and stretching either onto another page size distorts the mark, which the
+  // brand book forbids outright. That used to mean the letterhead stopped at
+  // the last hardware page, because the port pages were A3 landscape. They are
+  // A4 portrait now, so the bands reach every page — and the two facts are
+  // pinned TOGETHER, because stamping every page is only legal for as long as
+  // every page is A4 portrait.
+  it('stamps the letterhead on every page, port pages included', () => {
     imageCalls.length = 0
-    stampLetterhead(doc, 2)
-    // Two bands per page, over two pages — and nothing on page 3.
-    expect(imageCalls).toHaveLength(4)
-    expect(imageCalls.some(c => c.page === 3)).toBe(false)
+    addPageArgs.length = 0
+    exportMaterialsPdf('V', 'Pro', [], [], { ...inputs, courts: 14 })
+
+    // 1 hardware page + the port pages.
+    const pages = 1 + addPageArgs.length
+    expect(pages).toBeGreaterThan(1)
+    // Two bands per page, on every page, none missed and none doubled.
+    expect(imageCalls).toHaveLength(pages * 2)
+    for (let p = 1; p <= pages; p++) {
+      expect(imageCalls.filter(c => c.page === p), `page ${p}`).toHaveLength(2)
+    }
+  })
+
+  // The other half of the same rule. Stamping every page is legal only while
+  // every page is the A4 portrait the artwork was cut for; the moment one is
+  // added with a format — 'a3', 'landscape' — the mark gets stretched, which
+  // the brand book forbids. The page SIZE itself is asserted against real
+  // jsPDF in portTemplate.test.ts; jsPDF is faked here.
+  it('never creates a page with a format of its own', () => {
+    addPageArgs.length = 0
+    exportMaterialsPdf('V', 'Pro', [], [], { ...inputs, courts: 32 })
+    expect(addPageArgs.every(a => a.length === 0)).toBe(true)
   })
 
   // The claim is that the venue's inputs reach the port plan. A no-op
