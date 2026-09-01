@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import type { Item } from '@/calculator/types'
+import type { Item, VenueInputs } from '@/calculator/types'
 import type { StoredLine } from '@/data/venueLines'
 import type { SectionId } from '@/lib/sections'
 import {
@@ -10,6 +10,8 @@ import {
 import {
   FOOTER_BAND, FOOTER_PNG, HEADER_BAND, HEADER_PNG, KOSMAS_NAVY, KOSMAS_NAVY_TINT,
 } from './letterhead'
+import { buildPortPlan } from './portPlan'
+import { appendPortTemplate } from './portTemplate'
 
 /**
  * Grouped to mirror the screen: whoever holds the printout should be reading
@@ -162,10 +164,14 @@ const NOTE_MAX_Y = FOOTER_BAND.y - 5
  * from autoTable's didDrawPage — the margins above keep the content out of the
  * bands, and drawing last means a stray overlap covers the band, never the
  * hardware list.
+ *
+ * `lastPage` is the page count captured BEFORE the port template was appended.
+ * Both crops are 210mm full-bleed artwork sized for A4 portrait; painting them
+ * onto an A3 landscape page would stretch the mark, which the brand book
+ * forbids. The port pages carry a navy title instead.
  */
-function stampLetterhead(doc: jsPDF): void {
-  const pages = doc.getNumberOfPages()
-  for (let page = 1; page <= pages; page++) {
+export function stampLetterhead(doc: jsPDF, lastPage: number): void {
+  for (let page = 1; page <= lastPage; page++) {
     doc.setPage(page)
     doc.addImage(
       HEADER_PNG, 'PNG', HEADER_BAND.x, HEADER_BAND.y, HEADER_BAND.w, HEADER_BAND.h,
@@ -197,6 +203,7 @@ export function exportMaterialsPdf(
   tierLabel: string,
   lines: StoredLine[],
   catalog: Item[],
+  inputs: VenueInputs,
 ): void {
   const doc = new jsPDF()
 
@@ -264,7 +271,10 @@ export function exportMaterialsPdf(
     14, noteY,
   )
 
-  stampLetterhead(doc)
+  // Captured before the A3 pages exist, so the bands stop at the hardware list.
+  const hardwarePages = doc.getNumberOfPages()
+  appendPortTemplate(doc, venueName, tierLabel, buildPortPlan(inputs, lines))
+  stampLetterhead(doc, hardwarePages)
 
   doc.save(`hardware-items-${venueName.toLowerCase().replace(/\s+/g, '-')}.pdf`)
 }
