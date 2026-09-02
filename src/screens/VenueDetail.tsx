@@ -24,7 +24,7 @@ import { BackToVenues } from '@/components/BackToVenues'
 import { SaveStatus, UnsavedStrip } from '@/components/SaveStatus'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { useVenueLoad } from '@/hooks/useVenueLoad'
+import { useVenueLoad } from './useVenueLoad'
 import { useUnsavedGuard } from '@/hooks/useUnsavedGuard'
 import { useRole } from '@/auth/useRole'
 import { useAuth } from '@/auth/AuthProvider'
@@ -230,9 +230,8 @@ export function VenueDetail() {
 
   const [leaving, setLeaving] = useState(false)
 
-  // Tab close and reload. The in-app exit is the BackToVenues intercept below,
-  // and `discarding` is what stops the browser stacking its own prompt on a
-  // navigation the user has already confirmed.
+  // Tab close and reload — see useUnsavedGuard. The in-app exit is the
+  // BackToVenues intercept below.
   const discarding = useUnsavedGuard(dirty)
 
   /**
