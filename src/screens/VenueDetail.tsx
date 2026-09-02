@@ -96,13 +96,7 @@ export function VenueDetail() {
     [resolved],
   )
 
-  /**
-   * The venue's FULL choice set, in the form save_venue wants. The RPC
-   * deletes and re-inserts, so anything missing here is DELETED — which makes
-   * completeChoiceSet the one place a venue's pins can be silently lost. Its
-   * doc comment carries which two sources are unioned, and why a stored pin
-   * always beats the resolution.
-   */
+  /** What a save writes to venue_item_choices — see completeChoiceSet. */
   const choicesToSave = useMemo(
     () => completeChoiceSet(choices, catalogAll, resolved.chosen),
     [choices, catalogAll, resolved],
@@ -123,15 +117,11 @@ export function VenueDetail() {
     [result],
   )
 
-  /**
-   * What the venue is SIZED on, versus what its list actually names. The two
-   * can drift with nothing on screen saying so, and the printed sheet is where
-   * it would be found. driftWarnings carries the two drift shapes, and why
-   * `resolved.chosen` — not the venue's stored pin — is the right side to
-   * compare against.
-   */
+  /** Where the list NAMES something the venue is not SIZED on — see driftWarnings. */
   const overridden = useMemo(
-    () => driftWarnings(choicesToSave, lines, catalogAll, resolved.chosen),
+    () => driftWarnings(
+      choicesToSave.map(c => c.roleKey), lines, catalogAll, resolved.chosen,
+    ),
     [choicesToSave, lines, catalogAll, resolved],
   )
 
@@ -268,7 +258,16 @@ export function VenueDetail() {
     }
   }, [venue, lines, result, saved, choicesToSave])
 
-  const dirty = saved !== null && saved !== venueSnapshot(venue, lines, choicesToSave)
+  // Memoised for the same reason as `diff` and `staleRows`: this screen
+  // re-renders for a great deal that cannot affect the answer — every dialog
+  // opening and closing, `saving`, `exporting`, the theme toggle — and
+  // venueSnapshot allocates a stripped copy of every line and serialises the
+  // lot on each one. Keyed on the three things a save actually writes.
+  const snapshot = useMemo(
+    () => venueSnapshot(venue, lines, choicesToSave),
+    [venue, lines, choicesToSave],
+  )
+  const dirty = saved !== null && saved !== snapshot
 
   const [leaving, setLeaving] = useState(false)
 

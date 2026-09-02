@@ -1,6 +1,5 @@
 import type { Item, Warning } from '@/calculator/types'
 import { ROLE_LABELS, type RoleKey } from '@/calculator/roleKeys'
-import type { VenueItemChoice } from '@/data/venueItemChoices'
 import type { StoredLine } from '@/data/venueLines'
 import { itemsById } from '@/lib/sections'
 
@@ -28,13 +27,15 @@ import { itemsById } from '@/lib/sections'
  *     two, because nothing on the list fills the role at all while the venue is
  *     still sized as though something does.
  *
- * `chosen`, NOT the entry in the choice set, is what "sized on" means. The
- * choice set deliberately carries the venue's STORED pin so a save cannot
- * overwrite it, and the two disagree in exactly the state this warning is most
- * likely to be read in: a pin whose item was deactivated sizes the venue on the
- * fallback while the stored id still names the dead item. Comparing against the
- * pin there reports a drift between two items the venue is not sized on either
- * way, and stays silent on the line that really has drifted.
+ * `chosen`, NOT the venue's stored pin, is what "sized on" means. The choice
+ * set deliberately carries the pin so a save cannot overwrite it, and the two
+ * disagree in exactly the state this warning is most likely to be read in: a
+ * pin whose item was deactivated sizes the venue on the fallback while the
+ * stored id still names the dead item. Comparing against the pin there reports
+ * a drift between two items the venue is not sized on either way, and stays
+ * silent on the line that really has drifted. Taking ROLE KEYS rather than the
+ * choice set is what makes that structural — the pinned ids are not in reach
+ * here, so the comparison cannot regress to them.
  *
  * A role can hold more than one manual line — a hand-edited formula line plus
  * one added by hand — so the FIRST match is not good enough: it can agree while
@@ -46,7 +47,7 @@ import { itemsById } from '@/lib/sections'
  * needs it named rather than called "its item".
  */
 export function driftWarnings(
-  choices: VenueItemChoice[],
+  roles: RoleKey[],
   lines: StoredLine[],
   catalog: Item[],
   chosen: Map<RoleKey, string>,
@@ -55,22 +56,22 @@ export function driftWarnings(
   const warn = (message: string): Warning[] =>
     [{ code: 'CHOICE_OVERRIDDEN', level: 'warn' as const, message }]
 
-  return choices.flatMap(c => {
-    const sizedId = chosen.get(c.roleKey)
+  return roles.flatMap(roleKey => {
+    const sizedId = chosen.get(roleKey)
     // The role resolved to nothing at all. ROLE_NO_DEFAULT already says so, and
     // there is no item to say the list disagrees with.
     if (!sizedId) return []
 
     const line = lines.find(
-      l => (l.roleKey === c.roleKey || l.originRoleKey === c.roleKey)
+      l => (l.roleKey === roleKey || l.originRoleKey === roleKey)
         && l.source === 'manual' && !l.suppressed
-        && (l.roleKey !== c.roleKey || l.itemId !== sizedId),
+        && (l.roleKey !== roleKey || l.itemId !== sizedId),
     )
     if (!line) return []
     const itemName = byId.get(line.itemId)?.name ?? 'its item'
-    const roleLabel = ROLE_LABELS[c.roleKey].toLowerCase()
+    const roleLabel = ROLE_LABELS[roleKey].toLowerCase()
 
-    if (line.roleKey === c.roleKey) {
+    if (line.roleKey === roleKey) {
       const sizedName = byId.get(sizedId)?.name ?? 'another item'
       return warn(
         `The ${roleLabel} line on this list was edited by hand and still ` +

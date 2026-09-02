@@ -23,8 +23,14 @@ const line = (over: Partial<StoredLine>): StoredLine => ({
   suppressed: false, note: null, ...over,
 })
 
-const pin = (itemId: string, roleKey: RoleKey = 'replay_camera') =>
-  [{ roleKey, itemId }]
+/**
+ * The roles in the venue's choice set. driftWarnings takes role keys, not the
+ * choice set itself, so the venue's pinned ids are deliberately out of reach —
+ * comparing against a pin instead of the resolution is the mistake the
+ * signature now prevents.
+ */
+const contested: RoleKey[] = ['replay_camera']
+
 /** What the venue is SIZED on — resolveCatalog's `chosen`, not its pins. */
 const sizedOn = (itemId: string, roleKey: RoleKey = 'replay_camera') =>
   new Map<RoleKey, string>([[roleKey, itemId]])
@@ -34,7 +40,7 @@ describe('driftWarnings', () => {
   // freezes its QUANTITY, which is not this warning's business. Speaking here
   // would put a check on the rail of every venue with a hand-set quantity.
   it('says nothing when the list names the item the venue is sized on', () => {
-    const w = driftWarnings(pin('uni'), [line({})], catalog, sizedOn('uni'))
+    const w = driftWarnings(contested, [line({})], catalog, sizedOn('uni'))
     expect(w).toEqual([])
   })
 
@@ -42,7 +48,7 @@ describe('driftWarnings', () => {
   // quoted a camera the rung, the ports and the PoE budget were not sized for.
   it('names both items when a hand-edited line drifts from the sizing', () => {
     const w = driftWarnings(
-      pin('uni'), [line({ itemId: 'dah' })], catalog, sizedOn('uni'),
+      contested, [line({ itemId: 'dah' })], catalog, sizedOn('uni'),
     )
     expect(w).toHaveLength(1)
     expect(w[0].code).toBe('CHOICE_OVERRIDDEN')
@@ -57,7 +63,7 @@ describe('driftWarnings', () => {
     const swapped = line({
       itemId: 'pad', roleKey: 'ipad', originRoleKey: 'replay_camera',
     })
-    const w = driftWarnings(pin('uni'), [swapped], catalog, sizedOn('uni'))
+    const w = driftWarnings(contested, [swapped], catalog, sizedOn('uni'))
     expect(w).toHaveLength(1)
     expect(w[0].message).toContain('nothing on this list fills replay camera')
   })
@@ -67,7 +73,7 @@ describe('driftWarnings', () => {
   // an item the venue is not sized on.
   it('names the drifted line when another line on the same role agrees', () => {
     const w = driftWarnings(
-      pin('uni'),
+      contested,
       [line({ id: 'a', itemId: 'uni' }), line({ id: 'b', itemId: 'dah' })],
       catalog, sizedOn('uni'),
     )
@@ -79,7 +85,7 @@ describe('driftWarnings', () => {
   // Only a hand-edited line is exempt from that and can persist a disagreement.
   it('ignores a formula line naming a different item', () => {
     const w = driftWarnings(
-      pin('uni'), [line({ itemId: 'dah', source: 'formula' })],
+      contested, [line({ itemId: 'dah', source: 'formula' })],
       catalog, sizedOn('uni'),
     )
     expect(w).toEqual([])
@@ -88,7 +94,7 @@ describe('driftWarnings', () => {
   // A suppressed line is not printed, so it cannot misquote anyone.
   it('ignores a suppressed line', () => {
     const w = driftWarnings(
-      pin('uni'), [line({ itemId: 'dah', suppressed: true })],
+      contested, [line({ itemId: 'dah', suppressed: true })],
       catalog, sizedOn('uni'),
     )
     expect(w).toEqual([])
@@ -98,7 +104,7 @@ describe('driftWarnings', () => {
   // here to say the list disagrees with.
   it('stays silent for a role that resolved to nothing', () => {
     const w = driftWarnings(
-      pin('dah'), [line({ itemId: 'dah' })], catalog, new Map(),
+      contested, [line({ itemId: 'dah' })], catalog, new Map(),
     )
     expect(w).toEqual([])
   })
@@ -108,7 +114,7 @@ describe('driftWarnings', () => {
   // tells the reader nothing they can act on.
   it('names a deactivated item rather than calling it "its item"', () => {
     const w = driftWarnings(
-      pin('uni'), [line({ itemId: 'old' })], catalog, sizedOn('uni'),
+      contested, [line({ itemId: 'old' })], catalog, sizedOn('uni'),
     )
     expect(w[0].message).toContain('"Hikvision 2CD"')
     expect(w[0].message).not.toContain('its item')
