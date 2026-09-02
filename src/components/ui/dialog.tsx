@@ -122,7 +122,20 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
     <DialogPrimitive.Title
       data-slot="dialog-title"
       className={cn(
-        "font-heading text-base leading-none font-medium",
+        // pr-8 keeps a long title clear of the close button, which is absolute
+        // and so takes no space of its own: at `size-7` and `right-2` it spans
+        // 8-36px in from the popup's right edge, while the title's content runs
+        // to the popup's own 16px padding — a 20px overrun that put the X hard
+        // against the last word of "Inputs changed since this list was
+        // calculated". 32px here lands the text 12px clear of the button.
+        //
+        // On the TITLE rather than DialogHeader so the description below still
+        // wraps at full width; it sits under the button and never collides.
+        // leading-tight, not leading-none: with the padding above, a long title
+        // now WRAPS instead of running under the button, and line-height 1 sets
+        // the second line's caps against the first line's descenders. Invisible
+        // on the one-line titles that were the only kind before this.
+        "font-heading pr-8 text-base leading-tight font-medium",
         className
       )}
       {...props}
