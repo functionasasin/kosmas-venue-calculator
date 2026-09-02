@@ -955,10 +955,18 @@ describe('exporting the PDF', () => {
     expect(call[4]).toMatchObject({ courts: 8, tier: 'pro' })
   })
 
-  it('says so when the exporter cannot be fetched', async () => {
+  // The EXPORTER threw, having loaded fine. Its message is the only diagnostic
+  // there is, so it survives into the toast — and no reload is suggested,
+  // because reloading would change nothing about a venue that renders badly.
+  //
+  // The other half of that branch, a chunk that never loads, is driven in
+  // lazy-pdf-chunk.mjs instead of faked here: vi.mock replaces the module
+  // before a network layer exists, so the honest way to make an import reject
+  // is to abort the real request, which needs a browser.
+  it('keeps the exporter\u2019s own message when it loads and then throws', async () => {
     const { exportMaterialsPdf } = await import('@/pdf/exportMaterials')
     vi.mocked(exportMaterialsPdf).mockImplementationOnce(() => {
-      throw new Error('Failed to fetch dynamically imported module')
+      throw new Error('qty must be a positive integer')
     })
     const { toast } = await import('sonner')
 
@@ -966,8 +974,9 @@ describe('exporting the PDF', () => {
     await exportAnyway()
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
-    expect(vi.mocked(toast.error).mock.calls[0][0])
-      .toMatch(/Could not export the PDF.*Failed to fetch/)
+    const message = vi.mocked(toast.error).mock.calls[0][0]
+    expect(message).toMatch(/Could not export the PDF.*qty must be a positive integer/)
+    expect(message).not.toMatch(/reload/i)
   })
 
   // The `finally` in doExport. Without it a single failed export disables the
