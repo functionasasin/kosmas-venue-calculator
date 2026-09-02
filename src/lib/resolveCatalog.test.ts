@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { Item } from '@/calculator/types'
 import type { RoleKey } from '@/calculator/roleKeys'
-import { resolveCatalog, multiOptionRoles } from './resolveCatalog'
+import { resolveCatalog, multiOptionRoles, completeChoiceSet } from './resolveCatalog'
 
 const item = (over: Partial<Item> & { id: string }): Item => ({
   name: over.id, category: 'camera', roleKey: 'replay_camera',
@@ -142,5 +142,66 @@ describe('multiOptionRoles', () => {
   // Deactivated twins are not options.
   it('ignores inactive items', () => {
     expect(multiOptionRoles([uniview, { ...dahua, isActive: false }]).size).toBe(0)
+  })
+})
+
+describe('completeChoiceSet', () => {
+  const chosen = (pairs: [RoleKey, string][]) => new Map(pairs)
+
+  // The reason a venue that never touched the picker still gets rows written:
+  // pinning the current resolution on first save is what stops a later flip of
+  // the catalog default silently re-sizing an already-quoted venue.
+  it('pins a contested role the venue never chose to what it resolved to', () => {
+    const set = completeChoiceSet(
+      [], [uniview, dahua], chosen([['replay_camera', 'uni']]),
+    )
+    expect(set).toEqual([{ roleKey: 'replay_camera', itemId: 'uni' }])
+  })
+
+  // "Has more than one active item" is a CURRENT fact; the pin is a historical
+  // one. Deactivate the alternate and the role stops being contested, so a set
+  // built from the catalog alone would drop the pin on the next save made for
+  // any unrelated reason — and reactivating the alternate later would find the
+  // venue silently following the catalog default again.
+  it('keeps a stored pin for a role that is no longer contested', () => {
+    const set = completeChoiceSet(
+      choice('dah'),
+      [uniview, { ...dahua, isActive: false }],
+      chosen([['replay_camera', 'uni']]),
+    )
+    expect(set).toEqual([{ roleKey: 'replay_camera', itemId: 'dah' }])
+  })
+
+  // resolveCatalog hands back a FALLBACK for a dead pin so the venue can still
+  // be sized and displayed while the pick is broken. Writing that fallback back
+  // would swap the venue onto the catalog default the moment anything else
+  // triggered a save, and reactivating the item later would never undo it.
+  it('keeps the stored pin rather than the fallback it resolved to', () => {
+    const set = completeChoiceSet(
+      choice('dah'), [uniview, dahua], chosen([['replay_camera', 'uni']]),
+    )
+    expect(set).toEqual([{ roleKey: 'replay_camera', itemId: 'dah' }])
+  })
+
+  // ROLE_NO_DEFAULT is an admin problem. Dropping the user's pick while they
+  // fix it would be destroying data that cannot be restored.
+  it('keeps a stored pin for a role that resolved to nothing', () => {
+    const set = completeChoiceSet(choice('dah'), [uniview, dahua], chosen([]))
+    expect(set).toEqual([{ roleKey: 'replay_camera', itemId: 'dah' }])
+  })
+
+  // Nothing to write, and an entry with no item id would be a row the RPC
+  // cannot insert.
+  it('omits a contested role that resolved to nothing and was never pinned', () => {
+    const set = completeChoiceSet([], [uniview, dahua], chosen([]))
+    expect(set).toEqual([])
+  })
+
+  // A role with one active item has nothing to choose between, so a venue that
+  // never pinned it must not acquire a row that would later have to be kept in
+  // step with the catalog.
+  it('ignores a role that has only one active item', () => {
+    expect(completeChoiceSet([], [uniview], chosen([['replay_camera', 'uni']])))
+      .toEqual([])
   })
 })

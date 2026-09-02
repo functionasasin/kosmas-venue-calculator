@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { calculateBOM } from '@/calculator'
-import type { Item, VenueInputs, Warning } from '@/calculator/types'
+import type { Item, VenueInputs } from '@/calculator/types'
 import type { Venue } from '@/data/venues'
 import { listItems } from '@/data/items'
 import type { VenueItemChoice } from '@/data/venueItemChoices'
-import { resolveCatalog, multiOptionRoles } from '@/lib/resolveCatalog'
-import { itemsById } from '@/lib/sections'
+import { resolveCatalog, completeChoiceSet } from '@/lib/resolveCatalog'
+import { driftWarnings } from '@/lib/driftWarnings'
+import { venueSnapshot } from '@/lib/venueSnapshot'
 import { ROLE_LABELS, type RoleKey } from '@/calculator/roleKeys'
 import {
   mergeRecalculation, VenueConflictError, UnresolvedLinesError, VenueMissingError,
@@ -96,53 +97,16 @@ export function VenueDetail() {
   )
 
   /**
-   * The venue's FULL choice set, in the form the RPC wants. save_venue deletes
-   * and re-inserts, so anything missing here is DELETED — which makes this the
-   * one place a venue's pins can be silently lost.
-   *
-   * Two sources, unioned:
-   *
-   *   - every role that currently has more than one active item, pinned to
-   *     whatever it resolved to. This is what makes a venue that never chose
-   *     pin its default on first save, so a later default flip cannot move it.
-   *
-   *   - every role the venue already has a stored choice for. Necessary
-   *     because "has more than one active item" is a CURRENT fact and §3's
-   *     invariant is a historical one: deactivate the Dahua and replay_camera
-   *     stops being contested, so a set derived from the first source alone
-   *     would drop the pin on the next save of that venue for any unrelated
-   *     reason — and reactivating the Dahua later would find every venue
-   *     silently following the catalog default again.
-   *
-   * The venue's stored choice always wins over the resolution, including when
-   * that choice has been deactivated. `resolved.chosen` holds a FALLBACK in
-   * that case — the catalog default, or the sole remaining active item — and
-   * it exists to size and display the venue's list while the pick is broken,
-   * not to replace the pick. Saving the fallback over the stored id would
-   * silently swap the venue onto the catalog default the moment anything else
-   * triggers a save, and reactivating the item later would never undo it,
-   * because by then nothing on screen says the pin is gone. The stored choice
-   * is only ever replaced by the user actually picking something in a row's
-   * swap control.
-   *
-   * `resolved.chosen` only fills a role the venue has never pinned: a venue
-   * that never chose still pins the role's current resolution on its first
-   * save, so a later default flip cannot move it. A role that resolved to
-   * NOTHING keeps the venue's stored id untouched either way: ROLE_NO_DEFAULT
-   * is an admin problem, and throwing away the user's pick while they fix it
-   * would be this component destroying data it cannot restore.
+   * The venue's FULL choice set, in the form save_venue wants. The RPC
+   * deletes and re-inserts, so anything missing here is DELETED — which makes
+   * completeChoiceSet the one place a venue's pins can be silently lost. Its
+   * doc comment carries which two sources are unioned, and why a stored pin
+   * always beats the resolution.
    */
-  const choicesToSave = useMemo(() => {
-    const stored = new Map(choices.map(c => [c.roleKey, c.itemId]))
-    const roles = new Set<RoleKey>([
-      ...multiOptionRoles(catalogAll).keys(),
-      ...stored.keys(),
-    ])
-    return [...roles].flatMap(roleKey => {
-      const itemId = stored.get(roleKey) ?? resolved.chosen.get(roleKey)
-      return itemId ? [{ roleKey, itemId }] : []
-    })
-  }, [choices, catalogAll, resolved])
+  const choicesToSave = useMemo(
+    () => completeChoiceSet(choices, catalogAll, resolved.chosen),
+    [choices, catalogAll, resolved],
+  )
 
   const [pending, setPending] = useState<StoredLine[] | null>(null)
 
@@ -160,85 +124,16 @@ export function VenueDetail() {
   )
 
   /**
-   * What the venue is SIZED on, versus what its list actually names.
-   *
-   * calculateBOM reads the inputs and the resolved catalog, never the stored
-   * lines, so a hand-edited line cannot change the rung, the port count or the
-   * PoE budget — it only changes what gets printed. mergeRecalculation leaves
-   * manual lines alone, deliberately, so the two can drift apart with nothing
-   * on screen saying so, and the printed sheet is where it would be found.
-   *
-   * Two ways they drift, and both are reported:
-   *
-   *   - the role's line still fills it but names a different item. The swap
-   *     control writes the venue's choice for a same-role swap now, so the
-   *     live way to reach this is gone; what remains is a line hand-swapped
-   *     before that delegation existed, and a role holding a second line. An
-   *     item that AGREES is not reported — a manual line freezes its quantity,
-   *     which is not this warning's business.
-   *
-   *   - the line was swapped to another role's item entirely. It keeps its new
-   *     roleKey and records the vacated one in originRoleKey (MaterialsTable's
-   *     swap()), so a plain roleKey match misses it — and it is the worse of
-   *     the two, because nothing on the list fills the role at all while the
-   *     venue is still sized as though something does.
-   *
-   * `resolved.chosen`, NOT the entry in choicesToSave, is what "sized on"
-   * means. choicesToSave deliberately carries the venue's STORED pin so a save
-   * cannot overwrite it, and the two disagree in exactly the state this warning
-   * is most likely to be read in: a pin whose item was deactivated sizes the
-   * venue on the fallback while the stored id still names the dead item.
-   * Comparing against the pin there reports a drift between two items the venue
-   * is not sized on either way, and stays silent on the line that really has
-   * drifted.
-   *
-   * A role can hold more than one manual line — a hand-edited formula line plus
-   * one added by hand — so the FIRST match is not good enough: it can agree
-   * while a second line prints an item the venue is not sized on. The one that
-   * actually drifted is the one worth naming.
+   * What the venue is SIZED on, versus what its list actually names. The two
+   * can drift with nothing on screen saying so, and the printed sheet is where
+   * it would be found. driftWarnings carries the two drift shapes, and why
+   * `resolved.chosen` — not the venue's stored pin — is the right side to
+   * compare against.
    */
-  const overridden = useMemo<Warning[]>(() => {
-    const byId = itemsById(catalogAll)
-    const warn = (message: string): Warning[] =>
-      [{ code: 'CHOICE_OVERRIDDEN', level: 'warn' as const, message }]
-
-    return choicesToSave.flatMap(c => {
-      const sizedId = resolved.chosen.get(c.roleKey)
-      // The role resolved to nothing at all. ROLE_NO_DEFAULT already says so,
-      // and there is no item to say the list disagrees with.
-      if (!sizedId) return []
-
-      const line = lines.find(
-        l => (l.roleKey === c.roleKey || l.originRoleKey === c.roleKey)
-          && l.source === 'manual' && !l.suppressed
-          && (l.roleKey !== c.roleKey || l.itemId !== sizedId),
-      )
-      if (!line) return []
-      const itemName = byId.get(line.itemId)?.name ?? 'its item'
-      const roleLabel = ROLE_LABELS[c.roleKey].toLowerCase()
-
-      if (line.roleKey === c.roleKey) {
-        const sizedName = byId.get(sizedId)?.name ?? 'another item'
-        return warn(
-          `The ${roleLabel} line on this list was edited by hand and still ` +
-          `names "${itemName}", but this venue is sized on "${sizedName}". ` +
-          'Remove the line and recalculate to bring the two back in step.',
-        )
-      }
-
-      // Naming the swap target's own role in parens when it has one: a line
-      // can land on a roleless item (a cable, say — roleKey null is a real
-      // state, not just the freshly-added case), and there is nothing to name
-      // there beyond the item itself.
-      return warn(
-        `The ${roleLabel} line on this list was hand-swapped to ` +
-        `"${itemName}"${line.roleKey ? ` (${ROLE_LABELS[line.roleKey].toLowerCase()})` : ''}, ` +
-        `so nothing on this list fills ${roleLabel} any more — though the ` +
-        'venue is still sized as if something does. Remove the line and ' +
-        'recalculate to bring it back.',
-      )
-    })
-  }, [choicesToSave, lines, catalogAll, resolved])
+  const overridden = useMemo(
+    () => driftWarnings(choicesToSave, lines, catalogAll, resolved.chosen),
+    [choicesToSave, lines, catalogAll, resolved],
+  )
 
   const warnings = [
     ...(result?.warnings ?? []), ...resolved.warnings, ...overridden,
@@ -350,28 +245,6 @@ export function VenueDetail() {
   const [conflict, setConflict] = useState<VenueConflictError | null>(null)
   const [unresolved, setUnresolved] = useState<StoredLine[] | null>(null)
 
-  /**
-   * Compared structurally against the current state rather than tracked with a
-   * flag: a flag has states that can go wrong, a comparison does not. Same
-   * reasoning as `result` and `warnings` being derived.
-   *
-   * `id` and `venueId` are excluded because mergeRecalculation mints
-   * `new:${roleKey}` ids with an empty venueId that can never equal what the RPC
-   * returns — comparing them would report dirty on every recalculation.
-   *
-   * `choicesToSave`, not `choices`: it is what the save writes, so it is what
-   * "unsaved" has to be measured against. Sorted, because the array's order
-   * comes from a Set iteration and a reordering that changes nothing must not
-   * read as an edit.
-   */
-  const projection = (
-    v: Venue | null, ls: StoredLine[], cs: VenueItemChoice[],
-  ) => JSON.stringify({
-    venue: v && { ...v, updatedAt: '', updatedByEmail: '', createdByEmail: '' },
-    lines: ls.map(({ id: _id, venueId: _v, ...rest }) => rest),
-    choices: [...cs].sort((a, b) => a.roleKey.localeCompare(b.roleKey)),
-  })
-
   const [saved, setSaved] = useState<string | null>(null)
 
   // Captured AFTER the auto-populate effect settles, not at load: a venue
@@ -391,11 +264,11 @@ export function VenueDetail() {
     // have to work out.
     if (venue && saved === null &&
         (result === null || lines.length > 0 || result.lines.length === 0)) {
-      setSaved(projection(venue, lines, choicesToSave))
+      setSaved(venueSnapshot(venue, lines, choicesToSave))
     }
   }, [venue, lines, result, saved, choicesToSave])
 
-  const dirty = saved !== null && saved !== projection(venue, lines, choicesToSave)
+  const dirty = saved !== null && saved !== venueSnapshot(venue, lines, choicesToSave)
 
   const [leaving, setLeaving] = useState(false)
 
@@ -458,7 +331,7 @@ export function VenueDetail() {
       // Without this the snapshot stays at pre-save state and the venue reads
       // as permanently dirty — the guard would then fire on every exit, and a
       // guard that always fires is one people learn to click through.
-      setSaved(projection(written.venue, written.lines, written.choices))
+      setSaved(venueSnapshot(written.venue, written.lines, written.choices))
       toast.success('Saved')
       return written
     } catch (e) {

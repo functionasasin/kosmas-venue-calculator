@@ -172,3 +172,53 @@ export function resolveCatalog(
 
   return { catalog: resolved, chosen, warnings }
 }
+
+/**
+ * A venue's FULL choice set, in the form save_venue wants. The RPC deletes and
+ * re-inserts, so anything missing here is DELETED — which makes this the one
+ * place a venue's pins can be silently lost.
+ *
+ * Two sources, unioned:
+ *
+ *   - every role that currently has more than one active item, pinned to
+ *     whatever it resolved to. This is what makes a venue that never chose
+ *     pin its default on first save, so a later default flip cannot move it.
+ *
+ *   - every role the venue already has a stored choice for. Necessary because
+ *     "has more than one active item" is a CURRENT fact and the invariant is a
+ *     historical one: deactivate the Dahua and replay_camera stops being
+ *     contested, so a set derived from the first source alone would drop the
+ *     pin on the next save of that venue for any unrelated reason — and
+ *     reactivating the Dahua later would find every venue silently following
+ *     the catalog default again.
+ *
+ * The venue's stored choice always wins over the resolution, including when
+ * that choice has been deactivated. `chosen` holds a FALLBACK in that case —
+ * the catalog default, or the sole remaining active item — and it exists to
+ * size and display the venue's list while the pick is broken, not to replace
+ * the pick. Saving the fallback over the stored id would silently swap the
+ * venue onto the catalog default the moment anything else triggers a save, and
+ * reactivating the item later would never undo it, because by then nothing on
+ * screen says the pin is gone. The stored choice is only ever replaced by the
+ * user actually picking something in a row's swap control.
+ *
+ * `chosen` only fills a role the venue has never pinned. A role that resolved
+ * to NOTHING keeps the venue's stored id untouched either way: ROLE_NO_DEFAULT
+ * is an admin problem, and throwing away the user's pick while they fix it
+ * would be destroying data that cannot be restored.
+ */
+export function completeChoiceSet(
+  stored: VenueItemChoice[],
+  catalog: Item[],
+  chosen: Map<RoleKey, string>,
+): VenueItemChoice[] {
+  const pinned = new Map(stored.map(c => [c.roleKey, c.itemId]))
+  const roles = new Set<RoleKey>([
+    ...multiOptionRoles(catalog).keys(),
+    ...pinned.keys(),
+  ])
+  return [...roles].flatMap(roleKey => {
+    const itemId = pinned.get(roleKey) ?? chosen.get(roleKey)
+    return itemId ? [{ roleKey, itemId }] : []
+  })
+}
