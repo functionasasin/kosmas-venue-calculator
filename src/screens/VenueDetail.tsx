@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { calculateBOM } from '@/calculator'
-import type { Item, VenueInputs } from '@/calculator/types'
+import type { VenueInputs } from '@/calculator/types'
 import type { Venue } from '@/data/venues'
-import { listItems } from '@/data/items'
-import type { VenueItemChoice } from '@/data/venueItemChoices'
 import { resolveCatalog, completeChoiceSet } from '@/lib/resolveCatalog'
 import { driftWarnings } from '@/lib/driftWarnings'
 import { venueSnapshot } from '@/lib/venueSnapshot'
@@ -13,11 +11,9 @@ import {
   mergeRecalculation, VenueConflictError, UnresolvedLinesError, VenueMissingError,
 } from '@/data/venueLines'
 import type { StoredLine } from '@/data/venueLines'
-// Storage, and only storage. Dispatch is on the venue's id, so which store a
-// venue lives in is not this screen's business — it never asks.
-import {
-  getVenue, listLines, listChoices, saveVenueAndLines, isLocalVenueId,
-} from '@/data/venueStore'
+// Storage, and only storage. The reads moved into useVenueLoad; what is left
+// here is the write, and the id-prefix predicate the dialogs ask.
+import { saveVenueAndLines, isLocalVenueId } from '@/data/venueStore'
 import { VenueInputsForm } from '@/components/VenueInputsForm'
 import { MaterialsTable } from '@/components/MaterialsTable'
 import { WarningsPanel } from '@/components/WarningsPanel'
@@ -28,6 +24,8 @@ import { BackToVenues } from '@/components/BackToVenues'
 import { SaveStatus, UnsavedStrip } from '@/components/SaveStatus'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useVenueLoad } from '@/hooks/useVenueLoad'
+import { useUnsavedGuard } from '@/hooks/useUnsavedGuard'
 import { useRole } from '@/auth/useRole'
 import { useAuth } from '@/auth/AuthProvider'
 import { toast } from 'sonner'
@@ -38,51 +36,12 @@ export function VenueDetail() {
   const navigate = useNavigate()
   const role = useRole()
   const { session } = useAuth()
-  const [venue, setVenue] = useState<Venue | null>(null)
-  // ONE catalog in state, everything else derived. `catalogAll` includes
-  // deactivated items so a saved line still renders its item's name; the
-  // collapsed view the formulas need is derived from it, not fetched again.
-  // Resolving twice would raise CHOICE_UNAVAILABLE twice and could only name
-  // the dead item on one of the two calls.
-  const [catalogAll, setCatalogAll] = useState<Item[]>([])
-  const [lines, setLines] = useState<StoredLine[]>([])
-  // The venue's STORED choices. Deliberately not normalised to the effective
-  // set on load: re-resolving against the stored value is what keeps
-  // CHOICE_UNAVAILABLE on screen until someone actually picks.
-  const [choices, setChoices] = useState<VenueItemChoice[]>([])
-  // Distinct from `venue === null`, which means "still loading". Conflating the
-  // two is what produced a permanent spinner for every failed load.
-  const [loadError, setLoadError] = useState<Error | null>(null)
-
-  /**
-   * Whether this screen has EVER had a session. A visitor who was anonymous
-   * from the start has lost nothing and must not meet the dialog below.
-   */
-  const hadSession = useRef(!!session)
-  const [signedOut, setSignedOut] = useState(false)
-
-  useEffect(() => {
-    // Only a DATABASE venue is affected. A local one keeps routing to
-    // localStorage under id dispatch and saves exactly as before — spec §3.12.
-    if (hadSession.current && !session && venue && !isLocalVenueId(venue.id)) {
-      setSignedOut(true)
-    }
-    hadSession.current = hadSession.current || !!session
-  }, [session, venue])
-
-  useEffect(() => {
-    if (!id) return
-    Promise.all([getVenue(id), listItems(!!session, true), listLines(id), listChoices(id)])
-      .then(([v, all, l, c]) => {
-        setVenue(v); setCatalogAll(all); setLines(l); setChoices(c)
-      })
-      .catch(e => setLoadError(e as Error))
-    // KEYED ON [id] AND NOTHING ELSE. Adding `session` re-runs setVenue,
-    // setLines and setChoices and DESTROYS UNSAVED EDITS on every hourly token
-    // refresh and on a sign-in in another tab. listItems' argument is
-    // deliberately allowed to go stale: the only thing a session changes about
-    // it is supplier and notes, neither of which this screen renders.
-  }, [id])
+  // Load, the session watch, and the two effects whose dependency arrays are
+  // the most dangerous lines on this screen — see useVenueLoad.
+  const {
+    venue, setVenue, catalogAll, lines, setLines, choices, setChoices,
+    loadError, signedOut, setSignedOut,
+  } = useVenueLoad(id, session)
 
   const resolved = useMemo(
     () => resolveCatalog(catalogAll, choices),
@@ -271,24 +230,10 @@ export function VenueDetail() {
 
   const [leaving, setLeaving] = useState(false)
 
-  // Set immediately before a navigation the user has ALREADY confirmed, so the
-  // browser does not stack its own "Leave site?" prompt on top — which phrases
-  // itself as a warning against the very thing they just chose.
-  const discarding = useRef(false)
-
-  // Tab close and reload. The in-app exit is the BackToVenues intercept below.
-  useEffect(() => {
-    if (!dirty) return
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (discarding.current) return
-      e.preventDefault()
-      // Chrome and Firefox honour preventDefault alone; Safari has historically
-      // needed returnValue, and without it the guard simply does not appear.
-      e.returnValue = ''
-    }
-    window.addEventListener('beforeunload', onBeforeUnload)
-    return () => window.removeEventListener('beforeunload', onBeforeUnload)
-  }, [dirty])
+  // Tab close and reload. The in-app exit is the BackToVenues intercept below,
+  // and `discarding` is what stops the browser stacking its own prompt on a
+  // navigation the user has already confirmed.
+  const discarding = useUnsavedGuard(dirty)
 
   /**
    * One transactional call. Previously this was saveVenue followed by saveLines —
