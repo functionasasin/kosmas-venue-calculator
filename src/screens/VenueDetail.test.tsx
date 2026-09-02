@@ -882,6 +882,42 @@ describe('the session ending while a venue is open', () => {
     expect(screen.queryByText(/signed out/i)).not.toBeInTheDocument()
   })
 
+  /**
+   * THE REASON useVenueLoad's effect is keyed on [id] and nothing else.
+   *
+   * A token refresh fires roughly hourly and hands down a NEW session object
+   * with the same user. Adding `session` to that dependency array — which is
+   * exactly what the standing exhaustive-deps warning asks for — re-runs the
+   * loader, and setVenue/setLines/setChoices then overwrite whatever the user
+   * has typed. It is silent, it is unrecoverable, and it happens to someone
+   * mid-edit rather than under test.
+   *
+   * The other three tests in this block change the session and assert on the
+   * signed-out dialog; none of them edits first, so all three stay green with
+   * `session` in the deps. This is the one that does not.
+   */
+  it('keeps unsaved edits when the session object is replaced', async () => {
+    const storeMod = await import('@/data/venueStore')
+    vi.mocked(storeMod.isLocalVenueId).mockReturnValue(false)
+    session.current = { user: { id: 'u1' }, access_token: 'first' }
+    const { rerender } = await renderDetail()
+
+    const courts = await screen.findByLabelText(/courts/i)
+    fireEvent.change(courts, { target: { value: '12' } })
+    // findAllByText: SaveStatus renders it in the toolbar AND as the mobile
+    // UnsavedStrip, so the singular query is ambiguous here.
+    expect(await screen.findAllByText(/unsaved changes/i)).not.toHaveLength(0)
+
+    // Still signed in, still the same user — only the token moved on. The
+    // signed-out watch must not fire either, which is why this asserts both.
+    session.current = { user: { id: 'u1' }, access_token: 'refreshed' }
+    await rerenderDetail(rerender)
+
+    expect(await screen.findByLabelText(/courts/i)).toHaveValue(12)
+    expect(screen.getAllByText(/unsaved changes/i)).not.toHaveLength(0)
+    expect(screen.queryByText(/signed out/i)).not.toBeInTheDocument()
+  })
+
   // §1.6's other half. Typing PT404 without this leaves the save path showing a
   // raw `venue_not_found` toast, which is what the clause exists to remove.
   it('explains a save into a venue that is no longer there', async () => {
