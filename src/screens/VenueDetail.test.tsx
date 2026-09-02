@@ -46,6 +46,18 @@ vi.mock('@/data/items', () => ({
 // classes), and it imports the client at module load, which throws without the
 // VITE_ env vars. No call below reaches it.
 vi.mock('@/lib/supabase', () => ({ supabase: {} }))
+// The exporter is FETCHED ON THE CLICK now — jsPDF, jspdf-autotable and the
+// base64 letterhead are ~474 kB that only this button reaches. Mocked here so
+// the tests below can drive both ends of that dynamic import; vi.mock
+// intercepts a dynamic import the same as a static one.
+vi.mock('@/pdf/exportMaterials', () => ({ exportMaterialsPdf: vi.fn() }))
+// Only the export path asserts on a toast, and only because the fetch above is
+// the one failure on this screen with no dialog of its own. `Toaster` is here
+// because ui/sonner re-exports it; nothing in this tree renders it.
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+  Toaster: () => null,
+}))
 vi.mock('@/auth/useRole', () => ({ useRole: () => 'admin' }))
 // Drivable, so a test can end the session mid-screen. Nothing on VenueDetail
 // reacted to it before, because App unmounted the whole tree on sign-out.
@@ -906,5 +918,71 @@ describe('SaveStatus on a local venue', () => {
     await renderDetail()
     const line = await screen.findByText(/Saved in this browser/)
     expect(line.closest('.bg-railhd')).toBeNull()
+  })
+})
+
+// The exporter moved behind a dynamic import so it stops riding in the entry
+// chunk (1194 kB -> 721 kB). That makes the click asynchronous for the first
+// time, which is the whole of what these three tests are about: it must still
+// reach the exporter with the same arguments, it must not wedge the button, and
+// a fetch that fails must say so rather than look like a dead control.
+describe('exporting the PDF', () => {
+  // This venue's saved lines are one UPS row against a full 8-court
+  // calculation, so the sheet is always stale and the button always routes
+  // through the dialog. Going straight for "Export anyway" is not a shortcut
+  // past that — it IS the second call site of doExport.
+  const exportAnyway = async () => {
+    fireEvent.click(await screen.findByRole('button', { name: 'Export PDF' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Export anyway' }))
+  }
+
+  it('still hands the exporter the venue, its lines and the full catalog', async () => {
+    await renderDetail()
+    await exportAnyway()
+
+    const { exportMaterialsPdf } = await import('@/pdf/exportMaterials')
+    await waitFor(() => expect(exportMaterialsPdf).toHaveBeenCalledTimes(1))
+    const call = vi.mocked(exportMaterialsPdf).mock.calls[0]
+    expect(call[0]).toBe('Tela Park')
+    expect(call[1]).toBe('Pro')
+    expect(call[2]).toEqual(savedLines)
+    // catalogAll, not the collapsed one: a saved line whose item was
+    // deactivated still has to name it on the sheet.
+    expect(call[3]).toBe(testCatalog)
+    // `Venue extends VenueInputs`, so the port plan is sized from the same
+    // object the inputs form edits — no adapter, and no second source of truth
+    // for courts.
+    expect(call[4]).toMatchObject({ courts: 8, tier: 'pro' })
+  })
+
+  it('says so when the exporter cannot be fetched', async () => {
+    const { exportMaterialsPdf } = await import('@/pdf/exportMaterials')
+    vi.mocked(exportMaterialsPdf).mockImplementationOnce(() => {
+      throw new Error('Failed to fetch dynamically imported module')
+    })
+    const { toast } = await import('sonner')
+
+    await renderDetail()
+    await exportAnyway()
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(toast.error).mock.calls[0][0])
+      .toMatch(/Could not export the PDF.*Failed to fetch/)
+  })
+
+  // The `finally` in doExport. Without it a single failed export disables the
+  // button for the rest of the session, which is a worse outcome than the
+  // unhandled rejection the catch was added to replace.
+  it('re-enables the button after a failed export', async () => {
+    const { exportMaterialsPdf } = await import('@/pdf/exportMaterials')
+    vi.mocked(exportMaterialsPdf).mockImplementationOnce(() => {
+      throw new Error('nope')
+    })
+
+    await renderDetail()
+    await exportAnyway()
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Export PDF' })).toBeEnabled())
   })
 })

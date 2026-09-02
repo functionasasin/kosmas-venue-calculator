@@ -1,8 +1,9 @@
+import { useMemo } from 'react'
 import type { Item } from '@/calculator/types'
 import type { RoleKey } from '@/calculator/roleKeys'
 import type { StoredLine } from '@/data/venueLines'
 import {
-  groupIntoSections, itemsById, itemsByRole, resolveLineItem, sectionForItem,
+  catalogIndex, groupIntoSections, resolveLineItem, sectionForItem,
 } from '@/lib/sections'
 import { multiOptionRoles } from '@/lib/resolveCatalog'
 import { Button } from '@/components/ui/button'
@@ -30,14 +31,19 @@ interface Props {
 export function MaterialsTable({
   lines, catalog, formulas, onChange, isAdmin, chosen, onPick,
 }: Props) {
+  // MEMOISED AS A GROUP, and this is the only component that re-derives them.
+  // Every one of these walks the whole catalog, none of them depends on
+  // anything but `catalog` and `chosen`, and this component re-renders on every
+  // keystroke in the inputs rail because the venue's state lives above it.
+  //
   // The venue's resolved choice decides which of several active items a role
   // resolves to. The catalog itself is NOT collapsed — the swap control must
   // still be able to offer the alternate.
-  const byRole = itemsByRole(catalog, chosen)
-  const byId = itemsById(catalog)
+  const index = useMemo(() => catalogIndex(catalog, chosen), [catalog, chosen])
+  const { byRole, byId } = index
   // Roles with more than one ACTIVE item — the ones a venue can genuinely
   // choose between. See swap() for why a pin is written for these alone.
-  const contested = multiOptionRoles(catalog)
+  const contested = useMemo(() => multiOptionRoles(catalog), [catalog])
 
   // UI visibility only — and now for a different reason than it was written
   // for. The old note justified this with "the venue_lines RLS policy grants
@@ -62,9 +68,8 @@ export function MaterialsTable({
   const hidden = (line: StoredLine) =>
     !isAdmin && isCabling(line.roleKey ? byRole.get(line.roleKey) : undefined)
 
-  const addable = catalog.filter(
-    i => i.isActive && i.roleKey && (isAdmin || !isCabling(i)),
-  )
+  // index.active is exactly `isActive && roleKey`, already computed above.
+  const addable = index.active.filter(i => isAdmin || !isCabling(i))
   const removed = lines.filter(l => l.suppressed && !hidden(l))
 
   // Sections are built from visible lines only, but every handler below maps
@@ -73,8 +78,22 @@ export function MaterialsTable({
   // filtered array reaching onChange would delete the omitted rows from the
   // database.
   const sections = groupIntoSections(
-    lines.filter(l => !l.suppressed && !hidden(l)), catalog, chosen,
+    lines.filter(l => !l.suppressed && !hidden(l)), byRole,
   )
+
+  // THE MEMOISATION STOPS AT THE CATALOG, deliberately, and the three lines
+  // above are where it stops. They were memoised and reverted: `sections` and
+  // `addable` are one pass over ~20 lines and ~37 items, against the ~60 whole
+  // catalog walks per keystroke that `index` removed, so the win is not
+  // measurable — and both close over `hidden`/`isCabling`, which are rebuilt
+  // every render, so honest dependency arrays cost a useCallback each and
+  // dishonest ones only trade this cost for a stale section list.
+  //
+  // Stable Section identities would matter if MaterialsSection were memoised.
+  // It is not, and making it so is a larger change than it looks: every row
+  // prop below is minted per render — the three handlers as inline closures,
+  // swapOptions as a fresh filtered array — so React.memo would never hit
+  // until all of them are stabilised too.
 
   const update = (id: string, patch: Partial<StoredLine>) =>
     onChange(lines.map(l => (l.id === id ? { ...l, ...patch, source: 'manual' } : l)))
@@ -211,12 +230,9 @@ export function MaterialsTable({
             <MaterialsSection
               key={section.id}
               section={section}
-              byRole={byRole}
-              byId={byId}
-              catalog={catalog}
+              index={index}
               formulas={formulas}
               isAdmin={isAdmin}
-              chosen={chosen}
               onUpdate={update}
               onSwap={swap}
               onRemove={remove}

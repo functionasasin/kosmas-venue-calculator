@@ -51,6 +51,15 @@ export function buildPdfBody(
    */
   noteRowIndices: Set<number>
 } {
+  // The two maps directly, NOT catalogIndex: that bundles the swap picker's
+  // `active` and `byFamily` views too, and this file has no picker to fill.
+  //
+  // `chosen` is omitted on purpose and it is not the same omission the screen
+  // would be making. resolveLineItem below resolves by ITEM ID first — the id
+  // the venue's choice already wrote onto the line — so byRole is reached only
+  // by a line that has never been saved, and asking which of a role's items the
+  // venue picked has no meaning for one. itemsByRole's own docblock names this
+  // caller as the reason that parameter is optional.
   const byId = itemsById(catalog)
   const byRole = itemsByRole(catalog)
 
