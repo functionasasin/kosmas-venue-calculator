@@ -1,27 +1,26 @@
 import { useState } from 'react'
-import type { Item } from '@/calculator/types'
 import type { StoredLine } from '@/data/venueLines'
-import type { Section } from '@/lib/sections'
+import type { CatalogIndex, Section } from '@/lib/sections'
 import { resolveLineItem, sectionForItem, swapOptionsFor } from '@/lib/sections'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { MaterialsRow } from './MaterialsRow'
 
 interface Props {
   section: Section
-  byRole: Map<string, Item>
-  /** Built once by MaterialsTable — this component is rendered per section. */
-  byId: Map<string, Item>
-  catalog: Item[]
+  /**
+   * Built once by MaterialsTable — this component is rendered per section and
+   * calls swapOptionsFor per row, which is why none of it is derived here.
+   */
+  index: CatalogIndex
   formulas: Map<string, string>
   isAdmin: boolean
-  chosen?: Map<string, string>
   onUpdate: (id: string, patch: Partial<StoredLine>) => void
   onSwap: (line: StoredLine, itemId: string) => void
   onRemove: (line: StoredLine) => void
 }
 
 export function MaterialsSection({
-  section, byRole, byId, catalog, formulas, isAdmin, chosen, onUpdate, onSwap, onRemove,
+  section, index, formulas, isAdmin, onUpdate, onSwap, onRemove,
 }: Props) {
   // Sections start expanded. State is local and not persisted: a section that
   // empties across a recalculation unmounts and loses it, which is fine —
@@ -65,14 +64,14 @@ export function MaterialsSection({
         <MaterialsRow
           key={line.id}
           line={line}
-          item={resolveLineItem(line, byId, byRole)}
+          item={resolveLineItem(line, index.byId, index.byRole)}
           formula={formulas.get(line.roleKey ?? '') ?? ''}
           // swapOptionsFor returns the whole active catalog when a line's item
           // doesn't resolve (an unrepairable line has to be repairable), which
           // for a non-admin would otherwise print cable item names into the
           // swap picker on a line that isn't even hidden. Filtering belongs
           // here, not in sections.ts — that function's behaviour is correct.
-          swapOptions={swapOptionsFor(line, catalog, chosen).filter(
+          swapOptions={swapOptionsFor(line, index).filter(
             i => isAdmin || sectionForItem(i) !== 'cabling',
           )}
           onUpdate={patch => onUpdate(line.id, patch)}

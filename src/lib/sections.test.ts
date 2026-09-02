@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest'
 import type { Item } from '@/calculator/types'
 import type { RoleKey } from '@/calculator/roleKeys'
 import type { StoredLine } from '@/data/venueLines'
-import { groupIntoSections, itemsByRole, sectionForItem, swapOptionsFor } from './sections'
+import {
+  catalogIndex, groupIntoSections, itemsByRole, sectionForItem, swapOptionsFor,
+} from './sections'
 
 /** Categories mirror supabase/seed/0003_catalog_seed.sql exactly. */
 const CATEGORY: Partial<Record<RoleKey, string>> = {
@@ -54,7 +56,7 @@ const proPodPlay8: StoredLine[] = [
 
 const counts = (lines: StoredLine[]) =>
   Object.fromEntries(
-    groupIntoSections(lines, catalog).map(s => [s.id, s.lines.length]),
+    groupIntoSections(lines, itemsByRole(catalog)).map(s => [s.id, s.lines.length]),
   )
 
 describe('section assignment', () => {
@@ -72,20 +74,20 @@ describe('section assignment', () => {
   })
 
   it('accounts for all 20 lines', () => {
-    const total = groupIntoSections(proPodPlay8, catalog)
+    const total = groupIntoSections(proPodPlay8, itemsByRole(catalog))
       .reduce((n, s) => n + s.lines.length, 0)
     expect(total).toBe(20)
   })
 
   it('orders sections rack, court, cabling, decide', () => {
-    expect(groupIntoSections(proPodPlay8, catalog).map(s => s.id))
+    expect(groupIntoSections(proPodPlay8, itemsByRole(catalog)).map(s => s.id))
       .toEqual(['rack', 'court', 'cabling', 'decide'])
   })
 
   // Array order is emission order. sortOrder is 0 on every freshly merged
   // line, so sorting by it would scramble an unsaved venue.
   it('keeps array order inside a section', () => {
-    const rack = groupIntoSections(proPodPlay8, catalog)
+    const rack = groupIntoSections(proPodPlay8, itemsByRole(catalog))
       .find(s => s.id === 'rack')!
     expect(rack.lines.map(l => l.roleKey)).toEqual([
       'gateway_udm_pro', 'switch_24_pro', 'patch_panel_24',
@@ -100,7 +102,7 @@ describe('the three overrides', () => {
   // unresolved" stops being a place you can look at.
   it('sends a TBD line to decide even though its category is network', () => {
     expect(sectionForItem(item('access_point', 'network'))).toBe('rack')
-    const decide = groupIntoSections(proPodPlay8, catalog)
+    const decide = groupIntoSections(proPodPlay8, itemsByRole(catalog))
       .find(s => s.id === 'decide')!
     expect(decide.lines.map(l => l.roleKey).sort())
       .toEqual(['access_point'])
@@ -112,24 +114,24 @@ describe('the three overrides', () => {
   it('sends an unrecognised category to decide', () => {
     const odd = [...catalog, item('flic', 'uncategorised')]
       .filter(i => i.roleKey !== 'flic' || i.category === 'uncategorised')
-    const grouped = groupIntoSections([line('flic', 18)], odd)
+    const grouped = groupIntoSections([line('flic', 18)], itemsByRole(odd))
     expect(grouped.map(s => s.id)).toEqual(['decide'])
   })
 
   it('sends a line with no resolvable item to decide', () => {
-    const grouped = groupIntoSections([line('security_camera', 4)], catalog)
+    const grouped = groupIntoSections([line('security_camera', 4)], itemsByRole(catalog))
     expect(grouped.map(s => s.id)).toEqual(['decide'])
   })
 })
 
 describe('empty sections', () => {
   it('omits a section with no lines rather than rendering it empty', () => {
-    const grouped = groupIntoSections([line('ups_1500va', 1)], catalog)
+    const grouped = groupIntoSections([line('ups_1500va', 1)], itemsByRole(catalog))
     expect(grouped.map(s => s.id)).toEqual(['rack'])
   })
 
   it('returns nothing for a venue with no lines', () => {
-    expect(groupIntoSections([], catalog)).toEqual([])
+    expect(groupIntoSections([], itemsByRole(catalog))).toEqual([])
   })
 })
 
@@ -156,7 +158,7 @@ describe('swap options', () => {
   // offered on the UPS line, because sections.ts folds power, network,
   // compute, storage and rack into one Rack band.
   it('offers a UPS line the other rungs and nothing else', () => {
-    const options = swapOptionsFor(line('ups_1500va', 1), fam)
+    const options = swapOptionsFor(line('ups_1500va', 1), catalogIndex(fam))
     expect(roles(options).sort()).toEqual(['ups_1500va', 'ups_3000va', 'ups_750va'])
     expect(roles(options)).not.toContain('mac_mini')
     expect(roles(options)).not.toContain('rack_12u')
@@ -166,7 +168,7 @@ describe('swap options', () => {
   // A gateway and a switch are both `network` items in the same section, and
   // neither is a substitute for the other.
   it('offers a gateway line the other gateway and no switches', () => {
-    const options = swapOptionsFor(line('gateway_udm_pro', 1), fam)
+    const options = swapOptionsFor(line('gateway_udm_pro', 1), catalogIndex(fam))
     expect(roles(options).sort()).toEqual(['gateway_udm_pro', 'gateway_udm_se'])
   })
 
@@ -174,7 +176,7 @@ describe('swap options', () => {
   // surveillance camera that only Autonomous+ carries — see CLAUDE.md on why
   // those two tiers are not interchangeable.
   it('keeps replay and security cameras in separate families', () => {
-    const options = swapOptionsFor(line('replay_camera', 8), fam)
+    const options = swapOptionsFor(line('replay_camera', 8), catalogIndex(fam))
     expect(options.map(i => i.id).sort())
       .toEqual(['id-replay_camera', 'id-replay_camera-2'])
     expect(roles(options)).not.toContain('security_camera')
@@ -184,7 +186,7 @@ describe('swap options', () => {
   // family — otherwise a TBD access point could only be swapped for the other
   // TBD line.
   it('constrains a TBD line by its item\u2019s family, not by decide', () => {
-    const options = swapOptionsFor(line('access_point', 'TBD'), fam)
+    const options = swapOptionsFor(line('access_point', 'TBD'), catalogIndex(fam))
     expect(options.map(i => i.id).sort())
       .toEqual(['id-access_point', 'id-access_point-2'])
   })
@@ -195,7 +197,7 @@ describe('swap options', () => {
   it('excludes deactivated items', () => {
     const withDead = fam.map(i =>
       i.id === 'id-display-2' ? { ...i, isActive: false } : i)
-    const options = swapOptionsFor(line('display', 8), withDead)
+    const options = swapOptionsFor(line('display', 8), catalogIndex(withDead))
     expect(options.map(i => i.id)).toEqual(['id-display'])
   })
 
@@ -207,7 +209,7 @@ describe('swap options', () => {
   it('offers the whole active catalog when the family has no active member', () => {
     const allDead = fam.map(i =>
       i.roleKey === 'replay_camera' ? { ...i, isActive: false } : i)
-    const options = swapOptionsFor(line('replay_camera', 8), allDead)
+    const options = swapOptionsFor(line('replay_camera', 8), catalogIndex(allDead))
     expect(options.length).toBe(fam.length - 2)
     expect(roles(options)).toContain('display')
   })
@@ -217,7 +219,7 @@ describe('swap options', () => {
   // make the error permanent. Uses the shared catalog, which has no
   // security_camera item for the line to resolve to.
   it('offers the whole active catalog to a line with no resolvable item', () => {
-    const options = swapOptionsFor(line('security_camera', 4), catalog)
+    const options = swapOptionsFor(line('security_camera', 4), catalogIndex(catalog))
     expect(options.length).toBe(catalog.length)
   })
 })

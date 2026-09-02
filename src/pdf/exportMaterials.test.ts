@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import type { Item } from '@/calculator/types'
 import type { RoleKey } from '@/calculator/roleKeys'
 import type { StoredLine } from '@/data/venueLines'
-import { groupIntoSections } from '@/lib/sections'
+import { groupIntoSections, itemsByRole } from '@/lib/sections'
 import { FOOTER_BAND, FOOTER_PNG, HEADER_PNG } from './letterhead'
 import { buildPdfBody, exportMaterialsPdf } from './exportMaterials'
 
@@ -134,7 +134,7 @@ describe('the exported body', () => {
   // the line is not lost, it is still on the screen waiting to be settled. If
   // this ever fails, the PDF is not hiding the line — the tool is losing it.
   it('leaves a dropped TBD line visible on the screen', () => {
-    const onScreen = groupIntoSections(lines, catalog)
+    const onScreen = groupIntoSections(lines, itemsByRole(catalog))
       .flatMap(s => s.lines).map(l => l.roleKey)
     expect(onScreen).toContain('access_point')
   })
@@ -181,7 +181,7 @@ describe('the exported body', () => {
     const divergent: StoredLine = {
       ...line('ups_1500va', 1), roleKey: 'flic', itemId: 'id-ups_1500va',
     }
-    expect(groupIntoSections([divergent], catalog)[0].label).toBe('Needs a decision')
+    expect(groupIntoSections([divergent], itemsByRole(catalog))[0].label).toBe('Needs a decision')
     expect(buildPdfBody([divergent], catalog).rows).toEqual([])
   })
 

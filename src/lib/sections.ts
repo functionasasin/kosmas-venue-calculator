@@ -128,11 +128,17 @@ export function itemsByRole(
  * lines only. Array order is preserved inside each section: that is the
  * engine's emission order, and it is what MaterialsTable already renders.
  * Do not sort by sortOrder; mergeRecalculation mints every line with 0.
+ *
+ * Takes the MAP, not the catalog it comes from. It used to take `(catalog,
+ * chosen)` and build the map itself, which meant its only caller in the app
+ * held that exact map already and paid to have a second one built beside it —
+ * and, worse, left the section a line lands in and the item that line RENDERS
+ * derived from two separate calls that a later `chosen` argument could put out
+ * of step.
  */
 export function groupIntoSections(
-  lines: StoredLine[], catalog: Item[], chosen?: Map<string, string>,
+  lines: StoredLine[], byRole: Map<string, Item>,
 ): Section[] {
-  const byRole = itemsByRole(catalog, chosen)
   const buckets = new Map<SectionId, StoredLine[]>()
 
   for (const line of lines) {
@@ -171,13 +177,60 @@ export function groupIntoSections(
  *     still names a retired item and the family is still known; it is just
  *     empty. Narrowing to it would replace one unrepairable row with another.
  */
-export function swapOptionsFor(
-  line: StoredLine, catalog: Item[], chosen?: Map<string, string>,
-): Item[] {
-  const active = catalog.filter(i => i.isActive && i.roleKey)
-  const item = line.roleKey ? itemsByRole(catalog, chosen).get(line.roleKey) : undefined
+export function swapOptionsFor(line: StoredLine, index: CatalogIndex): Item[] {
+  const item = line.roleKey ? index.byRole.get(line.roleKey) : undefined
   const target = familyOf(item?.roleKey)
-  if (!target) return active
-  const family = active.filter(i => familyOf(i.roleKey) === target)
-  return family.length > 0 ? family : active
+  if (!target) return index.active
+  // A family with no active member is never inserted by catalogIndex, so the
+  // `??` is the second fallback above and not a defensive default.
+  return index.byFamily.get(target) ?? index.active
+}
+
+/**
+ * The four views of a catalog the materials table reads, derived ONCE for the
+ * whole table rather than per row.
+ *
+ * swapOptionsFor used to take the raw catalog and rebuild its half of this on
+ * every call — a `catalog.filter` for `active`, a full `itemsByRole` map, and a
+ * second filter to narrow to the family. MaterialsSection calls it once per
+ * row, and MaterialsTable re-renders on every keystroke in the inputs rail
+ * because the venue's state lives above it, so a 20-line venue walked the
+ * 37-item catalog about 60 times per character typed, to answer a question
+ * whose answer had not changed.
+ *
+ * One object rather than four memos and four props for the second reason
+ * itemsByRole's own comment gives: with several active items on a role, which
+ * one wins depends on `chosen`, and two callers deriving that from different
+ * arguments is how the row's rendered name and its swap picker come to disagree
+ * about which SKU a line holds.
+ */
+export interface CatalogIndex {
+  /** Active items holding a role key — the fallback list, in catalog order. */
+  active: Item[]
+  /** `active` bucketed by role family. A family with no active member is absent. */
+  byFamily: Map<string, Item[]>
+  /** One item per role key, deactivated items included — see itemsByRole. */
+  byRole: Map<string, Item>
+  /** id -> item, over the whole catalog. */
+  byId: Map<string, Item>
+}
+
+export function catalogIndex(
+  catalog: Item[], chosen?: Map<string, string>,
+): CatalogIndex {
+  const active = catalog.filter(i => i.isActive && i.roleKey)
+  const byFamily = new Map<string, Item[]>()
+  for (const i of active) {
+    const family = familyOf(i.roleKey)
+    if (!family) continue
+    const held = byFamily.get(family)
+    if (held) held.push(i)
+    else byFamily.set(family, [i])
+  }
+  return {
+    active,
+    byFamily,
+    byRole: itemsByRole(catalog, chosen),
+    byId: itemsById(catalog),
+  }
 }

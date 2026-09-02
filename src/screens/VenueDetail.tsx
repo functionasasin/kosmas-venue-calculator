@@ -20,7 +20,6 @@ import {
 import { VenueInputsForm } from '@/components/VenueInputsForm'
 import { MaterialsTable } from '@/components/MaterialsTable'
 import { WarningsPanel } from '@/components/WarningsPanel'
-import { exportMaterialsPdf } from '@/pdf/exportMaterials'
 import { tierLabel } from '@/lib/tierLabel'
 import { Button } from '@/components/ui/button'
 import { BrandBlock } from '@/components/BrandBlock'
@@ -280,16 +279,43 @@ export function VenueDetail() {
   }, [result, lines.length])
 
   const [staleExport, setStaleExport] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
-  const doExport = () => {
-    if (!venue) return
+  /**
+   * FETCHED ON THE CLICK, not shipped in the entry chunk. jsPDF,
+   * jspdf-autotable and the base64 letterhead are ~474 kB of the build (169 kB
+   * gzipped) reachable from this one button on this one screen, and a static
+   * import put all of it in front of every visitor who only wanted to size a
+   * venue: the entry chunk was 1194 kB and is 721 kB with this import deferred.
+   *
+   * The catch is not decoration, and it covers the render as well as the fetch.
+   * The fetch is the one call on this screen that can fail for a reason
+   * unrelated to the venue — Pages serves hashed chunks, so a tab left open
+   * across a deploy asks for a file that is no longer there — and without the
+   * catch the button would silently do nothing. Leaving the render outside it
+   * would be worse than not catching at all: `exporting` would never clear and
+   * the button would stay disabled for the rest of the session.
+   */
+  const doExport = async () => {
+    if (!venue || exporting) return
     setStaleExport(false)
-    // `Venue extends VenueInputs`, so the venue satisfies the parameter with
-    // no adapter — and the port plan is then sized from the same object the
-    // inputs form edits.
-    exportMaterialsPdf(
-      venue.name, tierLabel(venue.tier), lines, catalogAll, venue,
-    )
+    setExporting(true)
+    try {
+      const { exportMaterialsPdf } = await import('@/pdf/exportMaterials')
+      // `Venue extends VenueInputs`, so the venue satisfies the parameter with
+      // no adapter — and the port plan is then sized from the same object the
+      // inputs form edits.
+      exportMaterialsPdf(
+        venue.name, tierLabel(venue.tier), lines, catalogAll, venue,
+      )
+    } catch (e) {
+      toast.error(
+        `Could not export the PDF: ${(e as Error).message}. ` +
+        'Reload the page and try again.',
+      )
+    } finally {
+      setExporting(false)
+    }
   }
 
   const onInputs = (inputs: VenueInputs) =>
@@ -520,9 +546,13 @@ export function VenueDetail() {
             )}
             {stale && <span className="sr-only">(inputs have changed)</span>}
           </Button>
-          <Button variant="outline" size="sm" className="h-auto bg-card px-[.55rem] py-[.25rem] text-[11px]"
+          {/* Disabled and relabelled for the chunk fetch above, which is the
+              only part of an export that is not synchronous. Without it a slow
+              connection reads as a dead button and gets clicked again. */}
+          <Button variant="outline" size="sm" disabled={exporting}
+            className="h-auto bg-card px-[.55rem] py-[.25rem] text-[11px]"
             onClick={() => (stale ? setStaleExport(true) : doExport())}>
-            Export PDF
+            {exporting ? 'Exporting…' : 'Export PDF'}
           </Button>
           <Button size="sm" disabled={saving}
             className="h-auto px-[.55rem] py-[.25rem] text-[11px]" onClick={() => save()}>
