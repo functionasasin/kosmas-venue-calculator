@@ -295,13 +295,30 @@ export function VenueDetail() {
    * catch the button would silently do nothing. Leaving the render outside it
    * would be worse than not catching at all: `exporting` would never clear and
    * the button would stay disabled for the rest of the session.
+   *
+   * TWO FAILURES, TWO MESSAGES, and `loaded` is what tells them apart. They
+   * want opposite things from the reader, so one message cannot serve both:
+   *
+   *   - The chunk did not load. Reloading is the ONLY cure and pressing the
+   *     button again can never work: a module that fails to load is recorded as
+   *     errored in the page's module map, so every later import() of it
+   *     re-rejects from memory without even re-requesting the file
+   *     (lazy-pdf-chunk.mjs measures exactly that). The browser's own text here
+   *     is `Failed to fetch dynamically imported module: <hashed url>` — jargon
+   *     plus an asset path, nothing the reader can act on — so it is dropped.
+   *
+   *   - The exporter loaded and then threw. Reloading changes nothing, a retry
+   *     is legitimate, and the thrown message is the only diagnostic there is,
+   *     so it is kept and no reload is suggested.
    */
   const doExport = async () => {
     if (!venue || exporting) return
     setStaleExport(false)
     setExporting(true)
+    let loaded = false
     try {
       const { exportMaterialsPdf } = await import('@/pdf/exportMaterials')
+      loaded = true
       // `Venue extends VenueInputs`, so the venue satisfies the parameter with
       // no adapter — and the port plan is then sized from the same object the
       // inputs form edits.
@@ -309,10 +326,10 @@ export function VenueDetail() {
         venue.name, tierLabel(venue.tier), lines, catalogAll, venue,
       )
     } catch (e) {
-      toast.error(
-        `Could not export the PDF: ${(e as Error).message}. ` +
-        'Reload the page and try again.',
-      )
+      toast.error(loaded
+        ? `Could not export the PDF: ${(e as Error).message}`
+        : 'The PDF exporter could not be loaded. This usually means the app ' +
+          'was updated while this tab was open — reload the page and try again.')
     } finally {
       setExporting(false)
     }
