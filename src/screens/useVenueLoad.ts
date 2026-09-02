@@ -9,7 +9,21 @@ import { listItems } from '@/data/items'
 // venue lives in is not this hook's business — it never asks.
 import { getVenue, listLines, listChoices, isLocalVenueId } from '@/data/venueStore'
 
-/** Everything a venue screen loads, plus the setters that edit it in place. */
+/**
+ * Everything VenueDetail loads, plus the setters that edit it in place.
+ *
+ * Be honest about what this is: the screen's whole top-level mutable state,
+ * relocated — NOT an encapsulating boundary. Four of these setters are called
+ * from six places that have nothing to do with loading (a form edit, a catalog
+ * pick, the post-save write-back, a conflict rebase, applying a recalculation,
+ * suppressing a row), and the hook does not police any of them.
+ *
+ * A tighter shape exists — return `{ data, error, signedOut }` and let the
+ * screen own its own useState — and it was rejected: it puts a seeding effect
+ * back in VenueDetail, and a seeding effect that re-runs is the exact bug the
+ * [id]-only array below exists to prevent. This trades a clean boundary for
+ * keeping the two dangerous effects in one file that can be read in one sitting.
+ */
 export interface LoadedVenue {
   venue: Venue | null
   setVenue: React.Dispatch<React.SetStateAction<Venue | null>>
@@ -42,6 +56,12 @@ export interface LoadedVenue {
 /**
  * One fetch of a venue and everything the screen needs to render it, plus the
  * watch for the session disappearing underneath it.
+ *
+ * Lives beside VenueDetail.tsx rather than in src/hooks/ because it has exactly
+ * one consumer and is coupled to the venue domain through its whole surface.
+ * The repo's precedent is colocation: auth/useRole.ts sits next to the provider
+ * it wraps despite having three consumers. src/hooks/ is for hooks with no
+ * domain at all — useUnsavedGuard is the one that qualifies.
  *
  * `setCatalogAll` is deliberately NOT returned: the load is the only thing that
  * may set the catalog, and handing out a setter would invite a second write
