@@ -142,12 +142,11 @@ export function Venues() {
             // overrides the native link role instead of restoring it. Applying
             // the variants directly keeps the anchor a plain anchor.
             <Link to="/catalog"
-              className={cn(buttonVariants({ variant: 'outline', size: 'sm' }),
-                'h-auto bg-card px-[.55rem] py-[.25rem] text-[11px]')}>
+              className={cn(buttonVariants({ variant: 'outline', size: 'toolbar' }), 'bg-card')}>
               Catalog
             </Link>
           )}
-          <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+          <Button size="toolbar"
             disabled={blocked}
             title={blocked ? 'This browser is blocking site storage' : undefined}
             onClick={() => setCreating(true)}>
@@ -169,7 +168,7 @@ export function Venues() {
               VenueDetail and Catalog have no session control, and an admin on
               either navigates back here. */}
           {session && (
-            <Button variant="ghost" size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+            <Button variant="ghost" size="toolbar"
               onClick={signOut}>
               Sign out
             </Button>

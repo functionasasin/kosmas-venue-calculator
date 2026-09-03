@@ -97,7 +97,7 @@ export function Catalog() {
         <h1 className="text-lg font-semibold tracking-tight">Catalog</h1>
         <div className="flex gap-1.5">
           <ThemeToggle />
-          <Button size="sm" className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+          <Button size="toolbar"
             onClick={() => setEditing('new')}>
             Add item
           </Button>

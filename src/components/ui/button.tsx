@@ -28,6 +28,19 @@ const buttonVariants = cva(
           "h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
         xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
+        // The app's own size, not shadcn's: every control in the three screens'
+        // sticky h-13 bars, plus ThemeToggle. It was written eight times as
+        // `size="sm"` plus `h-auto px-[.55rem] py-[.25rem] text-[11px]`, which
+        // is a size variant spelled as an override — and one that any of the
+        // eight could drift from. This is that merged result, so the rendering
+        // is unchanged.
+        //
+        // Geometry ONLY. `bg-card` rides along on some of these and not others
+        // (the outline buttons that sit on the card ground) and is a real
+        // difference, so it stays at the call site rather than being folded in
+        // here where it would repaint the solid ones.
+        toolbar:
+          "h-auto gap-1 rounded-[min(var(--radius-md),12px)] px-[.55rem] py-[.25rem] text-[11px] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
         icon: "size-8",
         "icon-xs":
