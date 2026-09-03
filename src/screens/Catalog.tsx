@@ -200,7 +200,7 @@ export function Catalog() {
       <Dialog open={editing !== null} onOpenChange={o => !o && setEditing(null)}>
         {/* The form is taller than a laptop viewport; without this the Save
             button sits below the fold with nothing to scroll. */}
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>{editing === 'new' ? 'Add item' : 'Edit item'}</DialogTitle>
           </DialogHeader>
