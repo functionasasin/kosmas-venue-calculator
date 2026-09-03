@@ -8,7 +8,7 @@ import { useRole } from '@/auth/useRole'
 import { tierLabel, TIERS } from '@/lib/tierLabel'
 import { useAuth } from '@/auth/AuthProvider'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { cn, microLabel } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -180,13 +180,13 @@ export function Venues() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="h-7 pl-4 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+              <TableHead className={cn('h-7 pl-4', microLabel)}>
                 Name
               </TableHead>
-              <TableHead className="h-7 w-28 text-right text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+              <TableHead className={cn('h-7 w-28 text-right', microLabel)}>
                 Courts
               </TableHead>
-              <TableHead className="h-7 w-48 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+              <TableHead className={cn('h-7 w-48', microLabel)}>
                 Tier
               </TableHead>
               <TableHead className="h-7 w-24 pr-4" />

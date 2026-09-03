@@ -7,6 +7,7 @@ import {
 } from '@/lib/sections'
 import { multiOptionRoles } from '@/lib/resolveCatalog'
 import { Button } from '@/components/ui/button'
+import { cn, microLabel } from '@/lib/utils'
 import {
   Table, TableBody, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -213,13 +214,13 @@ export function MaterialsTable({
       <Table className="table-auto lg:table-fixed">
         <TableHeader className="max-sm:hidden">
           <TableRow>
-            <TableHead className="h-7 pl-4 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+            <TableHead className={cn('h-7 pl-4', microLabel)}>
               Item / Model
             </TableHead>
-            <TableHead className="hidden h-7 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground lg:table-cell lg:w-[26%]">
+            <TableHead className={cn('hidden h-7  lg:table-cell lg:w-[26%]', microLabel)}>
               Formula
             </TableHead>
-            <TableHead className="h-7 w-[110px] pr-4 text-right text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground lg:pr-2">
+            <TableHead className={cn('h-7 w-[110px] pr-4 text-right  lg:pr-2', microLabel)}>
               Qty
             </TableHead>
             <TableHead className="hidden h-7 lg:table-cell lg:w-24 lg:pr-4" />

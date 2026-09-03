@@ -3,6 +3,7 @@ import { allowsSecurityCameras, allowsKisiDoors } from '@/calculator/gates'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { microLabel } from '@/lib/utils'
 import { tierLabel, TIERS } from '@/lib/tierLabel'
 
 /**
@@ -47,7 +48,7 @@ export function VenueInputsForm({ value, onChange }: Props) {
   // pick up shadcn's border-input (--input, 1.34:1); both are accepted
   // deviations in the spec (§4). The focus ring carries at 7.86:1.
   const selectClass = 'h-8 w-full rounded-md border bg-card px-2 py-1 text-sm'
-  const lb = 'text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground'
+  const lb = microLabel
   // A disabled field with no explanation reads as broken, so each one carries
   // the tier that would enable it. aria-describedby, not a title: the reason has
   // to reach a screen reader, and a disabled input never receives hover.
