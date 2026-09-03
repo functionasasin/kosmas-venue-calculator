@@ -404,7 +404,7 @@ export function VenueDetail() {
       </div>
 
       <Dialog open={staleExport} onOpenChange={setStaleExport}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader><DialogTitle>Inputs changed since this list was calculated</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">
             These lines still reflect the inputs as they were at the last
@@ -424,7 +424,7 @@ export function VenueDetail() {
       </Dialog>
 
       <Dialog open={pending !== null} onOpenChange={o => !o && setPending(null)}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader><DialogTitle>Apply recalculation?</DialogTitle></DialogHeader>
           {diff.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nothing would change.</p>
@@ -458,7 +458,7 @@ export function VenueDetail() {
           the `leaving` guard, so the edits would disappear with nothing on
           screen having said they were at risk. */}
       <Dialog open={signedOut}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader><DialogTitle>You have been signed out</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">
             This venue is stored in the database, so saving it needs a signed-in
@@ -476,7 +476,7 @@ export function VenueDetail() {
       </Dialog>
 
       <Dialog open={conflict !== null} onOpenChange={o => !o && setConflict(null)}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>
               {venue && isLocalVenueId(venue.id)
@@ -529,7 +529,7 @@ export function VenueDetail() {
       </Dialog>
 
       <Dialog open={unresolved !== null} onOpenChange={o => !o && setUnresolved(null)}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader><DialogTitle>Some lines point at no catalog item</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">
             Nothing was saved. This usually means the item for a role was
@@ -567,7 +567,7 @@ export function VenueDetail() {
       </Dialog>
 
       <Dialog open={leaving} onOpenChange={setLeaving}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader><DialogTitle>You have unsaved changes</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">
             Nothing on this page is saved until you press Save. Leaving now discards

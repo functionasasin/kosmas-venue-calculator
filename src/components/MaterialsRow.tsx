@@ -230,7 +230,7 @@ export function MaterialsRow({
       </TableCell>
 
       <Dialog open={actions} onOpenChange={setActions}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>{item?.name ?? line.roleKey}</DialogTitle>
           </DialogHeader>

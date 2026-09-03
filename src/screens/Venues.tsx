@@ -248,7 +248,7 @@ export function Venues() {
       </div>
 
       <Dialog open={deleting !== null} onOpenChange={o => !o && setDeleting(null)}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader><DialogTitle>Delete “{deleting?.name}”?</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">
             This also deletes its materials list, including any lines edited by
@@ -266,7 +266,7 @@ export function Venues() {
       </Dialog>
 
       <Dialog open={creating} onOpenChange={setCreating}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader><DialogTitle>New venue</DialogTitle></DialogHeader>
           <form onSubmit={create} className="space-y-4">
             <div className="space-y-2">
