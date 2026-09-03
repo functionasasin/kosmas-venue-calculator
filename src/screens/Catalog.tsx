@@ -12,6 +12,7 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 import { BackToVenues } from '@/components/BackToVenues'
 import { BrandBlock } from '@/components/BrandBlock'
 import { toast } from 'sonner'
+import { cn, microLabel } from '@/lib/utils'
 
 /**
  * How this item is powered and how much it draws. Both numbers feed one sum in
@@ -130,19 +131,19 @@ export function Catalog() {
         <Table className="min-w-[640px]">
           <TableHeader>
             <TableRow>
-              <TableHead className="h-7 pl-4 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+              <TableHead className={cn('h-7 pl-4', microLabel)}>
                 Name
               </TableHead>
-              <TableHead className="h-7 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+              <TableHead className={cn('h-7', microLabel)}>
                 Category
               </TableHead>
-              <TableHead className="h-7 text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+              <TableHead className={cn('h-7', microLabel)}>
                 Role key
               </TableHead>
-              <TableHead className="h-7 text-right text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+              <TableHead className={cn('h-7 text-right', microLabel)}>
                 Power
               </TableHead>
-              <TableHead className="h-7 text-right text-[10px] font-medium uppercase tracking-[.04em] text-muted-foreground">
+              <TableHead className={cn('h-7 text-right', microLabel)}>
                 Rack U
               </TableHead>
               <TableHead className="w-72 pr-4" />
