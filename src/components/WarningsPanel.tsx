@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
+import { ChevronDownIcon } from 'lucide-react'
 import type { Warning } from '@/calculator/types'
 
 const STYLES: Record<Warning['level'], string> = {
@@ -56,12 +56,23 @@ export function WarningsPanel({ warnings }: { warnings: Warning[] }) {
           {w.message}
         </div>
       ))}
+      {/* Not ui/button: `outline` fills with --background and `ghost` has no
+          border and fills on aria-expanded, and this control sits inside the
+          panel rather than in a toolbar. It is quiet on purpose — a filled pill
+          reads as the most important thing in the rail, which it is not. Styled
+          against the checks above it, the way they are styled. */}
       {collapsible && (
-        <Button variant="outline" size="xs" aria-expanded={expanded}
-          className="w-full justify-center text-muted-foreground"
-          onClick={() => setExpanded(v => !v)}>
+        <button type="button" aria-expanded={expanded}
+          onClick={() => setExpanded(v => !v)}
+          className="flex w-full items-center justify-center gap-1 rounded-md
+                     border border-border px-2 py-[.3rem] text-[11px]
+                     text-muted-foreground transition-colors outline-none
+                     hover:bg-foreground/5 hover:text-foreground
+                     focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
           {expanded ? 'Show less' : `Show ${hidden} more`}
-        </Button>
+          <ChevronDownIcon aria-hidden
+            className={`size-3 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        </button>
       )}
     </div>
   )
