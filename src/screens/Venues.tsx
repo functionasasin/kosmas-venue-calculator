@@ -5,7 +5,7 @@ import { storageAvailable, type UnreadableVenue } from '@/data/localVenues'
 import type { Venue } from '@/data/venues'
 import type { Tier } from '@/calculator/types'
 import { useRole } from '@/auth/useRole'
-import { tierLabel, TIERS } from '@/lib/tierLabel'
+import { tierLabel } from '@/lib/tierLabel'
 import { useAuth } from '@/auth/AuthProvider'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { cn, microLabel } from '@/lib/utils'
@@ -17,6 +17,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { BrandBlock } from '@/components/BrandBlock'
+import { TierSelect } from '@/components/TierSelect'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 
@@ -292,14 +293,8 @@ export function Venues() {
                 Inputs above it. */}
             <div className="space-y-2">
               <Label htmlFor="venueTier">Tier</Label>
-              <select id="venueTier"
-                className="w-full rounded-md border bg-card p-2 text-sm"
-                value={tier}
-                onChange={e => setTier(e.target.value as Tier)}>
-                {TIERS.map(t => (
-                  <option key={t} value={t}>{tierLabel(t)}</option>
-                ))}
-              </select>
+              <TierSelect id="venueTier" value={tier} onChange={setTier}
+                className="w-full rounded-md border bg-card p-2 text-sm" />
             </div>
             <Button type="submit">Create</Button>
           </form>

@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { microLabel } from '@/lib/utils'
-import { tierLabel, TIERS } from '@/lib/tierLabel'
+import { TierSelect } from '@/components/TierSelect'
 
 /**
  * Inputs only. A "Hardware" group used to sit under them — one picker per role
@@ -70,12 +70,8 @@ export function VenueInputsForm({ value, onChange }: Props) {
         </div>
         <div className="space-y-1">
           <Label htmlFor="tier" className={lb}>Tier</Label>
-          <select id="tier" className={selectClass} value={value.tier}
-            onChange={e => setTier(e.target.value as Tier)}>
-            {TIERS.map(t => (
-              <option key={t} value={t}>{tierLabel(t)}</option>
-            ))}
-          </select>
+          <TierSelect id="tier" className={selectClass} value={value.tier}
+            onChange={setTier} />
         </div>
         <div className="space-y-1">
           <Label htmlFor="secCams" className={lb}>Security cameras</Label>
