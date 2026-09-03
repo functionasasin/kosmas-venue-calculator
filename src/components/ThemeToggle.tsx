@@ -25,8 +25,7 @@ export function ThemeToggle() {
   return (
     <Button
       variant="ghost"
-      size="sm"
-      className="h-auto px-[.55rem] py-[.25rem] text-[11px]"
+      size="toolbar"
       aria-label={mounted ? `Switch to ${next} theme` : 'Switch theme'}
       onClick={() => setTheme(next)}
     >

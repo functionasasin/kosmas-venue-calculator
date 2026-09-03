@@ -369,7 +369,7 @@ export function VenueDetail() {
           <SaveStatus dirty={dirty} updatedByEmail={venue.updatedByEmail}
             updatedAt={venue.updatedAt} local={isLocalVenueId(venue.id)} />
           <ThemeToggle />
-          <Button variant="outline" size="sm" className="h-auto bg-card px-[.55rem] py-[.25rem] text-[11px]"
+          <Button variant="outline" size="toolbar" className="bg-card"
             onClick={recalculate}>
             Recalculate
             {/* The table is stale relative to the inputs. Marking the button is
@@ -382,13 +382,11 @@ export function VenueDetail() {
           {/* Disabled and relabelled for the chunk fetch above, which is the
               only part of an export that is not synchronous. Without it a slow
               connection reads as a dead button and gets clicked again. */}
-          <Button variant="outline" size="sm" disabled={exporting}
-            className="h-auto bg-card px-[.55rem] py-[.25rem] text-[11px]"
+          <Button variant="outline" size="toolbar" disabled={exporting} className="bg-card"
             onClick={() => (stale ? setStaleExport(true) : doExport())}>
             {exporting ? 'Exporting…' : 'Export PDF'}
           </Button>
-          <Button size="sm" disabled={saving}
-            className="h-auto px-[.55rem] py-[.25rem] text-[11px]" onClick={() => save()}>
+          <Button size="toolbar" disabled={saving} onClick={() => save()}>
             {saving ? 'Saving…' : 'Save'}
           </Button>
         </div>
