@@ -608,6 +608,11 @@ describe('per-venue hardware choice', () => {
     )
 
     await renderDetail()
+    // WarningsPanel shows two checks and folds the rest away, and this venue
+    // emits more than two, so the panel has to be opened before the warning
+    // can be read. It sorts by level and CHOICE_UNAVAILABLE is a `warn`, so
+    // there is no rank that would carry it into the visible pair.
+    fireEvent.click(await screen.findByRole('button', { name: /show \d+ more/i }))
     // Not /Dahua 5459T/: that name also renders in the materials row's swap
     // picker as the inactive fallback, so it is on screen whether or not the
     // warning ever fires. The warning's own wording is what CHOICE_UNAVAILABLE
