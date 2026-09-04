@@ -62,9 +62,15 @@ export function VenueInputsForm({ value, onChange }: Props) {
         Inputs
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-1">
+        {/* step="1" on the three counts binds the steppers and marks a typed
+            "2.5" invalid. It does NOT stop one being typed or pasted — nothing
+            in HTML does — so it is a declaration of what the field holds, not
+            the guarantee. evaluateGates is the guarantee, and it has to be:
+            these values also arrive from a saved local venue, which never
+            passes through this form at all. */}
         <div className="space-y-1">
           <Label htmlFor="courts" className={lb}>Courts</Label>
-          <Input id="courts" type="number" min="1" value={value.courts}
+          <Input id="courts" type="number" min="1" step="1" value={value.courts}
             className="h-8 bg-card"
             onChange={e => set('courts', Number(e.target.value))} />
         </div>
@@ -75,7 +81,7 @@ export function VenueInputsForm({ value, onChange }: Props) {
         </div>
         <div className="space-y-1">
           <Label htmlFor="secCams" className={lb}>Security cameras</Label>
-          <Input id="secCams" type="number" min="0" value={value.securityCameras}
+          <Input id="secCams" type="number" min="0" step="1" value={value.securityCameras}
             disabled={!camerasOn}
             aria-describedby={camerasOn ? undefined : 'secCamsHint'}
             className={fieldClass(camerasOn)}
@@ -86,7 +92,7 @@ export function VenueInputsForm({ value, onChange }: Props) {
         </div>
         <div className="space-y-1">
           <Label htmlFor="kisi" className={lb}>Kisi doors</Label>
-          <Input id="kisi" type="number" min="0" value={value.kisiDoors}
+          <Input id="kisi" type="number" min="0" step="1" value={value.kisiDoors}
             disabled={!doorsOn}
             aria-describedby={doorsOn ? undefined : 'kisiHint'}
             className={fieldClass(doorsOn)}

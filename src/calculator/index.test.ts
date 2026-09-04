@@ -117,6 +117,19 @@ describe('edge cases', () => {
   it('always emits the access point warning', () => {
     expect(run(pro(8)).codes).toContain('ACCESS_POINTS_MANUAL')
   })
+
+  // The gate is what stops this, but the property worth pinning is the one a
+  // buyer would see: NO LINES AT ALL. A fractional count used to produce a
+  // complete, warning-free list carrying 2.5 iPads and 9.5 cables — and the
+  // port drawing floors its quantities (portPlan.ts), so page 1 said 2.5 while
+  // page 2 drew two courts of gear. One document contradicting itself is worse
+  // than a blocked one, which is why this asserts on lines rather than on the
+  // warning code alone.
+  it('emits no materials list at all for a fractional court count', () => {
+    const r = run(pro(2.5))
+    expect(r.lines).toEqual([])
+    expect(r.codes).toEqual(['INPUT_INCONSISTENT'])
+  })
 })
 
 // venue-sizing.md § Kisi port accounting. `Cost Analysis!F7` bands switch

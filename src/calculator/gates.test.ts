@@ -117,6 +117,68 @@ describe('evaluateGates', () => {
     expect(evaluateGates({ ...base, courts: 0 }).blocked).toBe(true)
   })
 
+  // `<input type="number" min="1">` constrains the steppers, not typing or
+  // pasting, so a fractional count reaches the engine intact. Every per-court
+  // line is `= courts`, so 2.5 courts sizes 2.5 iPads, 2.5 Apple TVs and 2.5
+  // displays onto a list someone orders from. The gate blocks rather than
+  // rounding: flooring would invent a court count nobody entered, and the
+  // spreadsheet's own habit of deferring a number it cannot derive is the one
+  // this codebase follows.
+  it('rejects a fractional court count, which would order half an iPad', () => {
+    const r = evaluateGates({ ...base, courts: 2.5 })
+    expect(r.blocked).toBe(true)
+    expect(r.warnings[0].code).toBe('INPUT_INCONSISTENT')
+  })
+
+  it('rejects a fractional door count, which would order half a reader', () => {
+    const r = evaluateGates({
+      ...base, tier: 'autonomous', kisiDoors: 2.5,
+    })
+    expect(r.blocked).toBe(true)
+    expect(r.warnings[0].code).toBe('INPUT_INCONSISTENT')
+  })
+
+  it('rejects a fractional camera count, which would order half a camera', () => {
+    const r = evaluateGates({
+      ...base, tier: 'autonomous_plus', kisiDoors: 2, securityCameras: 3.5,
+    })
+    expect(r.blocked).toBe(true)
+    expect(r.warnings[0].code).toBe('INPUT_INCONSISTENT')
+  })
+
+  // A negative count passes every existing gate, because they all test `> 0`.
+  // It is worse than a fractional one: it emits no line for the hardware, so
+  // nothing on screen looks wrong, while `totalPorts` is courts + cameras and
+  // silently shrinks — which is the term that picks the switch. A venue could
+  // be handed a 24-port switch it cannot wire.
+  it('rejects a negative camera count, which silently undersizes the switch', () => {
+    const r = evaluateGates({
+      ...base, tier: 'autonomous_plus', kisiDoors: 2, securityCameras: -6,
+    })
+    expect(r.blocked).toBe(true)
+    expect(r.warnings[0].code).toBe('INPUT_INCONSISTENT')
+  })
+
+  // NaN and Infinity cannot arrive from the form — a number input yields '' for
+  // anything unparseable, and Number('') is 0 — but they are one predicate away
+  // from the fractional case and a saved local venue is plain JSON. Number
+  // .isInteger is false for both, so the gate covers them without a second rule.
+  it('rejects a court count that is not a number at all', () => {
+    for (const courts of [NaN, Infinity]) {
+      expect(evaluateGates({ ...base, courts }).blocked).toBe(true)
+    }
+  })
+
+  // The counts are checked before the tier rules so that the message names the
+  // thing actually wrong. A fractional door count on Pro is two faults at once,
+  // and "doors apply to Autonomous only" sends someone to change the tier when
+  // the number is what will not work at any tier.
+  it('reports an unusable count ahead of the tier rule it also breaks', () => {
+    const r = evaluateGates({ ...base, tier: 'pro', kisiDoors: 2.5 })
+    expect(r.blocked).toBe(true)
+    expect(r.warnings[0].message).toMatch(/whole number/i)
+  })
+
   it('rejects an Autonomous venue with no Kisi doors, which would pick the wrong gateway', () => {
     const r = evaluateGates({ ...base, tier: 'autonomous', kisiDoors: 0 })
     expect(r.blocked).toBe(true)
