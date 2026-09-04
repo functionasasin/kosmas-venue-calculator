@@ -113,6 +113,40 @@ describe('evaluateGates', () => {
       .not.toContain('TIER_LEAD_TIME')
   })
 
+  // The lead-time note named "Kisi hardware, NVRs and security cameras" on
+  // every tier that got it, so a plain Autonomous venue — access control only,
+  // by definition — was told to allow shipping time for surveillance it does
+  // not include. Same failure as TIER_RACK_UNDERSIZED's above, which is already
+  // split per tier; this one was not. A procurement note naming hardware the
+  // venue has not bought is how someone ends up waiting on a shipment that was
+  // never coming.
+  it('names only Kisi on Autonomous, which has no surveillance to wait for', () => {
+    const r = evaluateGates({ ...base, tier: 'autonomous', kisiDoors: 2 })
+    expect(warningText(r, 'TIER_LEAD_TIME')).toMatch(/Kisi/)
+    expect(warningText(r, 'TIER_LEAD_TIME')).not.toMatch(/NVR|camera/i)
+  })
+
+  // Autonomous+ is the case the tier-keyed version got wrong in the other
+  // direction: the tier permits cameras but does not require them, so a venue
+  // sitting at zero was told about cameras it had not ordered. The count is
+  // what decides, not the tier.
+  it('names no cameras on an Autonomous+ venue that has none', () => {
+    const r = evaluateGates({
+      ...base, tier: 'autonomous_plus', kisiDoors: 2, securityCameras: 0,
+    })
+    expect(warningText(r, 'TIER_LEAD_TIME')).toMatch(/Kisi/)
+    expect(warningText(r, 'TIER_LEAD_TIME')).not.toMatch(/NVR|camera/i)
+  })
+
+  it('names the cameras and the NVR once an Autonomous+ venue has them', () => {
+    const r = evaluateGates({
+      ...base, tier: 'autonomous_plus', kisiDoors: 2, securityCameras: 12,
+    })
+    expect(warningText(r, 'TIER_LEAD_TIME')).toMatch(/Kisi/)
+    expect(warningText(r, 'TIER_LEAD_TIME')).toMatch(/camera/i)
+    expect(warningText(r, 'TIER_LEAD_TIME')).toMatch(/NVR/)
+  })
+
   it('rejects zero courts', () => {
     expect(evaluateGates({ ...base, courts: 0 }).blocked).toBe(true)
   })
