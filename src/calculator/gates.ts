@@ -218,14 +218,43 @@ export function evaluateGates(inputs: VenueInputs): GateResult {
     })
   }
 
-  // tiers-reference.md § PH market note
+  // tiers-reference.md § PH market note.
+  //
+  // The tier decides WHETHER this is worth saying; the venue's own counts
+  // decide WHAT it names. It used to say "Kisi hardware, NVRs and security
+  // cameras" for both tiers, which is wrong at both ends: plain Autonomous is
+  // access control by definition and has no surveillance to wait for, and
+  // Autonomous+ permits cameras without requiring them, so a venue sitting at
+  // zero was told to allow shipping time for cameras nobody ordered. A
+  // procurement note naming hardware that is not on the list is how someone
+  // ends up holding a build for a shipment that was never coming.
+  //
+  // Derived from the inputs rather than from a stocked/not-stocked column on
+  // `items`. Three catalog rows carry "Not stocked in PH — ships from US/HK"
+  // in their notes, but that is free text, and a real column would drag in an
+  // upsertItem spread, an ItemForm field and a Catalog column to be readable —
+  // for an answer the inputs already give exactly. The limitation to accept:
+  // if a FOURTH item ever becomes long-lead, this will not know about it.
+  //
+  // LONG_LEAD_TIME_TIERS stays as the trigger rather than collapsing into
+  // `kisiDoors > 0 || securityCameras > 0`. It is not a hardware gate, so it
+  // is not load-bearing the way KISI_TIERS is, but removing tier lists from
+  // this file has gone wrong before (2026-08-10) and there is nothing to win.
   if (LONG_LEAD_TIME_TIERS.includes(inputs.tier)) {
+    // Two shapes, so two strings — a list formatter for a binary choice would
+    // be more machinery than the sentence it builds. The NVR rides with the
+    // cameras because it is bought for them, and it is added by hand, so the
+    // note is the only thing that will mention its lead time at all.
+    const longLead = inputs.securityCameras > 0
+      ? 'Kisi controllers and readers, the security cameras, and the NVR and ' +
+        'drives added by hand'
+      : 'Kisi controllers and readers'
     warnings.push({
       code: 'TIER_LEAD_TIME',
       level: 'warn',
       message:
-        'Kisi hardware, NVRs and security cameras are not stocked in PH and ' +
-        'ship from the US/HK. Allow extra procurement lead time.',
+        `${longLead} are not stocked in PH and ship from the US/HK. Allow ` +
+        'extra procurement lead time.',
     })
   }
 
