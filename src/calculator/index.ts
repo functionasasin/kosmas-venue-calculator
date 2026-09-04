@@ -207,12 +207,24 @@ export function calculateBOM(inputs: VenueInputs, catalog: Item[]): BomResult {
     }
   }
 
+  // "The materials list carries a TBD line; replace it before ordering" was
+  // here until 2026-09-04, and it was wrong on both surfaces. On screen it
+  // restated the heading its own row sits under — sections.ts labels that
+  // bucket "Needs a decision" and every TBD line lands there, so the check was
+  // pointing at a row that already said so. On paper it was false outright:
+  // buildPdfBody drops the whole 'decide' section, so no exported list carries
+  // the line, and the footer is what covers the gap.
+  //
+  // The sentence that stays is the half nothing else says. The row shows THAT
+  // the count is unsettled; only this says why nobody can compute it. The
+  // item's own notes say it too, but notes are internal — they reach neither
+  // the screen nor the PDF.
   warnings.push({
     code: 'ACCESS_POINTS_MANUAL',
     level: 'warn',
     message:
-      'Access point count is not derivable — it is a coverage decision. ' +
-      'The materials list carries a TBD line; replace it before ordering.',
+      'Access point count is not derivable — it is a coverage decision, ' +
+      'sized from a site survey rather than from the court count.',
   })
 
   // FENCE_BRACKET_MANUAL was here until 2026-08-17. It existed only to explain

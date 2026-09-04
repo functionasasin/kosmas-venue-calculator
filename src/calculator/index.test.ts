@@ -130,6 +130,22 @@ describe('edge cases', () => {
     expect(r.lines).toEqual([])
     expect(r.codes).toEqual(['INPUT_INCONSISTENT'])
   })
+
+  // The check used to end "The materials list carries a TBD line; replace it
+  // before ordering", which was wrong twice over. On screen it restates the
+  // heading the row already sits under — sections.ts labels the bucket "Needs a
+  // decision" and every TBD line lands in it. On paper it is simply false:
+  // buildPdfBody drops the whole 'decide' section, so no exported list carries
+  // that line at all, and the footer is what covers the gap.
+  //
+  // What the check is FOR is the half no surface repeats: why the number cannot
+  // be computed. The item's own notes say it, but notes are internal and reach
+  // neither the screen nor the PDF.
+  it('says why access points cannot be sized without restating the table', () => {
+    const w = run(pro(8)).warnings.find(x => x.code === 'ACCESS_POINTS_MANUAL')
+    expect(w?.message).toMatch(/coverage decision/i)
+    expect(w?.message).not.toMatch(/materials list|TBD line/i)
+  })
 })
 
 // venue-sizing.md § Kisi port accounting. `Cost Analysis!F7` bands switch
