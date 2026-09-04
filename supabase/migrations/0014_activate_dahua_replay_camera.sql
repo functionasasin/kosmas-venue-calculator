@@ -46,8 +46,7 @@ begin
     -- is sized exactly as it was before this migration ran.
     is_default = false,
     notes = 'PodPlay''s Option-1 primary standard and what Helios Beta is being '
-            'built with — 8 units on hand (recorded 2026-08-18), 6 more pending '
-            'for its 14 courts. 4MP 1/1.8", 2.7-12mm motorized varifocal, Smart '
+            'built with. 4MP 1/1.8", 2.7-12mm motorized varifocal, Smart '
             'Dual Light, 802.3at. 17.5W MAX / 5W typical — the budget needs max. '
             'The 12V/2A input rating is a 24W supply envelope, NOT a draw '
             'figure; do not put it here. Active ALONGSIDE the Uniview: venues '

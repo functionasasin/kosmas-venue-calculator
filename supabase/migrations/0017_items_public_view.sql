@@ -8,8 +8,9 @@
 --
 -- Removing the login does not change what listItems asks for. It changes who is
 -- holding the browser. On 2026-08-26 production carried a supplier on 24 of 38
--- items (Drextech, Lazada, Apple, flic.io, Shopee/Lazada) and stock counts in
--- notes ("8 units on hand ... 6 more pending for its 14 courts"). Neither field
+-- items (Drextech, Lazada, Apple, flic.io, Shopee/Lazada), and notes then also
+-- carried inventory counts, since removed by 0018 (items has no quantity column;
+-- inventory is out of scope and lives in kosmas-inventory.md). Neither field
 -- is rendered outside ItemForm, which is admin-only — they would simply ship in
 -- the JSON to anyone who opened devtools.
 --
