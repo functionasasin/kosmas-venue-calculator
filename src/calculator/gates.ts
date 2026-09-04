@@ -52,14 +52,54 @@ export const allowsKisiDoors = (tier: Tier): boolean =>
 export function evaluateGates(inputs: VenueInputs): GateResult {
   const warnings: Warning[] = []
 
-  if (inputs.courts < 1) {
-    return {
-      blocked: true,
-      warnings: [{
-        code: 'INPUT_INCONSISTENT',
-        level: 'error',
-        message: 'Court count must be at least 1.',
-      }],
+  // `<input type="number" min="1">` binds the steppers, not typing or pasting,
+  // so a fractional or negative count arrives here intact — and every gate
+  // below tests `> 0`, which a negative one passes.
+  //
+  // Blocked, never rounded. Every per-court line is `= courts`, so 2.5 courts
+  // sizes 2.5 iPads, 2.5 Apple TVs and 9.5 cables onto a list someone orders
+  // from, while portPlan.ts floors its own quantities — the drawing would then
+  // disagree with the list printed in front of it. Flooring here would invent a
+  // court count nobody entered, which is the one thing this codebase does not
+  // do with a number it was not given.
+  //
+  // A negative count is the quieter half: it emits no line, so nothing on
+  // screen looks wrong, but `totalPorts` is courts + cameras and shrinks with
+  // it — and that term picks the switch.
+  //
+  // `venues` already enforces all of this in Postgres (0001_schema.sql: integer
+  // columns, `check (courts >= 1)`), so no database venue can hold one. What is
+  // left is the live session and localStorage venues — the majority audience
+  // since the app went public — plus an admin, for whom save_venue's
+  // `(p_venue ->> 'courts')::int` otherwise fails with a raw
+  // `invalid input syntax for type integer` and no readable cause.
+  //
+  // Checked ahead of the tier rules on purpose: a count that will not work at
+  // ANY tier must not be reported as a tier mismatch, which would send someone
+  // to change the tier when the number is the fault.
+  const counts = [
+    { label: 'Court count', value: inputs.courts, min: 1 },
+    { label: 'Security camera count', value: inputs.securityCameras, min: 0 },
+    { label: 'Kisi door count', value: inputs.kisiDoors, min: 0 },
+  ]
+  for (const c of counts) {
+    // Number.isInteger is false for NaN and Infinity too, so one predicate
+    // covers every value that cannot be a quantity. Neither reaches here from
+    // the form — a number input yields '' for anything unparseable and
+    // Number('') is 0 — but a local venue is plain JSON.
+    if (!Number.isInteger(c.value) || c.value < c.min) {
+      return {
+        blocked: true,
+        warnings: [{
+          code: 'INPUT_INCONSISTENT',
+          level: 'error',
+          message:
+            `${c.label} must be a whole number, ` +
+            `${c.min === 1 ? 'at least 1' : '0 or more'}. A fractional or ` +
+            'negative count would put quantities on the materials list that ' +
+            'cannot be ordered.',
+        }],
+      }
     }
   }
 
