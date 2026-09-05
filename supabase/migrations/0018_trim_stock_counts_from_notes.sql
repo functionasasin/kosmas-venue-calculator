@@ -8,11 +8,15 @@
 -- a different repo.
 --
 -- The reason this is worth a migration rather than a shrug is that the numbers
--- DECAY and nothing updates them. "8 units on hand (recorded 2026-08-18)" was
--- already two and a half weeks stale when this was written, and a count in a
+-- DECAY and nothing updates them. One of the two carried its own "recorded"
+-- date and was already weeks stale when this was written, and a count in a
 -- field nobody maintains is worse than no count at all: it reads as current.
--- The date stamp is the tell — whoever wrote it knew, and stamped it instead
+-- That date stamp is the tell — whoever wrote it knew, and stamped it instead
 -- of leaving it out.
+--
+-- No figure is quoted anywhere in this file, deliberately. See the patterns
+-- below: a migration that names the values it removes republishes them at the
+-- same public URL, which is what the first version of this file did.
 --
 -- Both notes were doing two jobs. The qualitative half is kept, because it is
 -- what `notes` is for and it is load-bearing:
@@ -47,12 +51,18 @@ declare
   leftover int;
   cameras  int;
 begin
-  -- replace(), not a wholesale rewrite of the note. A full re-set would
+  -- Matching the SHAPE of the clause with digit classes, not the literal text.
+  -- Quoting the figures here would republish them at the same public URL this
+  -- migration exists to clean — which the first version did, in this file, six
+  -- times over. The pattern is specific enough to be safe: it is anchored on
+  -- the surrounding words, so it cannot eat anything else in the note.
+  --
+  -- regexp_replace, not a wholesale rewrite of the note. A full re-set would
   -- silently discard any edit made through ItemForm since 0014 ran, and the
   -- point here is to remove one clause, not to reassert the whole text.
-  update items set notes = replace(
+  update items set notes = regexp_replace(
     notes,
-    ' — 8 units on hand (recorded 2026-08-18), 6 more pending for its 14 courts.',
+    ' — [0-9]+ units on hand \(recorded [0-9]{4}-[0-9]{2}-[0-9]{2}\), [0-9]+ more pending for its [0-9]+ courts\.',
     '.'
   )
   where role_key = 'replay_camera'
@@ -62,14 +72,16 @@ begin
   -- The Uniview's count sits inside a parenthetical that also carries a fact
   -- worth keeping — the Tela Park rig — so the clause is rebuilt rather than
   -- deleted.
-  update items set notes = replace(
+  -- The trailing fact is captured and replayed as \1 rather than retyped, so
+  -- the only thing this pattern removes is the count itself.
+  update items set notes = regexp_replace(
     notes,
-    'The stocked replay camera (10 on hand; the unit on the Tela Park rig).',
-    'The stocked replay camera, and the unit on the Tela Park rig.'
+    'The stocked replay camera \([0-9]+ on hand; (the unit on the Tela Park rig)\)\.',
+    'The stocked replay camera, and \1.'
   )
   where role_key = 'replay_camera'
     and name like '%IPC3624LE-ADF28K-WP%'
-    and notes like '%10 on hand%';
+    and notes like '% on hand%';
 
   -- Both camera rows must still be here. Without this, a rebuild in which the
   -- name predicates matched nothing — a renamed SKU, say — would sail through
