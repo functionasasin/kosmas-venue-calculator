@@ -1,7 +1,8 @@
 # PodPlay Venue Calculator
 
-Internal Kosmas tool. Sizes a venue's materials list from
-`docs/podplay-ph-venue-sizing.md`, which is the sole authority for the rules.
+Kosmas tool that sizes a venue's materials list from court count and tier. The
+sizing rules come from `podplay-ph-venue-sizing.md`, which lives in the Kosmas
+Setup repo and is the sole authority for them.
 
 ## Local development
 
